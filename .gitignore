@@ -1,10 +1,7 @@
 # 依赖
 node_modules/
 
-# 服务端运行时数据（数据库、上传的图片、本地配置）
-server/data/
-server/uploads/
-server/.env
+# 服务端运行时数据（数据库、上传的图片、本地配置）由 server/.gitignore 负责；这里再兜底一次数据库文件
 *.db
 *.db-shm
 *.db-wal
