@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>活动搭子运营后台</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./style.css">
+<script>
+  // 后台只用 hash 路由（#/dashboard）。如果从 /admin/users、/admin/a/b 这样的地址打开，
+  // 先跳回 /admin/，保证 ./app.js 这些相对路径都能找到。
+  (function () {
+    var path = window.location.pathname;
+    var i = path.lastIndexOf('/admin/');
+    if (i < 0) return;
+    var root = path.slice(0, i + 7);
+    var rest = path.slice(i + 7);
+    if (rest && rest !== 'index.html') {
+      window.location.replace(root + (window.location.hash || '#/' + rest.split('/')[0]));
+    }
+  })();
+</script>
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+<div id="app"><p class="boot">正在打开运营后台…</p></div>
+<noscript><p class="boot">运营后台需要开启 JavaScript 才能使用。</p></noscript>
+</body>
+</html>
