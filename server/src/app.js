@@ -33,6 +33,7 @@ function adminStatic(dir) {
   router.use(express.static(dir, { index: 'index.html' }));
   router.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (path.extname(req.path)) return res.status(404).type('text/plain; charset=utf-8').send('文件不存在');
     const index = path.join(dir, 'index.html');
     if (fs.existsSync(index)) return res.sendFile(index);
     res.status(404).type('text/plain; charset=utf-8').send('后台页面还没有构建（admin/index.html 不存在）');
@@ -51,6 +52,10 @@ function errorHandler(logger) {
         appErr = new AppError('VALIDATION', '请求体不是合法的 JSON');
       } else if (err.type === 'entity.too.large') {
         appErr = new AppError('VALIDATION', '请求体太大了');
+      } else if (err.status === 404 || err.statusCode === 404) {
+        appErr = notFound('文件不存在');
+      } else if (err.status >= 400 && err.status < 500) {
+        appErr = new AppError('VALIDATION', '请求不正确');
       } else {
         logger.error(`[${req.method} ${req.originalUrl}]`, err);
         appErr = internal();

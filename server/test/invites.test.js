@@ -151,6 +151,28 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     assert.equal(late.status, 409);
   });
 
+  test('过期后才点加入：返回 409，邀请作废、意向退回撮合池（不会被回滚）', async () => {
+    const proposal = await setupProposal(4);
+    const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
+    for (const t of tokens.slice(0, 3)) await s.ok('POST', `/api/matches/${eventId}/accept`, { token: t });
+    clock.advance(24 * HOUR + 60000); // 定时任务还没跑
+    const late = await s.api('POST', `/api/matches/${eventId}/accept`, { token: tokens[3] });
+    assert.equal(late.status, 409);
+    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3]).status, 'declined');
+    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3]).status, 'open');
+    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'formed');
+  });
+
+  test('成局前在局里点退出 = 换一批，不扣分', async () => {
+    const proposal = await setupProposal(3);
+    const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
+    await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[0] });
+    const r = await s.ok('POST', `/api/events/${eventId}/leave`, { token: tokens[0] });
+    assert.deepEqual(r, { penalty: null });
+    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[0]).status, 'declined');
+    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[0]).status, 'open');
+  });
+
   test('后台调整成员会重新计算匹配度；拉黑冲突不能确认', async () => {
     const proposal = await setupProposal(3);
     const extra = makeUser(s.db);

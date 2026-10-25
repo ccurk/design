@@ -455,8 +455,8 @@ export function leaveEvent(db, user, eventId, { declineInvite } = {}) {
     const event = requireEvent(db, eventId);
     const mine = memberRow(db, eventId, user.id);
     if (!mine || !['joined', 'applied', 'invited'].includes(mine.status)) throw invalid('你不在这个局里');
-    if (mine.status === 'invited') {
-      declineInvite(db, user, eventId);
+    if (mine.status === 'invited' || (event.source === 'matched' && event.status === 'inviting')) {
+      declineInvite(db, user, eventId); // 还没成局：等同「换一批」，不扣分
       return { penalty: null };
     }
     const now = clock.now();
@@ -504,7 +504,7 @@ export function leaveEvent(db, user, eventId, { declineInvite } = {}) {
   });
 }
 
-/** 取消局（发起人 / 后台）。notifyAll=true 时连发起人一起通知 */
+/** 取消局（发起人 / 后台）。后台取消时连发起人一起通知 */
 export function cancelEvent(db, event, { reason, byAdmin = false } = {}) {
   const now = clock.iso();
   db.update('events', event.id, { status: 'cancelled', cancel_reason: reason || null });

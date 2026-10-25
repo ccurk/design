@@ -22,6 +22,10 @@ if (!config.wechatConfigured) {
   );
 }
 
+if (config.devTools) {
+  logger.warn('开发辅助接口已开启（/api/auth/dev-login、/api/dev/*）。部署时务必设置 NODE_ENV=production');
+}
+
 const db = openDb(config.dbPath);
 const app = createApp({ db, config, logger });
 const server = app.listen(config.port, () => {

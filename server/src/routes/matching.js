@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { requireUser } from '../auth.js';
 import { cancelIntent, createIntent, intentDetail, myIntents, updateIntent } from '../services/intents.js';
 import { acceptInvite, declineInvite, matchView } from '../services/invites.js';
+import { runMatching } from '../services/matching.js';
 import { body, pid } from './util.js';
 
 export function matchingRoutes({ db }) {
@@ -17,7 +18,11 @@ export function matchingRoutes({ db }) {
 
   r.get('/matches/:eventId', auth, (req, res) => res.json(matchView(db, req.user, pid(req, 'eventId'))));
   r.post('/matches/:eventId/accept', auth, (req, res) => res.json(acceptInvite(db, req.user, pid(req, 'eventId'))));
-  r.post('/matches/:eventId/decline', auth, (req, res) => res.json(declineInvite(db, req.user, pid(req, 'eventId'))));
+  r.post('/matches/:eventId/decline', auth, (req, res) => {
+    const result = declineInvite(db, req.user, pid(req, 'eventId'));
+    runMatching(db); // 意向回到撮合池后立刻重新撮合一次
+    res.json(result);
+  });
 
   return r;
 }

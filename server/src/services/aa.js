@@ -1,6 +1,7 @@
 // AA 记账：平台不经手钱，只算账（docs/api.md 3.7）。金额内部按「分」计算，避免浮点误差。
 import { clock } from '../clock.js';
-import { forbidden, invalid, notFound } from '../errors.js';
+import { blocked, forbidden, invalid, notFound } from '../errors.js';
+import { checkText } from '../moderation.js';
 import { num, str } from '../validate.js';
 import { joinedMembers, memberRow, requireEvent } from './events.js';
 import { notify } from './notices.js';
@@ -104,6 +105,8 @@ export function addItem(db, user, eventId, body) {
   const event = requireAaMember(db, user, eventId);
   if (['cancelled', 'rejected'].includes(event.status)) throw invalid('这个局已经取消了');
   const name = str(body?.name, '花在哪', { min: 1, max: 20 });
+  const check = checkText(name);
+  if (!check.ok) throw blocked('记账名称里不能有联系方式或广告', check.reasons);
   const amount = num(body?.amount, '金额', { min: 0.01, max: 100000 });
   if (Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) throw invalid('金额最多保留两位小数');
   db.insert('aa_items', {

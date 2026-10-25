@@ -85,6 +85,7 @@ describe('演示数据', () => {
     const profile = await s.ok('GET', `/api/users/${ids.users.aye}`, { token });
     assert.equal(profile.user.avatarText, '野');
     assert.equal(profile.credit.rate, 98);
+    assert.equal(profile.creditNote, '最近一次临时鸽是 3 个月前（开场前 20 小时说去不了），没有放鸽子记录。');
     assert.ok(profile.commonPoints.includes('都喜欢看日出'));
     assert.equal(profile.profileHidden, false);
   });

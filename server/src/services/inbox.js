@@ -31,7 +31,7 @@ export function inboxActions(db, user, now = clock.now()) {
     if (!e || !['formed', 'open'].includes(e.status)) continue;
     const start = Date.parse(e.start_at);
     // 开场前 48 小时内，出席待确认
-    if (m.attendance === 'pending' && start > t && start - t <= 48 * HOUR) {
+    if (m.attendance === 'pending' && start > t && start - t <= 48 * HOUR && joinedCount(db, e.id) >= 2) {
       actions.push({
         type: 'attendance',
         eventId: e.id,

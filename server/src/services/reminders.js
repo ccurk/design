@@ -20,6 +20,7 @@ export function runReminders(db, logger) {
     new Date(t + 48 * HOUR).toISOString(),
   );
   for (const row of upcoming) {
+    if (joinedCount(db, row.id) < 2) continue; // 只有自己的局不用确认
     if (!markOnce(db, `attendance:${row.id}:${row.user_id}`)) continue;
     notify(db, row.user_id, {
       type: 'attendance',
@@ -57,8 +58,8 @@ export function runReminders(db, logger) {
     if (markOnce(db, `safe:${row.id}:${row.user_id}`)) {
       notify(db, row.user_id, {
         type: 'safe',
-        title: '到家了吗？',
-        body: `「${shortTitle(row.title)}」结束啦，点一下报平安`,
+        title: '到家了吗？点一下报平安',
+        body: `「${shortTitle(row.title)}」结束啦，到家后点一下报平安，让大家放心`,
         link: `event:${row.id}`,
       });
       result.safe++;

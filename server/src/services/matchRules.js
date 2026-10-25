@@ -117,9 +117,12 @@ export function taskPhrase(task) {
   return TASK_PHRASES[task] || `一起${task}`;
 }
 
+const TASK_VERBS = { 咖啡: '喝咖啡', 早餐: '吃早餐', 夜市: '逛夜市', 桌游: '玩桌游' };
+
+/** 建议局的默认标题：「周六清晨 · 一起看日出」「周二下午 · 一起喝咖啡」 */
 export function proposalTitle(task, date, slot) {
   const when = `${weekdayName(date)}${slot === 'allday' ? '' : slotLabel(slot, task)}`;
-  return `${when} · 一起${task}`;
+  return `${when} · 一起${TASK_VERBS[task] || task}`;
 }
 
 /**

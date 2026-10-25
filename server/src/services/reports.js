@@ -6,7 +6,7 @@ import { json } from '../db.js';
 import { conflict, invalid, notFound } from '../errors.js';
 import { oneOf, str, strArray } from '../validate.js';
 import { restrictUser } from './credit.js';
-import { cancelEvent, getEvent, memberRow } from './events.js';
+import { canViewEvent, cancelEvent, getEvent, memberRow } from './events.js';
 import { notify } from './notices.js';
 import { block, getUser, userBrief } from './users.js';
 
@@ -48,6 +48,7 @@ export function createReport(db, user, body) {
   const target = resolveTarget(db, targetType, targetId);
   if (!target) throw notFound('被举报的内容不存在');
   if (targetType === 'message' && !memberRow(db, target.eventId, user.id)) throw notFound('被举报的内容不存在');
+  if (targetType === 'event' && !canViewEvent(db, target.event, user)) throw notFound('被举报的内容不存在');
   if (target.userId === user.id) throw invalid('不能举报自己');
 
   const existing = db.get(

@@ -103,18 +103,17 @@ export function runMatching(db) {
         .map((p) => comboKey(p.task, p.date, json.parse(p.user_ids, []))),
     );
 
-    const created = [];
+    // 先给有人换一批的撮合局补邀（不再经过后台），剩下的人再组新队
     const used = new Set();
-    for (const group of buildGroups(pool, blocks)) {
+    const backfilled = backfillInvitingEvents(db, pool, used);
+
+    const created = [];
+    for (const group of buildGroups(pool.filter((i) => !used.has(i.id)), blocks)) {
       const plan = planGroup(group, now);
       if (!plan) continue;
       if (rejected.has(comboKey(group[0].task, plan.date, group.map((g) => g.user_id)))) continue;
       created.push(createProposal(db, group, plan, blocks));
-      group.forEach((g) => used.add(g.id));
     }
-
-    // 有人换一批后，撮合局可以直接从撮合池补邀
-    const backfilled = backfillInvitingEvents(db, pool, used);
 
     let autoConfirmed = 0;
     const auto = getSetting(db, 'autoConfirm');

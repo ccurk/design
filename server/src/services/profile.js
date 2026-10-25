@@ -1,5 +1,6 @@
 // 我的资料、安全设置、他人主页。
-import { clock } from '../clock.js';
+import { clock, DAY } from '../clock.js';
+import { CREDIT_TYPE_LABELS } from '../constants.js';
 import { json } from '../db.js';
 import { blocked, invalid } from '../errors.js';
 import { checkAll } from '../moderation.js';
@@ -80,8 +81,9 @@ export function safetyView(db, user) {
 
 export function updateSafety(db, user, body = {}) {
   const settings = userSettings(user);
-  for (const key of ['sameSexOnly', 'checkInReminder', 'profileOpen']) {
-    const v = bool(body[key], key, { optional: true });
+  const labels = { sameSexOnly: '只参加同性局', checkInReminder: '报平安提醒', profileOpen: '主页可见' };
+  for (const [key, label] of Object.entries(labels)) {
+    const v = bool(body[key], label, { optional: true });
     if (v !== null) settings[key] = v;
   }
   if (settings.sameSexOnly && !['female', 'male'].includes(user.gender) && body.sameSexOnly === true) {
@@ -119,6 +121,28 @@ function sharedEventIds(db, a, b) {
 
 const PACE_POINTS = { slow: '都偏安静', warm: '都是熟了就话多', open: '都随时能聊' };
 
+function agoLabel(iso, now) {
+  const days = Math.floor((now.getTime() - Date.parse(iso)) / DAY);
+  if (days < 1) return '今天';
+  if (days < 7) return `${days} 天前`;
+  if (days < 30) return `${Math.floor(days / 7)} 周前`;
+  if (days < 365) return `${Math.floor(days / 30)} 个月前`;
+  return `${Math.floor(days / 365)} 年前`;
+}
+
+/** 信用说明：「最近一次临时鸽是 3 个月前（开场前 20 小时说去不了），没有放鸽子记录。」 */
+function creditNote(db, userId, credit, now) {
+  const last = db.get(
+    "SELECT * FROM credit_events WHERE user_id = ? AND revoked = 0 AND type IN ('late', 'cancel_late', 'no_show') ORDER BY created_at DESC LIMIT 1",
+    userId,
+  );
+  if (!last) return null;
+  const note = last.note && !last.note.startsWith('历史记录') ? `（${last.note}）` : '';
+  const tail = credit.noShow === 0 ? '，没有放鸽子记录' : '';
+  const ago = agoLabel(last.created_at, now);
+  return `最近一次${CREDIT_TYPE_LABELS[last.type]}是${/^\d/.test(ago) ? ' ' : ''}${ago}${note}${tail}。`;
+}
+
 function commonPoints(db, me, other, shared) {
   const points = [];
   const mine = json.parse(me.interests, []);
@@ -153,6 +177,7 @@ export function publicProfile(db, viewer, targetId) {
         idVerified: false,
       },
       credit: { rate: credit.rate },
+      creditNote: null,
       commonPoints: [],
       recentEvents: [],
       blockedByMe,
@@ -189,6 +214,7 @@ export function publicProfile(db, viewer, targetId) {
       idVerified: Boolean(target.id_verified),
     },
     credit,
+    creditNote: creditNote(db, target.id, credit, now),
     commonPoints: isMe ? [] : commonPoints(db, viewer, target, shared),
     recentEvents: recent,
     blockedByMe,

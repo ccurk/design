@@ -129,17 +129,16 @@ function matchCommonPoints(db, event, userIds) {
   const points = [`都想${taskPhrase(event.task).replace(/^去/, '')}`];
   const paces = users.map((u) => u.pace);
   if (paces.length && paces[0] && paces.every((p) => p === paces[0])) points.push(PACE_POINTS[paces[0]]);
-  const common = users
-    .map((u) => json.parse(u.interests, []))
-    .reduce((acc, list) => acc.filter((x) => list.includes(x)));
-  for (const interest of (common || []).filter((x) => x !== event.task).slice(0, 2)) points.push(`都喜欢${interest}`);
+  const lists = users.map((u) => json.parse(u.interests, []));
+  const common = lists.length ? lists.reduce((acc, list) => acc.filter((x) => list.includes(x))) : [];
+  for (const interest of common.filter((x) => x !== event.task).slice(0, 2)) points.push(`都喜欢${interest}`);
   const newbies = users.filter((u) => isNewUser(db, u.id)).length;
   if (newbies && newbies * 2 >= users.length) points.push('大多是第一次参加');
   return points.slice(0, 4);
 }
 
 export function acceptInvite(db, user, eventId) {
-  return db.tx(() => {
+  const outcome = db.tx(() => {
     const event = requireEvent(db, eventId);
     const mine = memberRow(db, eventId, user.id);
     if (event.source !== 'matched' || !mine) throw notFound('没有找到这个撮合结果');
@@ -150,9 +149,10 @@ export function acceptInvite(db, user, eventId) {
       throw restricted('账号受限中，暂时不能加入');
     }
     if (clock.now().getTime() >= inviteDeadline(event, mine).getTime()) {
-      expireInvite(db, event, mine);
+      // 过期了：本人还在线，意向退回撮合池继续撮合（先提交，再报错）
+      expireInvite(db, event, mine, { reopen: true });
       evaluateInviting(db, eventId);
-      throw conflict('邀请已经过期了，已帮你继续撮合');
+      return { expired: true };
     }
     db.run(
       "UPDATE event_members SET status = 'joined', joined_at = ? WHERE event_id = ? AND user_id = ?",
@@ -163,6 +163,8 @@ export function acceptInvite(db, user, eventId) {
     evaluateInviting(db, eventId);
     return { myStatus: 'joined', eventStatus: getEvent(db, eventId).status };
   });
+  if (outcome.expired) throw conflict('邀请已经过期了，已帮你继续撮合');
+  return outcome;
 }
 
 /** 换一批：declined，意向回到 open；随后尝试从撮合池补邀 */
@@ -190,8 +192,8 @@ export function declineInvite(db, user, eventId) {
   });
 }
 
-/** 邀请到期视为放弃：declined，意向标记为 expired */
-function expireInvite(db, event, member) {
+/** 邀请到期视为放弃：declined；意向标记为 expired（reopen=true 时退回 open 继续撮合） */
+function expireInvite(db, event, member, { reopen = false } = {}) {
   const now = clock.iso();
   db.run(
     "UPDATE event_members SET status = 'declined', left_at = ? WHERE event_id = ? AND user_id = ?",
@@ -200,7 +202,8 @@ function expireInvite(db, event, member) {
     member.user_id,
   );
   db.run(
-    "UPDATE intents SET status = 'expired', event_id = NULL, updated_at = ? WHERE event_id = ? AND user_id = ? AND status = 'invited'",
+    "UPDATE intents SET status = ?, event_id = NULL, proposal_id = NULL, updated_at = ? WHERE event_id = ? AND user_id = ? AND status = 'invited'",
+    reopen ? 'open' : 'expired',
     now,
     event.id,
     member.user_id,

@@ -117,6 +117,7 @@ export function postDetail(db, viewer, id) {
 export function createPost(db, user, body) {
   const text = str(body?.text, '内容', { min: 1, max: 500 });
   const images = strArray(body?.images ?? [], '图片', { maxItems: 9, maxLen: 500 });
+  if (images.some((url) => !/^(https?:\/\/|\/uploads\/)/.test(url))) throw invalid('图片地址不正确，请先上传');
   const eventId = int(body?.eventId, '关联的局', { min: 1, optional: true });
   const visibility = oneOf(body?.visibility ?? 'public', '谁能看到', ['public', 'event']);
   if (eventId) {
