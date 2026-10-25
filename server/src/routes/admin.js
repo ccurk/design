@@ -19,7 +19,7 @@ import {
 } from '../services/admin.js';
 import { listAppeals, resolveAppeal } from '../services/appeals.js';
 import { createPlatformEvent } from '../services/events.js';
-import { confirmProposal } from '../services/invites.js';
+import { confirmProposal, remindInvitees } from '../services/invites.js';
 import {
   adjustProposalMembers,
   listPoolIntents,
@@ -119,11 +119,19 @@ export function adminRoutes({ db, config }) {
   r.post('/events/:id/approve', (req, res) => res.json(reviewUserEvent(db, pid(req), true, note(req))));
   r.post('/events/:id/reject', (req, res) => res.json(reviewUserEvent(db, pid(req), false, note(req))));
   r.post('/events/:id/cancel', (req, res) => res.json(adminCancelEvent(db, pid(req), body(req).reason)));
+  r.post('/events/:id/remind', (req, res) => res.json(remindInvitees(db, pid(req))));
 
   // 举报、动态、申诉
   r.get('/reports', (req, res) => res.json(adminListReports(db, statusQuery(req, 'pending'))));
+  // note 只有后台能看到；message 会发给被处理的人（不填就用默认文案）
   r.post('/reports/:id/resolve', (req, res) =>
-    res.json(resolveReport(db, pid(req), { action: body(req).action, note: note(req) })),
+    res.json(
+      resolveReport(db, pid(req), {
+        action: body(req).action,
+        note: note(req),
+        message: str(body(req).message, '给用户的说明', { max: 200, optional: true }),
+      }),
+    ),
   );
   r.get('/posts', (req, res) => res.json(adminListPosts(db, statusQuery(req, 'pending'))));
   r.post('/posts/:id/approve', (req, res) => res.json(moderatePost(db, pid(req), true, note(req))));

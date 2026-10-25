@@ -3,6 +3,7 @@ import { clock } from '../clock.js';
 import { categoryOfTask } from '../constants.js';
 import { json } from '../db.js';
 import { conflict, invalid, notFound } from '../errors.js';
+import { oneOf } from '../validate.js';
 import { bjDate, slotLabel, weekdayName } from '../time.js';
 import { backfillInvitingEvents, confirmProposal, openPool } from './invites.js';
 import {
@@ -115,18 +116,29 @@ export function runMatching(db) {
       created.push(createProposal(db, group, plan, blocks));
     }
 
-    let autoConfirmed = 0;
-    const auto = getSetting(db, 'autoConfirm');
-    if (auto.enabled) {
-      for (const p of created) {
-        if (p.score >= auto.threshold && p.risks.length === 0) {
-          confirmProposal(db, p.id, {});
-          autoConfirmed++;
-        }
-      }
-    }
+    const autoConfirmed = autoConfirmPending(db);
     return { created: created.length, autoConfirmed, backfilled, expired };
   });
+}
+
+/**
+ * 自动成局（后台设置打开时）：每次撮合都检查所有待确认的建议，
+ * score ≥ 阈值且没有任何风险的直接确认；确认不了的（比如集合时间已过）留给后台。
+ */
+function autoConfirmPending(db) {
+  const auto = getSetting(db, 'autoConfirm');
+  if (!auto.enabled) return 0;
+  let confirmed = 0;
+  for (const p of db.all("SELECT * FROM proposals WHERE status = 'pending' ORDER BY id")) {
+    if (p.score < auto.threshold || json.parse(p.risks, []).length) continue;
+    try {
+      confirmProposal(db, p.id, {});
+      confirmed++;
+    } catch {
+      // 只回滚这一条（嵌套事务用 SAVEPOINT），其余照常
+    }
+  }
+  return confirmed;
 }
 
 // ---- 后台：建议局 ----
@@ -136,6 +148,7 @@ export function proposalView(db, p) {
     .parse(p.intent_ids, [])
     .map((id) => db.get('SELECT * FROM intents WHERE id = ?', id))
     .filter(Boolean);
+  const bounds = intents.length ? groupBounds(intents) : { min: 2, max: 2 };
   return {
     id: p.id,
     title: p.title,
@@ -154,6 +167,9 @@ export function proposalView(db, p) {
     eventId: p.event_id,
     reviewedAt: p.reviewed_at,
     reviewNote: p.review_note,
+    // 组里所有人约好的人数范围：确认时人数要 ≥ minSize，人数上限要 ≤ maxSize
+    minSize: bounds.min,
+    maxSize: bounds.max,
     members: intents.map((i) => {
       const u = getUser(db, i.user_id);
       return {
@@ -168,11 +184,15 @@ export function proposalView(db, p) {
   };
 }
 
+const PROPOSAL_STATUSES = ['pending', 'confirmed', 'rejected', 'expired', 'all'];
+
+/** pending 按匹配度排；已处理的（confirmed / rejected / expired）按处理时间倒序，最多 200 条 */
 export function listProposals(db, status = 'pending') {
-  const rows =
-    status === 'all'
-      ? db.all('SELECT * FROM proposals ORDER BY id DESC LIMIT 200')
-      : db.all('SELECT * FROM proposals WHERE status = ? ORDER BY score DESC, id', status);
+  oneOf(status, '状态筛选', PROPOSAL_STATUSES);
+  let rows;
+  if (status === 'all') rows = db.all('SELECT * FROM proposals ORDER BY id DESC LIMIT 200');
+  else if (status === 'pending') rows = db.all("SELECT * FROM proposals WHERE status = 'pending' ORDER BY score DESC, id");
+  else rows = db.all('SELECT * FROM proposals WHERE status = ? ORDER BY reviewed_at DESC, id DESC LIMIT 200', status);
   return { items: rows.map((p) => proposalView(db, p)) };
 }
 
@@ -259,12 +279,15 @@ export function removeIntentFromProposal(db, intent) {
   rescore(db, p, remaining);
 }
 
-/** 后台：撮合池里还在等的意向 */
+const INTENT_STATUSES = ['open', 'proposed', 'invited', 'matched', 'cancelled', 'expired', 'all'];
+
+/** 后台：撮合池里的意向（默认 open；proposed = 已进建议局、等后台确认的） */
 export function listPoolIntents(db, status = 'open') {
+  oneOf(status, '状态筛选', INTENT_STATUSES);
   const rows =
     status === 'all'
       ? db.all('SELECT * FROM intents ORDER BY id DESC LIMIT 300')
-      : db.all('SELECT * FROM intents WHERE status = ? ORDER BY created_at', status);
+      : db.all('SELECT * FROM intents WHERE status = ? ORDER BY created_at LIMIT 300', status);
   const now = clock.now().getTime();
   return {
     items: rows.map((i) => {
@@ -284,6 +307,9 @@ export function listPoolIntents(db, status = 'open') {
         relaxTime: Boolean(i.relax_time),
         relaxSize: Boolean(i.relax_size),
         status: i.status,
+        eventId: i.event_id ?? null,
+        proposalId: i.proposal_id ?? null,
+        isNew: isNewUser(db, i.user_id),
         createdAt: i.created_at,
         waitingHours: Math.max(0, Math.floor((now - Date.parse(i.created_at)) / 3600000)),
       };

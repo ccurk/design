@@ -1,7 +1,7 @@
 // 动态（公共朋友圈）与评论。动态命中审核进后台（pending），评论命中直接拒绝。
 import { clock } from '../clock.js';
 import { json } from '../db.js';
-import { blocked, forbidden, invalid, notFound } from '../errors.js';
+import { blocked, conflict, forbidden, invalid, notFound } from '../errors.js';
 import { checkText } from '../moderation.js';
 import { int, oneOf, str, strArray } from '../validate.js';
 import { getEvent, memberRow } from './events.js';
@@ -196,6 +196,7 @@ export function adminPostView(db, post) {
 }
 
 export function adminListPosts(db, status = 'pending') {
+  oneOf(status, '状态筛选', ['pending', 'approved', 'rejected', 'deleted', 'all']);
   const rows =
     status === 'all'
       ? db.all('SELECT * FROM posts ORDER BY id DESC LIMIT 200')
@@ -206,6 +207,7 @@ export function adminListPosts(db, status = 'pending') {
 export function moderatePost(db, id, approve, note = null) {
   const post = db.get('SELECT * FROM posts WHERE id = ?', id);
   if (!post || post.status === 'deleted') throw notFound('动态不存在');
+  if (post.status !== 'pending') throw conflict('这条动态已经审核过了');
   db.update('posts', id, { status: approve ? 'approved' : 'rejected' });
   notify(db, post.user_id, {
     type: approve ? 'post_approved' : 'post_rejected',

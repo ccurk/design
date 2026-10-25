@@ -79,7 +79,7 @@ export function runReminders(db, logger) {
     now.toISOString(),
   );
   for (const { id } of lifted) {
-    db.update('users', id, { status: 'active', restricted_until: null });
+    db.update('users', id, { status: 'active', restricted_until: null, restricted_reason: null });
     notify(db, id, { type: 'unrestricted', title: '账号已恢复', body: '可以继续撮合和报名了', link: null });
     result.restrictionsLifted++;
   }

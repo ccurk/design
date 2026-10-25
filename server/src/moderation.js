@@ -1,4 +1,4 @@
-// 内容审核：关键词 + 正则。checkText(text) → { ok, reasons[] }
+// 内容审核：关键词 + 正则。checkText(text) → { ok, reasons[] }；checkContact(text) 只查联系方式
 // 群聊 / 评论命中直接拒绝；动态 / 用户发起的局命中进后台审核；昵称 / 简介命中拒绝保存。
 
 const AD_WORDS = [
@@ -28,16 +28,23 @@ function squeezeDigits(text) {
   return text.replace(/(\d)[\s\-—－_.·]+(?=\d)/g, '$1');
 }
 
-export function checkText(text) {
+/** 只查联系方式（手机号、微信 / QQ 号、网址） */
+export function checkContact(text) {
   const reasons = [];
   if (typeof text !== 'string' || !text.trim()) return { ok: true, reasons };
   const lower = text.toLowerCase();
   const squeezed = squeezeDigits(lower);
-
   for (const p of PATTERNS) {
     const target = p.normalize ? squeezed : lower;
     if (p.re.test(target) && !reasons.includes(p.reason)) reasons.push(p.reason);
   }
+  return { ok: reasons.length === 0, reasons };
+}
+
+export function checkText(text) {
+  const { reasons } = checkContact(text);
+  if (typeof text !== 'string' || !text.trim()) return { ok: true, reasons };
+  const lower = text.toLowerCase();
   const ads = AD_WORDS.filter((w) => lower.includes(w));
   if (ads.length) reasons.push(`疑似广告：${ads.join('、')}`);
   const illegal = ILLEGAL_WORDS.filter((w) => lower.includes(w));

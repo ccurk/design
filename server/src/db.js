@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   id_verified INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active',
   restricted_until TEXT,
+  restricted_reason TEXT,
   settings TEXT NOT NULL DEFAULT '{}',
   emergency_contact TEXT,
   onboarded INTEGER NOT NULL DEFAULT 0,
@@ -127,6 +128,7 @@ CREATE TABLE IF NOT EXISTS event_members (
   applied_at TEXT,
   joined_at TEXT,
   left_at TEXT,
+  invite_expired INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (event_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_members_user ON event_members(user_id, status);
@@ -211,6 +213,7 @@ CREATE TABLE IF NOT EXISTS reports (
   status TEXT NOT NULL DEFAULT 'pending',
   action TEXT,
   admin_note TEXT,
+  user_message TEXT,
   created_at TEXT NOT NULL,
   resolved_at TEXT
 );
@@ -283,6 +286,20 @@ CREATE TABLE IF NOT EXISTS job_marks (
 );
 `;
 
+/** 给已有数据库补新加的列（CREATE TABLE IF NOT EXISTS 不会改旧表） */
+const COLUMN_MIGRATIONS = [
+  ['users', 'restricted_reason', 'TEXT'],
+  ['event_members', 'invite_expired', 'INTEGER NOT NULL DEFAULT 0'],
+  ['reports', 'user_message', 'TEXT'],
+];
+
+function migrate(raw) {
+  for (const [table, column, type] of COLUMN_MIGRATIONS) {
+    const columns = raw.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    if (!columns.includes(column)) raw.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+}
+
 /** node:sqlite 不接受 boolean / undefined，统一转换 */
 function bindValue(v) {
   if (v === undefined) return null;
@@ -307,6 +324,7 @@ export function openDb(dbPath = ':memory:') {
   raw.exec('PRAGMA foreign_keys = ON;');
   if (dbPath !== ':memory:') raw.exec('PRAGMA journal_mode = WAL;');
   raw.exec(SCHEMA);
+  migrate(raw);
 
   const cache = new Map();
   const stmt = (sql) => {

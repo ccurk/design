@@ -124,12 +124,16 @@ server/
 ## 业务实现要点
 
 - **时间**：接口里的时间点都是 ISO-8601 UTC；「今天」「周六」「上午」等按北京时间（固定 +08:00）计算，与服务器时区无关。
-- **撮合**：提交意向时、后台点「立即撮合」时、以及每 5 分钟各跑一次。先给有人「换一批」的撮合局补邀，再按提交时间贪心组新队。后台退回的组合（同任务、同日期、同一组人）不会再被原样推荐。
-- **邀请期限**：每个被邀请人 min(邀请后 24 小时, 开场前 12 小时)。到期视为放弃（成员 `declined`，意向 `expired`）；人够 `min_size` 就成局，否则取消并把意向退回撮合池。
-- **信用**：按未撤销的 `credit_events` 实时计算；互评每提交一次就重算全组结果（同一人同一局只保留一条记录）。
+- **撮合**：提交意向时、后台点「立即撮合」时、以及每 5 分钟各跑一次。先给有人「换一批」的撮合局补邀，再按提交时间贪心组新队。后台退回的组合（同任务、同日期、同一组人）不会再被原样推荐。自动成局打开时，每次撮合都会检查**所有**待确认的建议。
+- **确认成局**：人数要在组里约好的范围内（`minSize` = size_min 的最大值，`maxSize` = size_max 的最小值），确认时校验；后台调整成员可以暂时低于 minSize。局的 `min_size` = minSize。
+- **邀请期限**：每个被邀请人 min(邀请后 24 小时, 开场前 12 小时)。到期视为放弃（成员 `declined` 并标记 `invite_expired`，后台显示为 `expired`；意向 `expired`）；人够 `min_size` 就成局，否则取消并把意向退回撮合池。后台可以 `POST /api/admin/events/:id/remind` 催还没回复的人。
+- **信用**：按未撤销的 `credit_events` 实时计算；互评每提交一次就重算全组结果（同一人同一局只保留一条记录）。后台撤销记录会通知本人，并自动通过这条记录上待处理的申诉。
+- **账号处理**：受限 / 封禁的原因存在 `users.restricted_reason`（后台的 `restrictedReason`）。封禁不会被降级：对已封禁的账号做限制返回 409「账号已封禁，先解封再处理」。
+- **举报处理**：`note` 只给后台看；`message` 是发给被处理的人的说明（替换默认文案）；删除内容会通知作者。详见 docs/api.md 3.8。
 - **可见性**：撮合局只有成员能看；广场只有 `open` 的用户局 / 平台局；和你有拉黑关系的人发起或参加的局、动态、评论都不会出现在你这里。
 - **通知 `link` 约定**：`match:<eventId>` 撮合成功页、`event:<eventId>` 局详情、`chat:<eventId>` 群聊、`review:<eventId>` 互评、`post:<postId>` 动态、`credit` 我的信用记录，`null` 表示不跳转。
-- **通知 `type`**：`match` `formed` `match_failed` `attendance` `review` `safe` `event_cancelled` `event_approved` `event_rejected` `application` `application_result` `join` `leave` `post_approved` `post_rejected` `comment` `aa_paid` `aa_confirmed` `report_result` `warning` `restricted` `unrestricted` `banned` `unbanned` `appeal_result`。
+- **通知 `type`**：`match` `match_reminder` `formed` `match_failed` `attendance` `review` `safe` `event_cancelled` `event_approved` `event_rejected` `application` `application_result` `join` `leave` `post_approved` `post_rejected` `comment` `aa_paid` `aa_confirmed` `report_result` `warning` `content_deleted` `restricted` `unrestricted` `banned` `unbanned` `appeal_result` `credit_revoked`。
+- **数据库升级**：启动时会给旧库自动补新加的列（`db.js` 里的 `COLUMN_MIGRATIONS`），不用手动迁移，也不用重新 seed。
 
 ### 对 docs/api.md 的补充（都是向后兼容的新增）
 
@@ -138,7 +142,8 @@ server/
 - `POST /api/intents` 可选 `label`（意向的展示名，如「洱海边骑行」）、`relaxTime`、`relaxSize`。
 - `avatarColor` 按 `id % 4` 依次取 `slate / accent / ink / stone`（与文档示例和设计稿一致：1 栗子 = accent，3 阿野 = stone）；`avatarText` 一般取第一个字，「阿 / 小 / 老 / 大」开头的取第二个字（阿野 → 野，与文档示例一致）。
 - `icebreaker.index` 从 0 开始。
-- 撮合局默认人数上限 = 配到的人数，`min_size` = min(3, 人数)。
+- 撮合局默认人数上限 = 配到的人数，`min_size` = 组里约好的最少人数（默认 3）。
+- 后台接口的完整字段（`Proposal`、`PoolIntent`、`AdminEventCard`、`AdminMember`、`AdminReport`、`AdminUser`、`AdminAppeal`）和各列表接受的 `?status=` 取值都写在 docs/api.md 第 5 节。
 - 生产环境（`NODE_ENV=production`）没配微信时不会退回开发模式，登录会直接报错，避免任何人用任意 openid 登录。
 
 ## 上线需要准备的微信配置
@@ -154,7 +159,7 @@ server/
 ## 测试
 
 ```bash
-npm test         # 80+ 个用例：信用、撮合、邀请流程、局的生命周期、互评结算、AA、审核、举报、鉴权、定时任务、演示数据
+npm test         # 110+ 个用例：信用、撮合、邀请流程、局的生命周期、互评结算、AA、审核、举报、鉴权、定时任务、演示数据、后台评审修复（test/admin-review.test.js）、数据库迁移
 npm run smoke    # 主流程冒烟：登录 → 意向 → 撮合 → 确认 → 加入 → 群聊 → AA → 时间穿越 → 互评 → 信用更新
 ```
 

@@ -26,7 +26,7 @@ const HISTORY = {
   xiaoman: [7, 0, 0, 0],
   aye: [43, 0, 1, 0],
   qiqi: [10, 0, 0, 0],
-  mumu: [22, 1, 0, 1],
+  mumu: [22, 1, 0, 0], // 那次「放鸽子」挂在下面的历史局上（有群聊记录，申诉时当佐证）
   dapeng: [5, 0, 0, 1],
   nanfeng: [6, 0, 0, 0],
   laozhou: [14, 0, 0, 0],
@@ -355,6 +355,56 @@ export function seed(db) {
     readAll(E.pastNightMarket);
     reviewed(E.pastNightMarket, ['qiqi', 'dapeng', 'qingqing'], new Date(h4Start.getTime() + 3 * HOUR).toISOString());
 
+    // 60 天前的咖啡局：木木开场前 3 小时在群里说发烧去不了，但没点退出，被大家评成「没来」
+    const h5Start = bjDateTime(addDays(today, -60), 14, 0);
+    E.pastCoffee = event({
+      title: '慢书房咖啡局',
+      category: 'coffee',
+      task: '咖啡',
+      description: '人民路慢书房，喝咖啡、翻翻书。',
+      start_at: h5Start.toISOString(),
+      duration_min: 120,
+      place: '人民路 · 慢书房咖啡',
+      capacity: 4,
+      fee_type: 'split',
+      source: 'user',
+      creator_id: U.nanfeng,
+      status: 'open',
+      created_at: new Date(h5Start.getTime() - 3 * DAY).toISOString(),
+    });
+    ['nanfeng', 'qiqi', 'mumu'].forEach((key, i) =>
+      member(E.pastCoffee, key, {
+        role: key === 'nanfeng' ? 'host' : 'member',
+        attendance: key === 'mumu' ? 'pending' : 'yes',
+        joined_at: new Date(h5Start.getTime() - (3 - i * 0.5) * DAY).toISOString(),
+      }),
+    );
+    say(E.pastCoffee, 'nanfeng', '明天下午两点慢书房见～', new Date(h5Start.getTime() - 20 * HOUR).toISOString());
+    say(E.pastCoffee, 'mumu', '抱歉，我发烧了，今天去不了了', new Date(h5Start.getTime() - 3 * HOUR).toISOString());
+    readAll(E.pastCoffee);
+    const h5End = new Date(h5Start.getTime() + 3 * HOUR).toISOString();
+    for (const [from, to, attendance] of [
+      ['nanfeng', 'qiqi', 'on_time'],
+      ['nanfeng', 'mumu', 'no_show'],
+      ['qiqi', 'nanfeng', 'on_time'],
+      ['qiqi', 'mumu', 'no_show'],
+    ]) {
+      db.insert('reviews', { event_id: E.pastCoffee, reviewer_id: U[from], target_id: U[to], attendance, created_at: h5End });
+    }
+    for (const key of ['nanfeng', 'qiqi']) {
+      db.insert('review_feelings', { event_id: E.pastCoffee, reviewer_id: U[key], feelings: '[]', created_at: h5End });
+      db.insert('credit_events', { user_id: U[key], event_id: E.pastCoffee, type: 'attended', source: 'review', note: '互评结果', revoked: 0, created_at: h5End });
+    }
+    const mumuNoShow = db.insert('credit_events', {
+      user_id: U.mumu,
+      event_id: E.pastCoffee,
+      type: 'no_show',
+      source: 'review',
+      note: '互评结果（2 票）',
+      revoked: 0,
+      created_at: h5End,
+    });
+
     // ---- 广场上的 open 局 ----
     const squareEvent = (key, title, row, memberKeys) => {
       const id = event({ title, source: 'user', creator_id: U[memberKeys[0]], status: 'open', created_at: ago(2 * DAY), ...row });
@@ -537,10 +587,9 @@ export function seed(db) {
     });
 
     // ---- 申诉：木木那次「放鸽子」----
-    const noShow = db.get("SELECT id FROM credit_events WHERE user_id = ? AND type = 'no_show'", U.mumu);
     db.insert('appeals', {
       user_id: U.mumu,
-      credit_event_id: noShow.id,
+      credit_event_id: mumuNoShow,
       text: '那天发高烧在客栈躺了一天，提前在群里说过，可能大家没看到',
       status: 'pending',
       created_at: ago(DAY),

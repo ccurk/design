@@ -504,8 +504,8 @@ export function leaveEvent(db, user, eventId, { declineInvite } = {}) {
   });
 }
 
-/** 取消局（发起人 / 后台）。后台取消时连发起人一起通知 */
-export function cancelEvent(db, event, { reason, byAdmin = false } = {}) {
+/** 取消局（发起人 / 后台）。后台取消时连发起人一起通知；skipUserIds 里的人不发「局已取消」 */
+export function cancelEvent(db, event, { reason, byAdmin = false, skipUserIds = [] } = {}) {
   const now = clock.iso();
   db.update('events', event.id, { status: 'cancelled', cancel_reason: reason || null });
   addSystemMessage(db, event.id, byAdmin ? `这个局已被平台取消${reason ? `：${reason}` : ''}` : '发起人取消了这个局');
@@ -515,6 +515,7 @@ export function cancelEvent(db, event, { reason, byAdmin = false } = {}) {
   );
   for (const m of members) {
     if (!byAdmin && m.user_id === event.creator_id) continue;
+    if (skipUserIds.includes(m.user_id)) continue;
     notify(db, m.user_id, {
       type: 'event_cancelled',
       title: '局已取消',

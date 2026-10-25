@@ -3,35 +3,56 @@ import { createHash } from 'node:crypto';
 import { clock } from '../clock.js';
 import { REPORT_ACTIONS, REPORT_TARGETS } from '../constants.js';
 import { json } from '../db.js';
-import { conflict, invalid, notFound } from '../errors.js';
+import { blocked, conflict, invalid, notFound } from '../errors.js';
+import { checkContact } from '../moderation.js';
 import { oneOf, str, strArray } from '../validate.js';
-import { restrictUser } from './credit.js';
+import { effectiveStatus, restrictUser } from './credit.js';
 import { canViewEvent, cancelEvent, getEvent, memberRow } from './events.js';
 import { notify } from './notices.js';
 import { block, getUser, userBrief } from './users.js';
 
-/** 找到被举报对象和它的作者 */
+/** 找到被举报对象、它的作者和上下文 */
 function resolveTarget(db, type, id) {
   switch (type) {
     case 'user': {
       const u = getUser(db, id);
-      return u && { userId: u.id, preview: `${u.nickname}${u.bio ? `：${u.bio}` : ''}` };
+      return u && { userId: u.id, preview: `${u.nickname}${u.bio ? `：${u.bio}` : ''}`, context: null };
     }
     case 'event': {
       const e = getEvent(db, id);
-      return e && { userId: e.creator_id, preview: `局「${e.title}」${e.description ? `：${e.description}` : ''}`, event: e };
+      return (
+        e && {
+          userId: e.creator_id,
+          preview: `局「${e.title}」${e.description ? `：${e.description}` : ''}`,
+          event: e,
+          context: { eventId: e.id, eventTitle: e.title },
+        }
+      );
     }
     case 'post': {
       const p = db.get('SELECT * FROM posts WHERE id = ?', id);
-      return p && { userId: p.user_id, preview: p.text };
+      return p && { userId: p.user_id, preview: p.text, context: { postId: p.id } };
     }
     case 'comment': {
       const c = db.get('SELECT * FROM comments WHERE id = ?', id);
-      return c && { userId: c.user_id, preview: c.text };
+      if (!c) return null;
+      const post = db.get('SELECT * FROM posts WHERE id = ?', c.post_id);
+      return {
+        userId: c.user_id,
+        preview: c.text,
+        context: { postId: c.post_id, postPreview: post ? post.text.slice(0, 40) : null },
+      };
     }
     case 'message': {
       const m = db.get('SELECT * FROM messages WHERE id = ?', id);
-      return m && { userId: m.user_id, preview: m.text, eventId: m.event_id };
+      if (!m) return null;
+      const e = getEvent(db, m.event_id);
+      return {
+        userId: m.user_id,
+        preview: m.text,
+        eventId: m.event_id,
+        context: { eventId: m.event_id, eventTitle: e?.title ?? null },
+      };
     }
     default:
       return null;
@@ -94,19 +115,28 @@ export function adminReportView(db, r) {
     targetType: r.target_type,
     targetId: r.target_id,
     preview: target ? String(target.preview).slice(0, 120) : '（内容已不存在）',
+    context: target ? target.context : null,
     targetUser: targetUser
-      ? { ...userBrief(db, targetUser), reportCount: reportCountAgainst(db, targetUser.id), status: targetUser.status }
+      ? {
+          ...userBrief(db, targetUser),
+          reportCount: reportCountAgainst(db, targetUser.id),
+          status: effectiveStatus(targetUser),
+        }
       : null,
     reporterAnonId: anonId(r.reporter_id),
     createdAt: r.created_at,
     status: r.status,
     action: r.action,
     adminNote: r.admin_note,
+    message: r.user_message ?? null,
     resolvedAt: r.resolved_at,
   };
 }
 
+const REPORT_STATUSES = ['pending', 'resolved', 'dismissed', 'all'];
+
 export function adminListReports(db, status = 'pending') {
+  oneOf(status, '状态筛选', REPORT_STATUSES);
   const rows =
     status === 'all'
       ? db.all('SELECT * FROM reports ORDER BY id DESC LIMIT 200')
@@ -114,6 +144,7 @@ export function adminListReports(db, status = 'pending') {
   return { items: rows.map((r) => adminReportView(db, r)) };
 }
 
+// 给举报人的处理结果
 const RESULT_TEXT = {
   dismiss: '经核实暂未发现违规，感谢你的反馈',
   warn: '已对对方进行警告',
@@ -122,69 +153,110 @@ const RESULT_TEXT = {
   ban: '对方已被封禁',
 };
 
-/** 删除被举报的内容 */
-function deleteContent(db, r) {
+// 不填 message 时发给被处理的人的默认说明
+const DEFAULT_WARNING = '有人反馈你的言行让人不舒服，请遵守社区公约。再次违反会被限制使用。';
+const DEFAULT_RESTRICT_REASON = '被举报并核实违反社区公约';
+const DEFAULT_BAN_REASON = '严重违反社区公约';
+
+/** 删除被举报的内容，并通知作者（内容本来就不在了则不通知） */
+function deleteContent(db, r, message) {
+  const authorId = r.target_user_id;
+  let title = null;
   switch (r.target_type) {
-    case 'post':
+    case 'post': {
+      const p = db.get('SELECT status FROM posts WHERE id = ?', r.target_id);
+      if (!p || p.status === 'deleted') break;
       db.update('posts', r.target_id, { status: 'deleted' });
-      break;
-    case 'comment':
-      db.update('comments', r.target_id, { status: 'deleted' });
-      break;
-    case 'message':
-      db.update('messages', r.target_id, { kind: 'system', text: '一条消息因违反社区公约已被移除', user_id: null });
-      break;
-    case 'event': {
-      const e = getEvent(db, r.target_id);
-      if (e && !['cancelled', 'rejected'].includes(e.status)) cancelEvent(db, e, { reason: '违反社区公约', byAdmin: true });
+      title = '你的一条动态因违反社区公约被删除';
       break;
     }
-    case 'user':
-      if (r.target_user_id) db.update('users', r.target_user_id, { bio: '' });
+    case 'comment': {
+      const c = db.get('SELECT status FROM comments WHERE id = ?', r.target_id);
+      if (!c || c.status === 'deleted') break;
+      db.update('comments', r.target_id, { status: 'deleted' });
+      title = '你的一条评论因违反社区公约被删除';
       break;
+    }
+    case 'message': {
+      const m = db.get('SELECT * FROM messages WHERE id = ?', r.target_id);
+      if (!m || !m.user_id) break; // 已经被移除过
+      db.update('messages', r.target_id, { kind: 'system', text: '一条消息因违反社区公约已被移除', user_id: null });
+      title = '你的一条群聊消息因违反社区公约被删除';
+      break;
+    }
+    case 'event': {
+      const e = getEvent(db, r.target_id);
+      if (!e || ['cancelled', 'rejected'].includes(e.status)) break;
+      cancelEvent(db, e, { reason: '违反社区公约', byAdmin: true, skipUserIds: authorId ? [authorId] : [] });
+      title = `你发起的局「${e.title}」因违反社区公约被取消`;
+      break;
+    }
+    case 'user': {
+      const u = authorId ? getUser(db, authorId) : null;
+      if (!u || !u.bio) break;
+      db.update('users', u.id, { bio: '' });
+      title = '你的个人简介因违反社区公约被清空';
+      break;
+    }
     default:
   }
+  if (title && authorId) notify(db, authorId, { type: 'content_deleted', title, body: message || '', link: null });
 }
 
-export function banUser(db, userId, reason) {
-  db.update('users', userId, { status: 'banned' });
+/** 封号：已经封禁的不重复处理（返回 false） */
+export function banUser(db, userId, reason, { message = null } = {}) {
+  const user = getUser(db, userId);
+  if (!user || user.status === 'banned') return false;
+  db.update('users', userId, { status: 'banned', restricted_reason: reason || null });
   db.run('DELETE FROM sessions WHERE user_id = ?', userId);
   db.run(
     "UPDATE intents SET status = 'cancelled', updated_at = ? WHERE user_id = ? AND status IN ('open', 'proposed')",
     clock.iso(),
     userId,
   );
-  notify(db, userId, { type: 'banned', title: '账号已被封禁', body: reason ? `原因：${reason}` : '', link: null });
+  notify(db, userId, {
+    type: 'banned',
+    title: '账号已被封禁',
+    body: message || (reason ? `原因：${reason}` : ''),
+    link: null,
+  });
+  return true;
 }
 
-export function resolveReport(db, id, { action, note = null }) {
+/**
+ * 处理举报。note 只给后台看（存 admin_note，不会发给任何用户）；
+ * message 是发给被处理的人的说明，填了就替换 warn / restrict_7d / ban 的默认文案，
+ * delete_content 时接在「你的一条……被删除」后面。
+ */
+export function resolveReport(db, id, { action, note = null, message = null }) {
   return db.tx(() => {
     const r = db.get('SELECT * FROM reports WHERE id = ?', id);
     if (!r) throw notFound('举报不存在');
     if (r.status !== 'pending') throw conflict('这条举报已经处理过了');
     oneOf(action, '处理方式', REPORT_ACTIONS);
+    if (message) {
+      // 后台写的说明常要点名违规内容（「请不要推销代购」），所以只拦联系方式和网址
+      const check = checkContact(message);
+      if (!check.ok) throw blocked('给用户的说明里不能有手机号、微信号或网址', check.reasons);
+    }
     const targetUserId = r.target_user_id;
     if (['warn', 'restrict_7d', 'ban'].includes(action) && !targetUserId) throw invalid('这条举报没有对应的用户');
 
     if (action === 'warn') {
-      notify(db, targetUserId, {
-        type: 'warning',
-        title: '你收到一次提醒',
-        body: note || '有人反馈你的言行让人不舒服，请遵守社区公约。再次违反会被限制使用。',
-        link: null,
-      });
+      notify(db, targetUserId, { type: 'warning', title: '你收到一次提醒', body: message || DEFAULT_WARNING, link: null });
     } else if (action === 'delete_content') {
-      deleteContent(db, r);
+      deleteContent(db, r, message);
     } else if (action === 'restrict_7d') {
-      restrictUser(db, targetUserId, 7, note || '被举报并核实违反社区公约');
+      restrictUser(db, targetUserId, 7, message || DEFAULT_RESTRICT_REASON, { message });
     } else if (action === 'ban') {
-      banUser(db, targetUserId, note || '严重违反社区公约');
+      banUser(db, targetUserId, message || DEFAULT_BAN_REASON, { message }); // 已封禁的不重复处理
     }
 
     db.update('reports', id, {
       status: action === 'dismiss' ? 'dismissed' : 'resolved',
       action,
       admin_note: note,
+      user_message: action === 'dismiss' ? null : message,
       resolved_at: clock.iso(),
     });
     notify(db, r.reporter_id, {

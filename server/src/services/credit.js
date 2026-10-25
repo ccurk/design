@@ -1,6 +1,7 @@
 // 信用：由未撤销的 credit_events 实时计算（docs/api.md 3.1）。
 import { clock, DAY } from '../clock.js';
 import { CREDIT_TYPE_LABELS } from '../constants.js';
+import { conflict } from '../errors.js';
 import { notify } from './notices.js';
 
 export const CREDIT_TYPES = ['attended', 'late', 'cancel_late', 'no_show', 'admin_adjust'];
@@ -133,13 +134,20 @@ export function checkAutoRestrict(db, userId) {
   return true;
 }
 
-export function restrictUser(db, userId, days, reason) {
+/**
+ * 限制账号 days 天（暂停撮合和报名）。reason 存进 users.restricted_reason（后台可见）；
+ * 通知正文默认是「原因：…。到期后自动恢复。」，传了 message 就用 message。
+ * 已封禁的账号不能「降级」成受限：抛 CONFLICT，先解封再处理。
+ */
+export function restrictUser(db, userId, days, reason, { message = null } = {}) {
+  const user = db.get('SELECT status FROM users WHERE id = ?', userId);
+  if (user?.status === 'banned') throw conflict('账号已封禁，先解封再处理');
   const until = new Date(clock.now().getTime() + days * DAY).toISOString();
-  db.update('users', userId, { status: 'restricted', restricted_until: until });
+  db.update('users', userId, { status: 'restricted', restricted_until: until, restricted_reason: reason || null });
   notify(db, userId, {
     type: 'restricted',
     title: `账号暂停撮合和报名 ${days} 天`,
-    body: reason ? `原因：${reason}。到期后自动恢复。` : '到期后自动恢复。',
+    body: message || (reason ? `原因：${reason}。到期后自动恢复。` : '到期后自动恢复。'),
     link: 'credit',
   });
   return until;

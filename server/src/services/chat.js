@@ -27,7 +27,7 @@ export function messageView(db, row, viewerId, cache = new Map()) {
     user,
     text: row.text,
     createdAt: row.created_at,
-    mine: row.user_id === viewerId,
+    mine: viewerId != null && row.user_id === viewerId, // 后台查看时没有 viewer，系统消息不能算「我的」
   };
 }
 

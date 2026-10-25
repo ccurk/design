@@ -3,11 +3,11 @@ import { clock, HOUR } from '../clock.js';
 import { FEE_TYPES, SYSTEM_MESSAGES, categoryOfTask, defaultDurationForTask } from '../constants.js';
 import { json } from '../db.js';
 import { conflict, invalid, notFound, restricted } from '../errors.js';
-import { bjDate, bjDateTime, defaultStartTime } from '../time.js';
+import { bjDate, bjDateTime, dateLabel, defaultStartTime } from '../time.js';
 import { int, isoTime, num, oneOf, str } from '../validate.js';
 import { creditOf, effectiveStatus } from './credit.js';
 import { addSystemMessage, eventDetail, getEvent, joinedMembers, memberRow, requireEvent, shortTitle } from './events.js';
-import { enrichIntent, isFlexible, pairCompatible, sizeBounds, taskPhrase } from './matchRules.js';
+import { enrichIntent, groupBounds, isFlexible, pairCompatible, sizeBounds, taskPhrase } from './matchRules.js';
 import { notify } from './notices.js';
 import { allBlockPairs, getUser, isNewUser, userBrief, userSettings } from './users.js';
 
@@ -19,6 +19,13 @@ export function inviteDeadline(event, member) {
   const start = Date.parse(event.start_at);
   const invited = Date.parse(member.invited_at || event.created_at);
   return new Date(Math.min(invited + INVITE_TTL, start - LAST_CALL));
+}
+
+/** 整个局的邀请期限：最后一个被邀请的人的回应期限（到点后够人成局，不够取消） */
+export function eventInviteDeadline(event, rows) {
+  const invitedAt = rows.map((r) => Date.parse(r.invited_at || event.created_at));
+  const lastInvite = invitedAt.length ? Math.max(...invitedAt) : Date.parse(event.created_at);
+  return new Date(Math.min(lastInvite + INVITE_TTL, Date.parse(event.start_at) - LAST_CALL));
 }
 
 function inviteNotice(db, userId, event) {
@@ -41,6 +48,11 @@ export function confirmProposal(db, proposalId, overrides = {}) {
       .map((id) => db.get('SELECT * FROM intents WHERE id = ?', id))
       .filter((i) => i && i.status === 'proposed');
     if (intents.length < 2) throw conflict('人数不够了，请调整成员或退回');
+    // 大家约好的人数：size_min 的最大值 ~ size_max 的最小值（开了「2–6 人都可以」按 2–6 算）
+    const { min: minSize, max: maxSize } = groupBounds(intents);
+    if (intents.length < minSize) {
+      throw invalid(`人数不够：这组人约好至少 ${minSize} 人成局，现在只有 ${intents.length} 人`);
+    }
     const blocks = allBlockPairs(db);
     for (let i = 0; i < intents.length; i++) {
       for (let j = i + 1; j < intents.length; j++) {
@@ -56,6 +68,7 @@ export function confirmProposal(db, proposalId, overrides = {}) {
     if (startAt.getTime() <= now.getTime()) throw invalid('集合时间已经过了，请修改时间');
     const capacity = int(overrides.capacity, '人数上限', { min: 2, max: 20, optional: true }) ?? intents.length;
     if (capacity < intents.length) throw invalid('人数上限不能少于已配到的人数');
+    if (capacity > maxSize) throw invalid(`人数上限不能超过 ${maxSize} 人：组里有人只想要 ${maxSize} 人以内的局`);
     const users = intents.map((i) => getUser(db, i.user_id));
     const sameSex = users.some((u) => userSettings(u).sameSexOnly);
 
@@ -70,7 +83,7 @@ export function confirmProposal(db, proposalId, overrides = {}) {
       place: str(overrides.place, '地点', { max: 40, optional: true }) ?? p.area,
       meeting_point: str(overrides.meetingPoint, '集合点', { max: 60, optional: true }) ?? '',
       capacity,
-      min_size: Math.max(2, Math.min(3, intents.length)),
+      min_size: Math.max(2, minSize),
       fee_type: oneOf(overrides.feeType, '费用方式', FEE_TYPES, { optional: true }) ?? 'aa',
       fee_estimate: num(overrides.feeEstimate, '预计费用', { min: 0, max: 100000, optional: true }),
       require_approval: 0,
@@ -196,7 +209,7 @@ export function declineInvite(db, user, eventId) {
 function expireInvite(db, event, member, { reopen = false } = {}) {
   const now = clock.iso();
   db.run(
-    "UPDATE event_members SET status = 'declined', left_at = ? WHERE event_id = ? AND user_id = ?",
+    "UPDATE event_members SET status = 'declined', invite_expired = 1, left_at = ? WHERE event_id = ? AND user_id = ?",
     now,
     event.id,
     member.user_id,
@@ -222,9 +235,7 @@ export function evaluateInviting(db, eventId) {
     formMatchedEvent(db, event);
     return 'formed';
   }
-  const lastInvite = Math.max(...rows.map((r) => Date.parse(r.invited_at || event.created_at)));
-  const deadline = Math.min(lastInvite + INVITE_TTL, Date.parse(event.start_at) - LAST_CALL);
-  if (clock.now().getTime() >= deadline) {
+  if (clock.now().getTime() >= eventInviteDeadline(event, rows).getTime()) {
     cancelUnderfilled(db, event);
     return 'cancelled';
   }
@@ -329,6 +340,27 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
     invited++;
   }
   return invited;
+}
+
+/** 后台「催一下」：给还没回复、也还没过期的被邀请人发提醒 */
+export function remindInvitees(db, eventId) {
+  return db.tx(() => {
+    const event = requireEvent(db, eventId);
+    if (event.source !== 'matched' || event.status !== 'inviting') throw conflict('这个局不在邀请中，不用催了');
+    const now = clock.now();
+    const pending = db
+      .all("SELECT * FROM event_members WHERE event_id = ? AND status = 'invited'", eventId)
+      .filter((m) => inviteDeadline(event, m).getTime() > now.getTime());
+    for (const m of pending) {
+      notify(db, m.user_id, {
+        type: 'match_reminder',
+        title: `还没回复：${event.title}`,
+        body: `${dateLabel(inviteDeadline(event, m), now)} 前点「加入」`,
+        link: `match:${event.id}`,
+      });
+    }
+    return { reminded: pending.length };
+  });
 }
 
 /** 撮合池：open 且未过期的意向（账号受限 / 封禁的人不参与），按提交时间排序 */
