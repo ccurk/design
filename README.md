@@ -47,7 +47,7 @@ npm run dev      # http://localhost:3000
 cd server && npm test        # 接口与业务规则测试
 cd server && npm run smoke   # 起一个临时服务，用 HTTP 走一遍主流程
 node miniprogram/tools/check.js   # 小程序静态检查：页面、跳转、资源、事件、接口都对得上
-node admin/tools/e2e.mjs     # 后台端到端测试（需要先启动后端，并装好 Playwright）
+node admin/tools/e2e.mjs     # 后台端到端测试：用浏览器把后台每个操作点一遍（先按 admin/README.md 起一个演示数据的后端，需要 Playwright）
 ```
 
 ## 上线前需要准备

@@ -1098,8 +1098,9 @@ span[tabindex='-1']:focus {
   flex: 1 1 180px;
 }
 
+/* 时间输入框里还有「上午 / AM」和时钟图标，太窄会被截掉 */
 .field--time {
-  flex: 1 1 120px;
+  flex: 1 1 150px;
 }
 
 .field--wide {
@@ -2082,6 +2083,10 @@ span[tabindex='-1']:focus {
 }
 
 .pool__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   font-weight: 700;
 }
@@ -2457,9 +2462,26 @@ span[tabindex='-1']:focus {
   min-width: 0;
 }
 
+.user-cell__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .user-cell__name {
   font-size: 15px;
   font-weight: 700;
+}
+
+.user-cell__sub {
+  max-width: 220px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--danger);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .info-tiles {
@@ -2504,6 +2526,22 @@ span[tabindex='-1']:focus {
   font-size: 14px;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+.invite-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--tint);
+}
+
+.invite-box__text {
+  flex: 1 1 240px;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .readonly-note {
@@ -2693,6 +2731,40 @@ span[tabindex='-1']:focus {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--tint);
+}
+
+.evidence__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evidence__meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--body);
+}
+
+.evidence__text {
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.evidence__hint {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--body);
 }
 
 .record-box {

@@ -8,22 +8,46 @@ import { focusSoon, html, useBanner } from '../ui.js';
 
 const TABS = ['report', 'post', 'event'];
 
-/** 处理方式。needsUser：需要有被举报的人才能用 */
+/**
+ * 处理方式（docs/api.md 3.8）。needsUser：需要有被举报的人才能用；
+ * toUser：会通知被处理的人，可以写「给 TA 的说明」（不填用 fallback 那句默认说明）
+ */
 const ACTS = [
-  { key: 'dismiss', label: '驳回', needsUser: false },
-  { key: 'warn', label: '警告', needsUser: true },
-  { key: 'delete_content', label: '删除内容', needsUser: false },
-  { key: 'restrict_7d', label: '限制 7 天', needsUser: true },
-  { key: 'ban', label: '封号', needsUser: true },
+  { key: 'dismiss', label: '驳回', needsUser: false, desc: '内容没问题，不处理。举报人会收到「经核实暂未发现违规，感谢你的反馈」。' },
+  {
+    key: 'warn',
+    label: '警告',
+    needsUser: true,
+    desc: '给 TA 发一条提醒，内容保留。',
+    toUser: true,
+    fallback: '有人反馈你的言行让人不舒服，请遵守社区公约。再次违反会被限制使用。',
+  },
+  { key: 'delete_content', label: '删除内容', needsUser: false, desc: '删掉这条内容，并提醒 TA。', toUser: true, fallback: '' },
+  {
+    key: 'restrict_7d',
+    label: '限制 7 天',
+    needsUser: true,
+    desc: '7 天内不能参与撮合和报名，只能看。',
+    toUser: true,
+    fallback: '原因：被举报并核实违反社区公约。到期后自动恢复。',
+  },
+  {
+    key: 'ban',
+    label: '封号',
+    needsUser: true,
+    desc: '不能再登录。只用于严重违规：擦边、诈骗、多次骚扰。',
+    toUser: true,
+    fallback: '原因：严重违反社区公约',
+  },
 ];
 
-/** 「删除内容」对不同对象实际做的事（见 server/src/services/reports.js deleteContent） */
-const DELETE_DESC = {
-  user: '清空 TA 的个人简介。',
-  post: '删掉这条动态。',
-  comment: '删掉这条评论。',
-  message: '把这条群聊消息换成「一条消息因违反社区公约已被移除」。',
-  event: '取消这个局，并通知报名的人。',
+/** 「删除内容」时作者收到的通知标题（不填说明时只发这一句） */
+const DELETE_NOTICE = {
+  user: '你的个人简介因违反社区公约被清空',
+  post: '你的一条动态因违反社区公约被删除',
+  comment: '你的一条评论因违反社区公约被删除',
+  message: '你的一条群聊消息因违反社区公约被删除',
+  event: '你发起的局因违反社区公约被取消',
 };
 
 const POST_REJECT = ['包含联系方式', '广告推销', '擦边低俗', '其他'];
@@ -47,6 +71,8 @@ export default {
       detailError: '',
       act: '',
       note: '',
+      message: '',
+      msgErr: '',
       err: '',
       banAsk: false,
       rejOpen: false,
@@ -57,7 +83,18 @@ export default {
     });
 
     function resetAction() {
-      Object.assign(s, { act: '', note: '', err: '', banAsk: false, rejOpen: false, rejWhy: '', rejNote: '', rejErr: '' });
+      Object.assign(s, {
+        act: '',
+        note: '',
+        message: '',
+        msgErr: '',
+        err: '',
+        banAsk: false,
+        rejOpen: false,
+        rejWhy: '',
+        rejNote: '',
+        rejErr: '',
+      });
     }
 
     async function load() {
@@ -112,30 +149,6 @@ export default {
 
     // ---- 列表项 ----
 
-    function reportTitle(r) {
-      const n = r.targetUser && r.targetUser.nickname;
-      switch (r.targetType) {
-        case 'user':
-          return n ? `${n} 的个人资料` : '一位用户的资料';
-        case 'post':
-          return n ? `${n} 发的动态` : '一条动态';
-        case 'comment':
-          return n ? `${n} 的评论` : '一条评论';
-        case 'message':
-          return n ? `${n} 在群聊里的发言` : '一条群聊消息';
-        case 'event':
-          return n ? `${n} 发起的局` : '一个局';
-        default:
-          return '被举报的内容';
-      }
-    }
-    const WHERE = {
-      user: '被举报的是 TA 的昵称和简介',
-      post: '发在「动态」',
-      comment: '发在动态下面的评论里',
-      message: '发在局的群聊里',
-      event: '用户发起的局',
-    };
 
     const items = computed(() => {
       if (s.tab === 'report') {
@@ -144,7 +157,7 @@ export default {
           tag: r.reason,
           tagTone: fmt.reasonTone(r.reason),
           when: fmt.ago(r.createdAt),
-          title: reportTitle(r),
+          title: fmt.reportTitle(r),
           preview: r.preview,
           done: r.status !== 'pending',
           status: r.status !== 'pending' ? '已处理' : '待处理',
@@ -214,29 +227,19 @@ export default {
     // ---- 举报 ----
 
     const actInfo = computed(() => ACTS.find((a) => a.key === s.act) || null);
-    const actDesc = computed(() => {
+    /** 不填「给 TA 的说明」时，被处理的人会收到什么 */
+    const fallbackText = computed(() => {
+      const a = actInfo.value;
       const r = current.value;
-      if (!s.act || !r) return '';
-      return {
-        dismiss: '内容没问题，不处理。举报人会收到「经核实暂未发现违规」。',
-        warn: '给 TA 发一条提醒，内容保留。',
-        delete_content: DELETE_DESC[r.targetType] || '删掉这条内容。',
-        restrict_7d: '7 天内不能参与撮合和报名，只能看。',
-        ban: '不能再登录。只用于严重违规：擦边、诈骗、多次骚扰。',
-      }[s.act];
+      if (!a || !a.toUser || !r) return '';
+      if (a.key === 'delete_content') return DELETE_NOTICE[r.targetType] || '你的一条内容因违反社区公约被删除';
+      return a.fallback;
     });
-    const noteLabel = computed(
-      () =>
-        ({
-          warn: '提醒内容（选填，会发给 TA；不填就用默认的提醒）',
-          restrict_7d: '限制原因（选填，会告诉 TA）',
-          ban: '封号原因（选填，会告诉 TA）',
-        })[s.act] || '备注（选填，只有后台能看到）',
-    );
 
     function pickAct(key) {
       s.act = key;
       s.err = '';
+      s.msgErr = '';
       s.banAsk = false;
     }
 
@@ -274,7 +277,11 @@ export default {
       try {
         const updated = await api(`/admin/reports/${r.id}/resolve`, {
           method: 'POST',
-          body: { action: act.key, note: s.note.trim() || undefined },
+          body: {
+            action: act.key,
+            note: s.note.trim() || undefined,
+            message: act.toUser ? s.message.trim() || undefined : undefined,
+          },
         });
         // 同一个人的其他举报也用最新的状态（比如刚被封号）
         const fresh = updated.targetUser;
@@ -291,8 +298,14 @@ export default {
         );
         refreshBadges();
       } catch (e) {
-        if (e.code === 'CONFLICT' || e.code === 'NOT_FOUND') {
-          failBanner(e);
+        s.banAsk = false;
+        if (e.code === 'CONTENT_BLOCKED') {
+          // 「给 TA 的说明」里有手机号、微信号或网址
+          s.msgErr = e.message;
+          focusSoon('#mod-message');
+        } else if (e.code === 'CONFLICT' || e.code === 'NOT_FOUND') {
+          // 比如已经被别人处理了，或者对方刚被封号（不能再限制）：提示服务端的原因，并刷新最新状态
+          failBanner(e, '没能处理');
           load();
         } else {
           s.err = e.message;
@@ -377,10 +390,8 @@ export default {
       EMPTY,
       ACTS,
       select,
-      reportTitle,
-      WHERE,
-      actDesc,
-      noteLabel,
+      actInfo,
+      fallbackText,
       pickAct,
       actDisabled,
       historyText,
@@ -434,12 +445,12 @@ export default {
             <span class="pill" :class="'pill--' + fmt.reasonTone(current.reason)">{{ current.reason }}</span>
             <span class="small muted">{{ fmt.REPORT_KIND[current.targetType] || '内容' }} · {{ fmt.ago(current.createdAt) }} · 举报人：{{ current.reporterAnonId }}（匿名）</span>
           </div>
-          <h2 id="mod-detail-title" class="detail-title" tabindex="-1">{{ reportTitle(current) }}</h2>
+          <h2 id="mod-detail-title" class="detail-title" tabindex="-1">{{ fmt.reportTitle(current) }}</h2>
         </div>
         <div class="stack-8">
           <span class="label">被举报的内容</span>
           <blockquote class="quote">{{ current.preview }}</blockquote>
-          <span class="small muted">{{ WHERE[current.targetType] }}</span>
+          <span class="small muted report-where">{{ fmt.reportWhere(current) }}</span>
         </div>
         <div class="stack-8">
           <span class="label">举报人补充</span>
@@ -465,9 +476,16 @@ export default {
           </div>
           <p v-if="!current.targetUser" class="small muted">这条举报找不到对应的用户，只能驳回或删除内容。</p>
           <p v-else-if="current.targetUser.status === 'banned'" class="small muted">{{ current.targetUser.nickname }} 已经被封号了，不用再限制或封号。</p>
-          <p v-if="actDesc" class="info-box">{{ actDesc }}</p>
+          <p v-if="actInfo" class="info-box">{{ actInfo.desc }}</p>
+          <div v-if="actInfo && actInfo.toUser" class="field">
+            <label for="mod-message" class="field__label">给 TA 的说明（会发给 TA，不填用默认说明）</label>
+            <input id="mod-message" v-model="s.message" type="text" class="input" :class="{ 'input--error': s.msgErr }" maxlength="200" autocomplete="off"
+              :aria-invalid="s.msgErr ? 'true' : null" :aria-describedby="s.msgErr ? 'mod-message-err' : 'mod-message-hint'" @input="s.msgErr = ''">
+            <p v-if="s.msgErr" id="mod-message-err" class="form-error" role="alert">{{ s.msgErr }}</p>
+            <p v-else id="mod-message-hint" class="small muted">不能写手机号、微信号或网址。不填会发：「{{ fallbackText }}」</p>
+          </div>
           <div class="field">
-            <label for="mod-note" class="field__label">{{ noteLabel }}</label>
+            <label for="mod-note" class="field__label">备注（选填，只有后台能看到）</label>
             <input id="mod-note" v-model="s.note" type="text" class="input" maxlength="200" autocomplete="off">
           </div>
           <p v-if="s.err" class="form-error" role="alert">{{ s.err }}</p>
@@ -484,7 +502,9 @@ export default {
         </div>
         <div v-else class="done-box">
           <span class="done-box__title">已处理 · {{ fmt.REPORT_ACTION[current.action] || current.action }}</span>
-          <span class="small body">举报人已收到处理结果通知。{{ current.adminNote ? '备注：' + current.adminNote : '' }}</span>
+          <span class="small body">举报人已收到处理结果通知。</span>
+          <span v-if="current.message" class="small body">发给 TA 的说明：{{ current.message }}</span>
+          <span v-if="current.adminNote" class="small body">备注（只有后台能看到）：{{ current.adminNote }}</span>
         </div>
       </template>
 

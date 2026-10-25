@@ -6,7 +6,8 @@
 //   baseUrl 默认 http://localhost:3100，password 默认 admin123
 //
 // 注意：会改数据！请对着一个刚 seed 过的测试数据库跑（步骤见 admin/README.md）。
-// 测试前会用开发接口（/api/auth/dev-login，只有非生产环境才有）造两条待审动态和一个能被撮合的意向。
+// 测试前会用开发接口（/api/auth/dev-login，只有非生产环境才有）造两条待审动态和一个能被撮合的意向，
+// 也会用它以用户身份看通知（检查「给 TA 的说明」「提醒」「撤销记录」的通知内容）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -44,8 +45,11 @@ async function loadPlaywright() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+/** 把一段文字变成「包含这段文字」的正则（按钮的名字里还有别的字时用） */
+const has = (s) => new RegExp(String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-async function http(method, url, { body, token } = {}) {
+/** 发请求，不管成败都返回 { status, data } */
+async function httpRaw(method, url, { body, token } = {}) {
   const headers = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (token) headers.authorization = `Bearer ${token}`;
@@ -57,7 +61,12 @@ async function http(method, url, { body, token } = {}) {
   } catch {
     // 不是 JSON
   }
-  if (!res.ok) throw new Error(`${method} ${url} → ${res.status} ${typeof data === 'string' ? data : JSON.stringify(data)}`);
+  return { status: res.status, data };
+}
+
+async function http(method, url, opts) {
+  const { status, data } = await httpRaw(method, url, opts);
+  if (status >= 300) throw new Error(`${method} ${url} → ${status} ${typeof data === 'string' ? data : JSON.stringify(data)}`);
   return data;
 }
 
@@ -115,6 +124,16 @@ async function until(fn, what, timeout = 8000) {
   throw new Error(`等不到：${what}${lastErr ? `（${lastErr.message}）` : ''}`);
 }
 
+function assert(cond, message) {
+  if (!cond) throw new Error(message);
+}
+
+/** 和界面上一样的「比昨天 +5」「和前 7 天一样」 */
+function compare(diff, than, unit = '') {
+  if (!diff) return `和${than}一样`;
+  return `比${than} ${diff > 0 ? '+' : '−'}${Math.abs(diff)}${unit}`;
+}
+
 let stepNo = 0;
 async function step(name, fn) {
   stepNo += 1;
@@ -148,11 +167,20 @@ async function main() {
     if (!u) throw new Error(`找不到用户「${nickname}」——请先用 seed 重置测试数据库`);
     return u.id;
   };
+  /** 以某个用户的身份看 TA 最近的通知 */
+  const noticesOf = async (uid) => {
+    const token = (await http('POST', '/api/auth/dev-login', { body: { userId: uid } })).token;
+    return (await http('GET', '/api/inbox', { token })).notices;
+  };
 
   await step('准备测试数据：待确认方案、待审动态、举报、申诉', async () => {
     const pending = (await aget('/api/admin/proposals')).items;
     fx.hike = pending.find((p) => p.task === '爬山');
     if (!fx.hike) throw new Error('没有待确认的「爬山」方案——请先用 seed 重置测试数据库');
+    assert(fx.hike.minSize >= 3 && fx.hike.members.length === fx.hike.minSize, '「爬山」方案的人数应该正好是 minSize（seed 数据）');
+    // 第一次参加的人：移出方案后回到撮合池，池子里要有「新人」标记
+    fx.newcomer = fx.hike.members.find((m) => m.isNew);
+    if (!fx.newcomer) throw new Error('「爬山」方案里没有第一次参加的人——请先用 seed 重置测试数据库');
     // 七七也想明天下午喝咖啡 → 和阿云、青青凑成第二个待确认方案（用来测「退回」）
     const pool = (await aget('/api/admin/intents')).items;
     const coffee = pool.find((i) => i.task === '咖啡');
@@ -168,9 +196,13 @@ async function main() {
     if (fx.post1.status !== 'pending' || fx.post2.status !== 'pending') throw new Error('测试动态没有进入待审核');
     fx.reports = (await aget('/api/admin/reports')).items;
     fx.report = fx.reports.find((r) => r.targetType === 'message');
-    if (!fx.report) throw new Error('没有针对群聊消息的待处理举报——请先用 seed 重置测试数据库');
+    if (!fx.report || !fx.report.context || !fx.report.context.eventTitle) {
+      throw new Error('没有带群聊信息的待处理举报——请先用 seed 重置测试数据库');
+    }
     fx.appeal = (await aget('/api/admin/appeals')).items[0];
-    if (!fx.appeal) throw new Error('没有待处理的申诉——请先用 seed 重置测试数据库');
+    if (!fx.appeal || !fx.appeal.evidence || !fx.appeal.evidence.length || fx.appeal.creditEvent.type !== 'no_show') {
+      throw new Error('没有带群聊证据的「放鸽子」申诉——请先用 seed 重置测试数据库');
+    }
     fx.pendingEvent = (await aget('/api/admin/events?status=pending_review')).items[0];
     if (!fx.pendingEvent) throw new Error('没有待审核的用户局——请先用 seed 重置测试数据库');
   });
@@ -181,10 +213,19 @@ async function main() {
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
 
-  // 控制台报错、脚本异常、失败的请求都算问题；「输错密码」「登录过期」那两步的 401 是预期的
+  // 控制台报错、脚本异常、失败的请求都算问题。只有 allowing([...]) 包起来的那几步里，故意触发的状态码不算
   const problems = [];
-  let expect401 = false;
+  const allowed = new Set();
   let closing = false;
+  async function allowing(statuses, fn) {
+    statuses.forEach((s) => allowed.add(s));
+    try {
+      await fn();
+      await sleep(300); // 浏览器的「Failed to load resource」会晚一点打出来
+    } finally {
+      statuses.forEach((s) => allowed.delete(s));
+    }
+  }
   if (VUE_DEV) {
     await page.route('**/vendor/vue.esm-browser.prod.js', (route) =>
       route.fulfill({ path: VUE_DEV, contentType: 'text/javascript; charset=utf-8' }),
@@ -194,7 +235,8 @@ async function main() {
   page.on('console', (m) => {
     if (m.type() === 'warning' && /\[Vue warn\]/.test(m.text())) problems.push(`Vue 警告：${m.text().slice(0, 300)}`);
     if (m.type() !== 'error') return;
-    if (expect401 && /401/.test(m.text())) return;
+    const code = (m.text().match(/status of (\d{3})/) || [])[1];
+    if (code && allowed.has(Number(code))) return;
     problems.push(`控制台报错：${m.text()}`);
   });
   page.on('pageerror', (e) => problems.push(`页面脚本异常：${e.message}`));
@@ -203,8 +245,7 @@ async function main() {
     problems.push(`请求失败：${r.method()} ${r.url()} ${r.failure() ? r.failure().errorText : ''}`);
   });
   page.on('response', (r) => {
-    if (r.status() < 400) return;
-    if (expect401 && r.status() === 401) return;
+    if (r.status() < 400 || allowed.has(r.status())) return;
     problems.push(`HTTP ${r.status()}：${r.request().method()} ${r.url()}`);
   });
 
@@ -236,6 +277,8 @@ async function main() {
   };
   const h1 = () => page.locator('h1');
   const nav = (name) => page.getByRole('navigation', { name: '后台菜单' }).getByRole('link', { name });
+  const proposalCard = (title) =>
+    page.locator('article.proposal', { has: page.getByRole('heading', { name: title, exact: true }) });
 
   try {
     // ---- 登录 ----
@@ -251,12 +294,11 @@ async function main() {
     await step('登录：没填密码、密码不对都有提示，填对进入概览', async () => {
       await page.getByRole('button', { name: '进入后台' }).click();
       await expectText(page.getByRole('alert'), '先输入密码');
-      expect401 = true;
-      await page.getByLabel('后台密码').fill('not-the-password');
-      await page.getByRole('button', { name: '进入后台' }).click();
-      await expectText(page.getByRole('alert'), '密码不对');
-      await sleep(300);
-      expect401 = false;
+      await allowing([401], async () => {
+        await page.getByLabel('后台密码').fill('not-the-password');
+        await page.getByRole('button', { name: '进入后台' }).click();
+        await expectText(page.getByRole('alert'), '密码不对');
+      });
       await page.getByLabel('后台密码').fill(PASSWORD);
       await page.getByRole('button', { name: '进入后台' }).click();
       await until(() => page.url().includes('#/dashboard'), '跳到 #/dashboard');
@@ -268,16 +310,16 @@ async function main() {
 
     // ---- 手机宽度：每一页都不能横向滚动（宽表格在自己的框里滚） ----
 
-    await step('390px 宽度：五个页面（含展开的详情、表单）都没有横向滚动', async () => {
+    await step('390px 宽度：五个页面（含展开的详情、表单、申诉证据）都没有横向滚动', async () => {
       await expectText(page.locator('.kpi').first(), '今日新用户');
       await noHorizontalScroll('概览');
       await shot('m-dashboard');
 
       await goto('matching');
       await expectText(h1(), '撮合池');
-      await page.locator('article.proposal').first().waitFor();
+      const card = proposalCard(fx.hike.title);
+      await card.waitFor();
       await noHorizontalScroll('撮合池');
-      const card = page.locator('article.proposal').first();
       await card.getByRole('button', { name: '确认成局' }).click();
       await card.getByLabel('标题').waitFor();
       await noHorizontalScroll('撮合池（确认表单）');
@@ -287,7 +329,10 @@ async function main() {
       await goto('moderation');
       await expectText(h1(), '审核与举报');
       await page.locator('.detail').waitFor();
-      await noHorizontalScroll('审核与举报');
+      await page.getByRole('button', { name: /在「.*」群聊/ }).click();
+      await page.getByRole('group', { name: '处理方式' }).getByRole('button', { name: '警告' }).click();
+      await page.locator('#mod-message').waitFor();
+      await noHorizontalScroll('审核与举报（处理表单）');
       await shot('m-moderation');
 
       await goto('events');
@@ -308,25 +353,35 @@ async function main() {
       await noHorizontalScroll('用户与信用（详情）');
       await shot('m-users');
       await page.getByRole('tab', { name: /申诉/ }).click();
-      await page.locator('article.appeal').first().waitFor();
-      await noHorizontalScroll('用户与信用（申诉）');
+      await page.locator('article.appeal .evidence').first().waitFor();
+      await noHorizontalScroll('用户与信用（申诉和证据）');
+      await shot('m-appeals');
     });
 
     await page.setViewportSize({ width: 1440, height: 1000 });
 
     // ---- 概览 ----
 
-    await step('概览：数字和接口一致，柱状图 7 根柱子、悬停有提示，可以切到表格', async () => {
+    await step('概览：数字、比昨天 / 比前 7 天和接口一致，柱状图 7 根柱子、悬停有提示，可以切到表格', async () => {
       await goto('dashboard');
       await expectText(h1(), '概览');
       await page.locator('.kpi').first().waitFor();
       const stats = await aget('/api/admin/stats');
-      const kpi = (label) => page.locator('.kpi', { hasText: label }).locator('.kpi__value');
-      await expectText(kpi('今日新用户'), String(stats.today.newUsers));
-      await expectText(kpi('今日新意向'), String(stats.today.newIntents));
-      await expectText(kpi('等你确认的局'), String(stats.today.pendingProposals));
-      await expectText(kpi('待处理举报'), String(stats.today.pendingReports));
-      await expectText(kpi('本周履约率'), `${stats.week.attendanceRate}%`);
+      const kpi = (label) => page.locator('.kpi', { hasText: label });
+      await expectText(kpi('今日新用户').locator('.kpi__value'), String(stats.today.newUsers));
+      await expectText(kpi('今日新用户').locator('.kpi__sub'), compare(stats.today.newUsers - stats.yesterday.newUsers, '昨天'));
+      await expectText(kpi('今日新意向').locator('.kpi__value'), String(stats.today.newIntents));
+      await expectText(kpi('今日新意向').locator('.kpi__sub'), compare(stats.today.newIntents - stats.yesterday.newIntents, '昨天'));
+      await expectText(kpi('等你确认的局').locator('.kpi__value'), String(stats.today.pendingProposals));
+      await expectText(kpi('待处理举报').locator('.kpi__value'), String(stats.today.pendingReports));
+      await expectText(kpi('近 7 天履约率').locator('.kpi__value'), `${stats.week.attendanceRate}%`);
+      await expectText(
+        kpi('近 7 天履约率').locator('.kpi__sub'),
+        compare(stats.week.attendanceRate - stats.prevWeek.attendanceRate, '前 7 天', ' 个百分点'),
+      );
+      await expectText(page.locator('section[aria-labelledby="watch"]'), `近 7 天放鸽子 ${stats.week.noShowCount} 次`);
+      // 待处理的举报里能看到是哪个局的群聊
+      await expectText(page.locator('section[aria-labelledby="todo-report"]'), `「${fx.report.context.eventTitle}」群聊`);
       const bars = page.locator('.chart__hit');
       await expectCount(bars, 7);
       const labels = await bars.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
@@ -351,29 +406,43 @@ async function main() {
 
     // ---- 撮合池 ----
 
-    const proposalCard = (title) =>
-      page.locator('article.proposal', { has: page.getByRole('heading', { name: title, exact: true }) });
-
-    await step('撮合池：调整成员——移出一个人再加回来，匹配度重新算', async () => {
+    await step('撮合池：调整成员——少于约好的最少人数（minSize）时不能确认（界面和接口都拦），加回来后恢复', async () => {
       await nav(/^撮合池/).click();
       await expectText(h1(), '撮合池');
       await expectAttr(page.getByRole('tab', { name: /待确认/ }), 'aria-selected', 'true');
       const card = proposalCard(fx.hike.title);
       await card.waitFor();
-      const who = fx.hike.members[1].user.nickname;
+      await expectText(card.locator('.proposal__meta'), `大家约好 ${fx.hike.minSize}–${fx.hike.maxSize} 人`);
+      // 移出第一次参加的那个人：方案里、撮合池里、候选人里都标着是新人
+      const who = fx.newcomer.user.nickname;
+      const n = fx.hike.members.length;
+      await expectText(card.locator('.member', { hasText: who }).locator('.tags'), '新人');
       await card.getByRole('button', { name: '调整成员' }).click();
       await card.getByRole('button', { name: `把 ${who} 移出这个方案` }).click();
       await expectBanner(`已把 ${who} 移出`);
-      await expectCount(card.locator('.member'), fx.hike.members.length - 1);
-      await expectText(card.locator('.panel__hint'), `现在 ${fx.hike.members.length - 1} 人`);
+      await expectCount(card.locator('.member'), n - 1);
+      await expectText(page.locator('.pool__item', { hasText: who }).locator('.pool__name'), '新人');
+      await expectText(card.locator('.cand', { hasText: who }), `${who} · 第一次参加`);
+      await expectText(card.locator('.panel__hint'), `至少 ${fx.hike.minSize} 人才能成局，现在 ${n - 1} 人，还差 1 人`);
+      await card.getByRole('button', { name: '调整好了' }).click();
+      const confirmBtn = card.getByRole('button', { name: '确认成局' });
+      assert(await confirmBtn.isDisabled(), '人数不够时「确认成局」应该不能点');
+      await expectText(card.locator('.actions'), '还差 1 人，先调整成员');
+      const res = await httpRaw('POST', `/api/admin/proposals/${fx.hike.id}/confirm`, { token: adminToken, body: {} });
+      assert(
+        res.status === 400 && res.data.error.code === 'VALIDATION' && res.data.error.message.includes(`至少 ${fx.hike.minSize} 人`),
+        `人数不够时接口应该返回 400，实际 ${res.status} ${JSON.stringify(res.data)}`,
+      );
+      await card.getByRole('button', { name: '调整成员' }).click();
       await card.getByRole('button', { name: `把 ${who} 加进这个方案` }).click();
       await expectBanner(`已把 ${who} 加进`);
-      await expectCount(card.locator('.member'), fx.hike.members.length);
+      await expectCount(card.locator('.member'), n);
       await card.getByRole('button', { name: '调整好了' }).click();
+      assert(!(await confirmBtn.isDisabled()), '人数够了「确认成局」应该能点');
     });
 
     const newTitle = 'E2E · 周日一起爬苍山';
-    await step('撮合池：确认成局（改了标题和时间）→ 离开「待确认」，出现在「已发邀请」', async () => {
+    await step('撮合池：确认成局（改了标题和时间，人数上限不超过 maxSize）→ 离开「待确认」，出现在「已发邀请」', async () => {
       const card = proposalCard(fx.hike.title);
       const pendingTab = page.getByRole('tab', { name: /待确认/ });
       const before = Number((await textOf(pendingTab.locator('.tab__count'))) || 0);
@@ -381,10 +450,20 @@ async function main() {
       await card.getByLabel('标题').fill(newTitle);
       await card.getByLabel('开始时间').fill('08:30');
       await card.getByLabel('预计每人 ¥').fill('20');
-      await card.getByRole('button', { name: '多一个名额' }).click();
-      await expectText(card.locator('.stepper__value'), String(fx.hike.members.length + 1));
-      await card.getByRole('button', { name: '少一个名额' }).click();
-      await expectText(card.locator('.stepper__value'), String(fx.hike.members.length));
+      // 人数上限：最少是已配的人数，最多是大家约好的 maxSize
+      const inc = card.getByRole('button', { name: '多一个名额' });
+      const dec = card.getByRole('button', { name: '少一个名额' });
+      const n = fx.hike.members.length;
+      await expectText(card.locator('.stepper__value'), String(n));
+      await expectAttr(dec, 'aria-disabled', 'true');
+      for (let i = n; i < fx.hike.maxSize; i++) await inc.click();
+      await expectText(card.locator('.stepper__value'), String(fx.hike.maxSize));
+      await expectAttr(inc, 'aria-disabled', 'true');
+      await inc.click({ force: true }); // 到顶了硬点也不会超过
+      await expectText(card.locator('.stepper__value'), String(fx.hike.maxSize));
+      for (let i = n; i < fx.hike.maxSize; i++) await dec.click();
+      await expectText(card.locator('.stepper__value'), String(n));
+      await expectAttr(dec, 'aria-disabled', 'true');
       await shot('d-matching-confirm');
       await card.getByRole('button', { name: /^发出邀请/ }).click();
       await expectBanner(`已发邀请给 ${fx.hike.members.length} 人：「${newTitle}」`);
@@ -392,13 +471,26 @@ async function main() {
       await expectText(pendingTab.locator('.tab__count'), String(before - 1));
       const inviting = (await aget('/api/admin/events?source=matched&status=inviting')).items.find((e) => e.title === newTitle);
       if (!inviting) throw new Error('接口里找不到新建的撮合局');
+      fx.invitingEvent = inviting;
       const p = await page.evaluate((iso) => new Date(iso).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }), inviting.startAt);
       if (p !== '08:30') throw new Error(`集合时间应该是北京时间 08:30，实际 ${p}`);
       await banner().getByRole('button', { name: '去看看' }).click();
       await expectAttr(page.getByRole('tab', { name: /已发邀请/ }), 'aria-selected', 'true');
       const invited = page.locator('article.proposal', { has: page.getByRole('heading', { name: newTitle }) });
       await expectText(invited, `0 / ${fx.hike.members.length} 人已加入`);
+      assert(inviting.inviteDeadline, '邀请中的撮合局应该有 inviteDeadline');
       await expectText(invited, '截止');
+      await expectCount(invited.locator('.tag', { hasText: '待回复' }), fx.hike.members.length);
+    });
+
+    await step('撮合池：「提醒还没回复的人」→ 每个被邀请的人收到提醒', async () => {
+      const invited = page.locator('article.proposal', { has: page.getByRole('heading', { name: newTitle }) });
+      await invited.getByRole('button', { name: '提醒还没回复的人' }).click();
+      await expectBanner(`已用微信服务通知提醒 ${fx.hike.members.length} 位还没回复的人`);
+      const notices = await noticesOf(fx.hike.members[0].user.id);
+      const reminder = notices.find((x) => x.type === 'match_reminder');
+      assert(reminder && reminder.title.includes(newTitle), `被邀请的人没收到提醒：${JSON.stringify(notices.slice(0, 3))}`);
+      await shot('d-matching-invited');
     });
 
     await step('撮合池：退回方案（必须选原因）→ 出现在「已退回」', async () => {
@@ -414,7 +506,7 @@ async function main() {
       await expectBanner(`已退回「${fx.coffee.title}」，${fx.coffee.members.length} 个意向回到撮合池`);
       await expectCount(proposalCard(fx.coffee.title), 0);
       await page.getByRole('tab', { name: /已退回/ }).click();
-      await expectText(page.locator('#match-panel'), '退回原因：时间对不上：E2E 退回测试');
+      await expectText(page.locator('#match-panel article').first(), '退回原因：时间对不上：E2E 退回测试'); // 最新退回的排在最前
       const rejected = (await aget('/api/admin/proposals?status=rejected')).items.find((x) => x.id === fx.coffee.id);
       if (!rejected) throw new Error('接口里这个方案没有变成已退回');
     });
@@ -431,6 +523,7 @@ async function main() {
       await sw.click();
       await expectAttr(sw, 'aria-checked', 'true');
       await expectBanner('自动成局已打开');
+      await expectText(page.locator('.info-box', { hasText: '待确认里' }), /待确认里(暂时没有符合条件的方案|有 \d+ 个符合)/);
       await page.getByRole('button', { name: '≥ 95' }).click();
       await expectAttr(page.getByRole('button', { name: '≥ 95' }), 'aria-pressed', 'true');
       await expectBanner('门槛改成 ≥ 95');
@@ -444,23 +537,45 @@ async function main() {
 
     // ---- 审核与举报 ----
 
-    await step('审核：举报选「警告」处理，举报人收到通知，列表里变成已处理', async () => {
+    const reportTitle = `${fx.report.targetUser.nickname} 在「${fx.report.context.eventTitle}」群聊`;
+    const userMessage = 'E2E 给 TA 的说明：请不要在群里拉大家去朋友的店';
+    const adminNote = 'E2E 后台备注：第二次被举报推销，下次直接限制';
+
+    await step('审核：举报显示来自哪个局的群聊；「警告」时备注只留后台，给 TA 的说明发给 TA（带联系方式会被拦）', async () => {
       await nav(/^审核与举报/).click();
       await expectText(h1(), '审核与举报');
-      await page.getByRole('button', { name: /在群聊里的发言/ }).click();
-      await expectText(page.locator('#mod-detail-title'), '在群聊里的发言');
+      await page.getByRole('button', { name: has(reportTitle) }).click();
+      await expectText(page.locator('#mod-detail-title'), reportTitle);
+      await expectText(page.locator('.report-where'), `来自「${fx.report.context.eventTitle}」群聊`);
       await expectText(page.locator('.detail blockquote'), fx.report.preview.slice(0, 10));
       await page.getByRole('button', { name: '确认处理' }).click();
       await expectText(page.locator('.detail').getByRole('alert'), '先选一种处理方式');
-      await page.getByRole('group', { name: '处理方式' }).getByRole('button', { name: '警告' }).click();
-      await expectAttr(page.getByRole('group', { name: '处理方式' }).getByRole('button', { name: '警告' }), 'aria-pressed', 'true');
-      await page.getByLabel(/提醒内容/).fill('E2E：请不要在群里拉人去朋友的店');
+      const group = page.getByRole('group', { name: '处理方式' });
+      await group.getByRole('button', { name: '警告' }).click();
+      await expectAttr(group.getByRole('button', { name: '警告' }), 'aria-pressed', 'true');
+      await expectText(page.locator('.detail .info-box'), '给 TA 发一条提醒，内容保留。');
+      await expectText(page.locator('#mod-message-hint'), '不填会发：「有人反馈你的言行让人不舒服');
+      // 「给 TA 的说明」里带联系方式 → 服务端 422，提示在输入框下面
+      await allowing([422], async () => {
+        await page.getByLabel(/给 TA 的说明/).fill('有事加我微信 abc12345 聊');
+        await page.getByRole('button', { name: '确认处理' }).click();
+        await expectText(page.locator('#mod-message-err'), '不能有手机号、微信号或网址');
+      });
+      await page.getByLabel(/给 TA 的说明/).fill(userMessage);
+      await page.getByLabel(/备注（选填，只有后台能看到）/).fill(adminNote);
       await page.getByRole('button', { name: '确认处理' }).click();
       await expectBanner('已处理：警告');
       await expectText(page.locator('.done-box'), '已处理 · 警告');
-      await expectText(page.getByRole('button', { name: /在群聊里的发言/ }), '已处理');
+      await expectText(page.locator('.done-box'), `发给 TA 的说明：${userMessage}`);
+      await expectText(page.locator('.done-box'), `备注（只有后台能看到）：${adminNote}`);
+      await expectText(page.getByRole('button', { name: has(reportTitle) }), '已处理');
       const all = (await aget('/api/admin/reports?status=all')).items.find((r) => r.id === fx.report.id);
-      if (!all || all.action !== 'warn') throw new Error('接口里这条举报没有记成「警告」');
+      assert(all && all.action === 'warn' && all.adminNote === adminNote && all.message === userMessage, `接口里这条举报记得不对：${JSON.stringify(all)}`);
+      // 被举报的人：收到的提醒正文就是「给 TA 的说明」，任何通知里都没有后台备注
+      const notices = await noticesOf(fx.report.targetUser.id);
+      const warning = notices.find((x) => x.type === 'warning');
+      assert(warning && warning.body === userMessage, `被举报的人收到的提醒不对：${JSON.stringify(warning)}`);
+      assert(!notices.some((x) => `${x.title}${x.body}`.includes('E2E 后台备注')), '后台备注出现在了用户的通知里');
       await shot('d-moderation');
     });
 
@@ -510,7 +625,7 @@ async function main() {
     const eventRows = () => page.locator('table.table--events tbody tr:has(td:nth-child(7))');
     const columnTexts = (n) => eventRows().locator(`td:nth-child(${n})`).allTextContents();
 
-    await step('局管理：按来源、关键词、状态筛选', async () => {
+    await step('局管理：按来源、关键词、状态筛选（「已结束」由服务端 status=ended 筛）', async () => {
       await nav(/^局管理/).click();
       await expectText(h1(), '局管理');
       await expectCount(eventRows(), (n) => n > 3);
@@ -527,16 +642,24 @@ async function main() {
       }, '搜「读书」只剩读书局');
       await page.getByRole('searchbox', { name: '搜标题或地点' }).fill('');
       await expectCount(eventRows(), (n) => n > 3);
-      await page.getByRole('group', { name: '状态' }).getByRole('button', { name: '已结束' }).click();
+      const ended = (await aget('/api/admin/events?status=ended')).items;
+      await Promise.all([
+        page.waitForRequest((r) => r.url().includes('/api/admin/events?') && r.url().includes('status=ended')),
+        page.getByRole('group', { name: '状态' }).getByRole('button', { name: '已结束' }).click(),
+      ]);
+      await expectCount(eventRows(), ended.length);
+      const st = (await columnTexts(6)).map(clean);
+      assert(st.every((x) => x === '已结束'), `「已结束」里混进了别的状态：${st.join(',')}`);
+      await page.getByRole('group', { name: '状态' }).getByRole('button', { name: '招募中' }).click();
       await until(async () => {
-        const st = (await columnTexts(6)).map(clean);
-        return st.length > 0 && st.every((x) => x === '已结束');
-      }, '只剩「已结束」的局');
+        const s = (await columnTexts(6)).map(clean);
+        return s.length > 0 && s.every((x) => x === '招募中');
+      }, '「招募中」不含已经结束的局');
       await page.getByRole('group', { name: '状态' }).getByRole('button', { name: '全部', exact: true }).click();
       await expectCount(eventRows(), (n) => n > 3);
     });
 
-    await step('局管理：查看详情（时间、地点、成员、群聊、AA）', async () => {
+    await step('局管理：查看详情（时间、地点、成员、群聊、AA）；邀请中的撮合局能看到进度、提醒还没回复的人', async () => {
       await page.getByRole('button', { name: '查看 周六清晨 · 苍山看日出' }).click();
       const detail = page.locator('#event-detail');
       await expectText(detail.locator('#ev-detail-title'), '周六清晨 · 苍山看日出');
@@ -544,6 +667,11 @@ async function main() {
       await expectText(detail, '成员 5/5');
       await expectText(detail, '暖宝宝');
       await expectText(detail, 'AA 2 笔 ¥150');
+      await page.getByRole('button', { name: `查看 ${newTitle}` }).click();
+      await expectText(detail.locator('#ev-detail-title'), newTitle);
+      await expectText(detail.locator('.invite-box'), `0 人已加入，${fx.hike.members.length} 人还没回复`);
+      await detail.getByRole('button', { name: '提醒还没回复的人' }).click();
+      await expectBanner('已用微信服务通知提醒');
       await page.getByRole('button', { name: '收起详情' }).click();
       await expectCount(page.locator('#event-detail'), 0);
     });
@@ -594,10 +722,10 @@ async function main() {
     // ---- 用户与信用 ----
 
     let aye;
-    await step('用户：搜索、查看详情、撤销一条「临时鸽」→ 履约率变了', async () => {
+    await step('用户：搜索、查看详情、撤销一条「临时鸽」→ 履约率变了，本人收到通知', async () => {
       await nav(/^用户与信用/).click();
       await expectText(h1(), '用户与信用');
-      aye = (await aget(`/api/admin/users/${await userId('阿野')}`));
+      aye = await aget(`/api/admin/users/${await userId('阿野')}`);
       const before = aye.credit.rate;
       await page.getByRole('searchbox', { name: '搜昵称或手机尾号' }).fill('阿野');
       await expectCount(page.locator('table.table--users tbody tr:has(td:nth-child(10))'), 1);
@@ -605,34 +733,82 @@ async function main() {
       await expectText(page.locator('#user-detail-title'), '阿野');
       await expectText(page.locator('.credit-tile__big'), `${before}%`);
       await page.getByRole('button', { name: /的「临时鸽」$/ }).first().click();
+      await expectText(page.locator('.revoke-ask'), '撤销后这条不再算进履约率，会通知 阿野');
       await page.getByRole('button', { name: '确定撤销' }).click();
       const after = (await aget(`/api/admin/users/${aye.user.id}`)).credit.rate;
       if (after === before) throw new Error(`撤销后履约率没变（${before}%）`);
-      await expectBanner(`履约率 ${before}% → ${after}%`);
+      await expectBanner(`履约率 ${before}% → ${after}%，已通知 TA`);
       await expectText(page.locator('.credit-tile__big'), `${after}%`);
       await expectText(page.locator('.timeline'), '已撤销');
+      const notices = await noticesOf(aye.user.id);
+      assert(notices.some((x) => x.type === 'credit_revoked'), '撤销记录后本人没收到通知');
     });
 
-    await step('用户：限制 7 天，再解除限制', async () => {
+    await step('用户：限制 7 天（详情显示「受限到 … · 原因」），再解除限制', async () => {
       await page.getByRole('button', { name: '限制 7 天' }).click();
       await page.getByLabel(/限制原因/).fill('E2E 测试限制');
       await page.getByRole('button', { name: '确认限制 7 天' }).click();
       await expectBanner('已限制 阿野 7 天');
-      await expectText(page.locator('.account-box'), '受限到');
+      await expectText(page.locator('.account-box'), /受限到 .* · E2E 测试限制/);
+      const u1 = (await aget(`/api/admin/users/${aye.user.id}`)).user;
+      assert(u1.status === 'restricted' && u1.restrictedReason === 'E2E 测试限制', `受限原因没存对：${JSON.stringify(u1.restrictedReason)}`);
       await page.getByRole('button', { name: '解除限制' }).click();
       await expectBanner('已解除限制：阿野');
       const u = (await aget(`/api/admin/users/${aye.user.id}`)).user;
       if (u.status !== 'active') throw new Error(`解除限制后状态应该是 active，实际 ${u.status}`);
     });
 
-    await step('用户：申诉——通过并撤销那条记录', async () => {
+    await step('用户：封号（显示「已封号 · 原因」）→ 「已封号」筛选只有 TA、「受限」不含 TA → 解封', async () => {
+      const name = '小满';
+      await page.getByRole('searchbox', { name: '搜昵称或手机尾号' }).fill(name);
+      await expectCount(page.locator('table.table--users tbody tr:has(td:nth-child(10))'), 1);
+      await page.getByRole('button', { name: `查看 ${name}` }).click();
+      await expectText(page.locator('#user-detail-title'), name);
+      await page.getByRole('button', { name: '封号', exact: true }).click();
+      await page.getByLabel(/封号原因/).fill('E2E 测试封号');
+      await page.getByRole('button', { name: '确定封号' }).click();
+      await expectBanner(`已封号：${name}`);
+      await expectText(page.locator('.account-box'), '已封号 · E2E 测试封号');
+      await page.getByRole('searchbox', { name: '搜昵称或手机尾号' }).fill('');
+      const levels = page.getByRole('group', { name: '信用等级' });
+      const userRows = page.locator('table.table--users tbody tr:has(td:nth-child(10))');
+      await Promise.all([
+        page.waitForRequest((r) => r.url().includes('/api/admin/users?') && r.url().includes('level=banned')),
+        levels.getByRole('button', { name: '已封号' }).click(),
+      ]);
+      await expectCount(userRows, 1);
+      await expectText(userRows.first(), name);
+      await expectText(userRows.first(), '封号：E2E 测试封号');
+      await levels.getByRole('button', { name: '受限' }).click();
+      await until(async () => {
+        const names = (await userRows.locator('.user-cell__name').allTextContents()).map(clean);
+        return names.length > 0 && !names.includes(name) && names.includes(fx.report.targetUser.nickname);
+      }, '「受限」里有大鹏、没有被封号的人');
+      await levels.getByRole('button', { name: '全部' }).click();
+      await page.getByRole('button', { name: '解封' }).click();
+      await expectBanner(`已解封：${name}`);
+      const banned = (await aget('/api/admin/users?level=banned')).items;
+      assert(banned.length === 0, '解封后「已封号」里还有人');
+    });
+
+    await step('用户：申诉——看系统找到的群聊证据和提示，通过并撤销那条记录', async () => {
       await page.getByRole('tab', { name: /申诉/ }).click();
       await expectAttr(page.getByRole('tab', { name: /申诉/ }), 'aria-selected', 'true');
       const card = page.locator('article.appeal', { hasText: `${fx.appeal.user.nickname} 的申诉` });
-      await card.getByLabel(/回复/).fill('E2E：核实了，你提前说过去不了，这条记录已经撤销。');
+      // seed：木木那次「放鸽子」，她开场前 3 小时在群里说发烧去不了（docs/api.md 3.1：24 小时内说算「临时鸽」）
+      const ev = fx.appeal.evidence;
+      const earliest = Math.max(...ev.map((m) => m.hoursBeforeStart));
+      const h = String(Math.round(earliest * 10) / 10);
+      await expectText(card.locator('.evidence'), ev[0].text);
+      await expectText(card.locator('.evidence'), `开场前 ${h} 小时`);
+      const hint = earliest >= 24 ? '提前 24 小时以上说了，按规则不记录，建议通过' : `开场前 ${h} 小时才说，按规则应记「临时鸽」而不是「放鸽子」`;
+      await expectText(card.locator('.evidence__hint'), hint);
+      const reply = 'E2E：核实了，你开场前说过去不了，这条「放鸽子」撤销。';
+      await card.getByLabel(/回复/).fill(reply);
       await card.getByRole('button', { name: '通过，撤销这条记录' }).click();
       await expectBanner(`已通过 ${fx.appeal.user.nickname} 的申诉`);
       await expectText(card.locator('.done-box'), '已通过，这条记录已撤销');
+      await expectText(card.locator('.done-box'), `回复已发给 ${fx.appeal.user.nickname}：${reply}`);
       const a = (await aget('/api/admin/appeals?status=all')).items.find((x) => x.id === fx.appeal.id);
       if (!a || a.status !== 'approved') throw new Error('接口里申诉没有变成已通过');
       await expectText(page.getByRole('tab', { name: /申诉/ }).locator('.tab__count'), '0');
@@ -642,17 +818,16 @@ async function main() {
     // ---- 登录过期、退出 ----
 
     await step('登录过期（任何接口 401）→ 清掉 token 回到登录页，登录后回到原来的页面', async () => {
-      expect401 = true;
-      await goto('events');
-      await expectText(h1(), '局管理');
-      await page.evaluate(() => localStorage.setItem('dazi.admin.token', 'a_expired_token_for_e2e'));
-      await page.reload();
-      await until(() => page.url().includes('#/login'), '跳到登录页');
-      await expectText(h1(), '登录后台');
-      const left = await page.evaluate(() => localStorage.getItem('dazi.admin.token'));
-      if (left) throw new Error('401 之后 token 没有清掉');
-      await sleep(300);
-      expect401 = false;
+      await allowing([401], async () => {
+        await goto('events');
+        await expectText(h1(), '局管理');
+        await page.evaluate(() => localStorage.setItem('dazi.admin.token', 'a_expired_token_for_e2e'));
+        await page.reload();
+        await until(() => page.url().includes('#/login'), '跳到登录页');
+        await expectText(h1(), '登录后台');
+        const left = await page.evaluate(() => localStorage.getItem('dazi.admin.token'));
+        if (left) throw new Error('401 之后 token 没有清掉');
+      });
       await page.getByLabel('后台密码').fill(PASSWORD);
       await page.getByRole('button', { name: '进入后台' }).click();
       await until(() => page.url().includes('#/events'), '登录后回到 #/events');

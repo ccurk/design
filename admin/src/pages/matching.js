@@ -1,4 +1,4 @@
-// 撮合池：系统配好的方案（待确认 / 已发邀请 / 已退回），确认成局、调整成员、退回；
+// 撮合池：系统配好的方案（待确认 / 已发邀请 / 已退回），确认成局、调整成员、退回、提醒还没回复的人；
 // 右侧是「自动成局」开关和还在等的人。
 import { computed, nextTick, onMounted, reactive, watch } from '../vue.js';
 import { api } from '../api.js';
@@ -9,7 +9,15 @@ import { focusSoon, html, useBanner } from '../ui.js';
 
 const REJECT_REASONS = ['时间对不上', '地点太远', '成员不太合适', '夜间局不安全', '其他'];
 const THRESHOLDS = [85, 90, 95];
-const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 已发邀请里每个人的状态（expired = 邀请到期没回应，后台才看得到） */
+const INVITE_STATE = {
+  joined: ['已加入', 'tag--tint'],
+  invited: ['待回复', ''],
+  declined: ['换了一批', 'tag--muted'],
+  expired: ['没回复，已过期', 'tag--muted'],
+  left: ['已退出', 'tag--muted'],
+};
 
 export default {
   name: 'MatchingPage',
@@ -21,9 +29,8 @@ export default {
       error: '',
       tab: ['pending', 'invited', 'returned'].includes(route.query.tab) ? route.query.tab : 'pending',
       pending: [],
-      proposedById: {}, // 已进方案的意向（带人数要求），用来算「至少几人」「最多几人」
       pool: [],
-      invited: [], // [{ event, members }]
+      invited: [], // [{ event: 列表里的局（含 joinedCount / invitedCount / inviteDeadline）, detail: 详情或 null }]
       returned: [],
       auto: { enabled: false, threshold: 90 },
       mode: null, // { id, kind: 'edit' | 'adjust' | 'reject' } 同一时间只展开一个面板
@@ -31,6 +38,7 @@ export default {
       formErr: '',
       rj: { reason: '', note: '', err: '' },
       busy: false,
+      reminding: null, // 正在提醒的局 id
       running: false,
       ran: false,
       savingAuto: false,
@@ -45,26 +53,24 @@ export default {
       s.error = '';
       if (!s.loaded) s.loading = true;
       try {
-        const [pending, proposed, pool, settings, inviting, returned] = await Promise.all([
+        const [pending, pool, settings, inviting, returned] = await Promise.all([
           api('/admin/proposals', { query: { status: 'pending' } }),
-          api('/admin/intents', { query: { status: 'proposed' } }),
           api('/admin/intents', { query: { status: 'open' } }),
           api('/admin/settings'),
           api('/admin/events', { query: { source: 'matched', status: 'inviting' } }),
-          api('/admin/proposals', { query: { status: 'rejected' } }),
+          api('/admin/proposals', { query: { status: 'rejected' } }), // 服务端已按退回时间倒序
         ]);
-        // 已发邀请：列表里没有每个人的回应状态，逐个取详情
-        const details = await Promise.allSettled(inviting.items.slice(0, 30).map((e) => api(`/admin/events/${e.id}`)));
+        // 进度和截止时间列表里就有；每个人回没回复要看详情
+        const details = await Promise.allSettled(inviting.items.map((e) => api(`/admin/events/${e.id}`)));
         if (seq !== loadSeq) return;
         s.pending = pending.items;
-        s.proposedById = Object.fromEntries(proposed.items.map((i) => [i.id, i]));
         s.pool = pool.items;
         s.auto = settings.autoConfirm;
-        s.invited = details.filter((d) => d.status === 'fulfilled').map((d) => d.value);
-        s.returned = returned.items
-          .slice()
-          .sort((a, b) => String(b.reviewedAt || '').localeCompare(String(a.reviewedAt || '')))
-          .slice(0, 30);
+        s.invited = inviting.items.map((e, i) => ({
+          event: e,
+          detail: details[i].status === 'fulfilled' ? details[i].value : null,
+        }));
+        s.returned = returned.items;
         s.loaded = true;
         if (s.mode && !s.pending.some((p) => p.id === s.mode.id)) s.mode = null;
       } catch (e) {
@@ -76,14 +82,8 @@ export default {
       }
     }
 
-    /** 调整成员后：池子和「已进方案的意向」都变了 */
     async function reloadPool() {
-      const [proposed, pool] = await Promise.all([
-        api('/admin/intents', { query: { status: 'proposed' } }),
-        api('/admin/intents', { query: { status: 'open' } }),
-      ]);
-      s.proposedById = Object.fromEntries(proposed.items.map((i) => [i.id, i]));
-      s.pool = pool.items;
+      s.pool = (await api('/admin/intents', { query: { status: 'open' } })).items;
     }
 
     onMounted(async () => {
@@ -108,20 +108,34 @@ export default {
       { key: 'returned', label: '已退回', count: s.returned.length },
     ]);
 
-    /** 组里每个人能接受的人数：至少 = 大家最少人数里最大的，最多 = 大家最多人数里最小的 */
-    function bounds(p) {
-      const intents = p.members.map((m) => s.proposedById[m.intentId]);
-      if (!intents.length || intents.some((i) => !i)) return { min: 2, max: 20 };
-      const min = Math.max(2, ...intents.map((i) => (i.relaxSize ? 2 : i.sizeMin)));
-      const max = Math.min(20, ...intents.map((i) => (i.relaxSize ? 6 : i.sizeMax)));
-      return { min, max: Math.max(max, p.members.length) };
-    }
+    /** 组里所有人约好的人数范围（服务端算好的 minSize / maxSize） */
+    const bounds = (p) => ({ min: p.minSize || 2, max: p.maxSize || 20 });
     const tooFew = (p) => p.members.length < bounds(p).min;
+    const tooMany = (p) => p.members.length > bounds(p).max;
+    const sizeOk = (p) => !tooFew(p) && !tooMany(p);
+
+    /** 调整成员面板里的提示 */
+    function adjustHint(p) {
+      const n = p.members.length;
+      const { min, max } = bounds(p);
+      if (n < min) return `至少 ${min} 人才能成局，现在 ${n} 人，还差 ${min - n} 人`;
+      if (n > max) return `这组人约好最多 ${max} 人，现在 ${n} 人，多了 ${n - max} 人`;
+      return `现在 ${n} 人 · 匹配度和风险会跟着重新算`;
+    }
+    /** 按钮旁边的提示（人数不对时不能确认） */
+    function sizeHint(p) {
+      const n = p.members.length;
+      const { min, max } = bounds(p);
+      if (n < min) return `至少 ${min} 人才能成局，还差 ${min - n} 人，先调整成员`;
+      if (n > max) return `这组人约好最多 ${max} 人，多了 ${n - max} 人，先调整成员`;
+      return '';
+    }
 
     const isMode = (p, kind) => !!s.mode && s.mode.id === p.id && s.mode.kind === kind;
     const isOpen = (p) => !!s.mode && s.mode.id === p.id;
 
     const proposalMeta = (p) => `${fmt.dateLabel(p.date)} ${p.slotLabel || fmt.SLOT[p.slot] || ''} · ${p.area}`;
+    const rangeText = (p) => (p.minSize === p.maxSize ? `${p.minSize} 人` : `${p.minSize}–${p.maxSize} 人`);
     const paceLabel = (pace) => fmt.PACE[pace] || '';
 
     /** 池子里同一件事的人（不含已在组里的） */
@@ -141,34 +155,20 @@ export default {
 
     const sortedPool = computed(() => s.pool.slice().sort((a, b) => b.waitingHours - a.waitingHours));
 
+    // 自动成局每次撮合都会检查所有待确认的方案（docs/api.md 3.2 第 4 条）
     const autoText = computed(() => {
       const fit = s.pending.filter((p) => p.score >= s.auto.threshold && !p.risks.length);
-      if (!fit.length) {
-        return '待确认里暂时没有达到门槛的方案。之后新配出的方案，匹配度达到门槛又没有风险提示，就会直接成局。';
-      }
+      if (!fit.length) return '待确认里暂时没有符合条件的方案。';
       const list = fit.map((p) => `「${p.title}」${p.score} 分`).join('、');
-      return `待确认里有 ${fit.length} 个方案达到门槛：${list}。自动成局只管之后新配出的方案，这几个还要你手动确认。`;
+      return `待确认里有 ${fit.length} 个符合：${list}。下次撮合时会直接成局。`;
     });
 
-    // 已发邀请
-    const joinedOf = (item) => item.members.filter((m) => m.status === 'joined').length;
-    const activeOf = (item) => item.members.filter((m) => m.status === 'joined' || m.status === 'invited').length;
-    const visibleMembers = (item) => item.members.filter((m) => m.status !== 'removed');
-    const pctOf = (item) => `${activeOf(item) ? Math.round((joinedOf(item) / activeOf(item)) * 100) : 0}%`;
-    function deadlineText(item) {
-      const waiting = item.members.filter((m) => m.status === 'invited');
-      if (!waiting.length) return '都回复了，等系统成局';
-      const start = Date.parse(item.event.startAt);
-      // 与服务端规则一致：邀请 24 小时内有效，离开场不到 12 小时不再等
-      const t = Math.min(...waiting.map((m) => Math.min(Date.parse(m.invitedAt) + DAY_MS, start - DAY_MS / 2)));
-      return `截止 ${fmt.when(new Date(t).toISOString())}`;
-    }
-    const INVITE_STATE = {
-      joined: ['已加入', 'tag--tint'],
-      invited: ['待回复', ''],
-      declined: ['换了一批', 'tag--muted'],
-      left: ['已退出', 'tag--muted'],
-    };
+    // 已发邀请：进度、截止时间来自列表；每个人的状态来自详情
+    const totalOf = (item) => (item.event.joinedCount || 0) + (item.event.invitedCount || 0);
+    const pctOf = (item) => `${totalOf(item) ? Math.round((item.event.joinedCount / totalOf(item)) * 100) : 0}%`;
+    const deadlineText = (item) => (item.event.inviteDeadline ? `截止 ${fmt.when(item.event.inviteDeadline)}` : '');
+    const membersOf = (item) => (item.detail ? item.detail.members.filter((m) => m.status !== 'removed') : []);
+    const minSizeOf = (item) => (item.detail && item.detail.event.minSize) || null;
     const inviteLabel = (m) => (INVITE_STATE[m.status] || [m.status])[0];
     const inviteTone = (m) => (INVITE_STATE[m.status] || ['', 'tag--muted'])[1];
 
@@ -206,7 +206,7 @@ export default {
     }
 
     function openEdit(p) {
-      if (tooFew(p)) return;
+      if (!sizeOk(p)) return;
       s.form = {
         title: p.title,
         date: p.date,
@@ -231,6 +231,8 @@ export default {
 
     async function confirm(p) {
       const f = s.form;
+      const n = p.members.length;
+      const { min, max } = bounds(p);
       const title = (f.title || '').trim();
       const place = (f.place || '').trim();
       if (!title || !f.date || !f.time || !place) {
@@ -250,6 +252,15 @@ export default {
         s.formErr = '开始时间已经过了，换一个以后的时间';
         return;
       }
+      // 和服务端同样的人数规则：人数 ≥ minSize，人数 ≤ 人数上限 ≤ maxSize
+      if (n < min) {
+        s.formErr = `人数不够：这组人约好至少 ${min} 人成局，现在只有 ${n} 人`;
+        return;
+      }
+      if (f.capacity < n || f.capacity > max) {
+        s.formErr = `人数上限要在 ${n}–${max} 人之间`;
+        return;
+      }
       const body = {
         title,
         startAt,
@@ -261,7 +272,6 @@ export default {
       };
       if (f.feeType !== 'free' && f.feeEstimate !== '' && f.feeEstimate !== null) body.feeEstimate = Number(f.feeEstimate);
       s.formErr = '';
-      const n = p.members.length;
       try {
         const ok = await mutate(async () => {
           await api(`/admin/proposals/${p.id}/confirm`, { method: 'POST', body });
@@ -340,6 +350,21 @@ export default {
       }
     }
 
+    /** 已发邀请：用微信服务通知提醒还没回复的人 */
+    async function remind(item) {
+      if (s.reminding) return;
+      s.reminding = item.event.id;
+      try {
+        const { reminded } = await api(`/admin/events/${item.event.id}/remind`, { method: 'POST' });
+        showBanner(reminded ? `已用微信服务通知提醒 ${reminded} 位还没回复的人。` : '都已回复，没有需要提醒的人。');
+      } catch (e) {
+        failBanner(e, '没能提醒');
+        if (e.code === 'CONFLICT' || e.code === 'NOT_FOUND') load();
+      } finally {
+        s.reminding = null;
+      }
+    }
+
     async function runMatch() {
       if (s.running) return;
       s.running = true;
@@ -347,7 +372,7 @@ export default {
         const r = await api('/admin/match/run', { method: 'POST' });
         await load();
         const extra = [];
-        if (r.autoConfirmed) extra.push(`其中 ${r.autoConfirmed} 个已自动成局`);
+        if (r.autoConfirmed) extra.push(`${r.autoConfirmed} 个方案已自动成局`);
         if (r.backfilled) extra.push(`给邀请中的局补邀了 ${r.backfilled} 人`);
         if (r.expired) extra.push(`清理了 ${r.expired} 个过期意向`);
         let text = `撮合完成 · 新配出 ${r.created} 个方案`;
@@ -357,7 +382,7 @@ export default {
         s.ran = true;
         showBanner(
           text,
-          r.created - (r.autoConfirmed || 0) > 0
+          r.created
             ? {
                 actionLabel: '去看看',
                 action: () => {
@@ -390,7 +415,7 @@ export default {
     const toggleAuto = () =>
       saveAuto({ enabled: !s.auto.enabled }, (a) =>
         a.enabled
-          ? `自动成局已打开：匹配度 ≥ ${a.threshold}、又没有风险提示的新方案会直接成局。`
+          ? `自动成局已打开：匹配度 ≥ ${a.threshold}、又没有风险提示的方案，下次撮合时会直接成局。`
           : '自动成局已关闭：每个方案都等你看过再发邀请。',
       );
     const setThreshold = (v) => {
@@ -407,19 +432,23 @@ export default {
       tabs,
       bounds,
       tooFew,
+      sizeOk,
+      adjustHint,
+      sizeHint,
       isMode,
       isOpen,
       proposalMeta,
+      rangeText,
       paceLabel,
       candidates,
       compatNote,
       sortedPool,
       autoText,
-      joinedOf,
-      activeOf,
-      visibleMembers,
+      totalOf,
       pctOf,
       deadlineText,
+      membersOf,
+      minSizeOf,
       inviteLabel,
       inviteTone,
       openMode,
@@ -429,6 +458,7 @@ export default {
       reject,
       removeMember,
       addMember,
+      remind,
       runMatch,
       toggleAuto,
       setThreshold,
@@ -469,7 +499,7 @@ export default {
               <div class="score" :class="{ 'is-high': p.score >= 90 }"><span class="score__num">{{ p.score }}</span><span class="score__label">匹配度</span></div>
               <div class="proposal__info">
                 <div class="title-row"><h2 :id="'p-title-' + p.id" class="card-title">{{ p.title }}</h2><span class="pill pill--gray">{{ fmt.categoryLabel(p.category) }}</span></div>
-                <span class="proposal__meta">{{ proposalMeta(p) }} · {{ p.members.length }} 人</span>
+                <span class="proposal__meta">{{ proposalMeta(p) }} · {{ p.members.length }} 人（大家约好 {{ rangeText(p) }}）</span>
                 <span class="proposal__made">系统配出 · {{ fmt.ago(p.createdAt) }}</span>
               </div>
             </div>
@@ -514,7 +544,7 @@ export default {
             <div v-if="isMode(p, 'adjust')" class="panel panel--outline">
               <div class="panel__head">
                 <span :id="'panel-adjust-' + p.id" class="panel__title" tabindex="-1">调整成员</span>
-                <span class="panel__hint" :class="{ 'text-danger': tooFew(p) }">{{ tooFew(p) ? '至少 ' + bounds(p).min + ' 人才能成局，现在 ' + p.members.length + ' 人' : '现在 ' + p.members.length + ' 人 · 匹配度和风险会跟着重新算' }}</span>
+                <span class="panel__hint" :class="{ 'text-danger': !sizeOk(p) }">{{ adjustHint(p) }}</span>
               </div>
               <p class="panel__desc">点上面成员卡片里的「移出」，被移出的人回到池子里继续等。至少要留 2 个人。</p>
               <span class="panel__sub">池子里同样想{{ fmt.taskVerb(p.task) }}的人</span>
@@ -522,7 +552,7 @@ export default {
                 <li v-for="c in candidates(p)" :key="c.id" class="cand">
                   <Avatar :user="c.user" :size="32" />
                   <div class="cand__body">
-                    <span class="cand__name">{{ c.user.nickname }} · 履约 {{ c.user.creditRate }}%</span>
+                    <span class="cand__name">{{ c.user.nickname }} · {{ c.isNew ? '第一次参加' : '履约 ' + c.user.creditRate + '%' }}</span>
                     <span class="cand__sub">{{ c.title }} · {{ c.slotLabel }} · {{ c.area }} · {{ compatNote(c, p) }}</span>
                   </div>
                   <button type="button" class="btn btn--outline-primary btn--sm" :aria-label="'把 ' + c.user.nickname + ' 加进这个方案'" :disabled="s.busy" @click="addMember(p, c)">加进来</button>
@@ -571,8 +601,8 @@ export default {
               <FeePicker v-model:feeType="s.form.feeType" v-model:estimate="s.form.feeEstimate" :id-prefix="'f-' + p.id" />
               <div class="cap-row">
                 <span :id="'cap-label-' + p.id" class="field__label">人数上限</span>
-                <Stepper v-model="s.form.capacity" :min="p.members.length" :max="bounds(p).max" :labelledby="'cap-label-' + p.id" />
-                <span class="cap-row__hint">已配 {{ p.members.length }} 人{{ s.form.capacity > p.members.length ? '，多出来的名额系统会从池子里补邀' : '' }}</span>
+                <Stepper v-model="s.form.capacity" :min="p.members.length" :max="Math.max(p.members.length, bounds(p).max)" :labelledby="'cap-label-' + p.id" />
+                <span class="cap-row__hint">已配 {{ p.members.length }} 人，这组人约好最多 {{ bounds(p).max }} 人{{ s.form.capacity > p.members.length ? '；多出来的名额系统会从池子里补邀' : '' }}</span>
               </div>
               <p v-if="s.formErr" class="form-error" role="alert">{{ s.formErr }}</p>
               <div class="actions">
@@ -602,10 +632,10 @@ export default {
             </div>
 
             <div v-if="!isOpen(p)" :id="'actions-' + p.id" class="actions">
-              <button type="button" class="btn btn--primary" :disabled="tooFew(p)" @click="openEdit(p)">确认成局</button>
+              <button type="button" class="btn btn--primary" :disabled="!sizeOk(p)" @click="openEdit(p)">确认成局</button>
               <button type="button" class="btn btn--outline" @click="openMode(p, 'adjust')">调整成员</button>
               <button type="button" class="btn btn--ghost" @click="openMode(p, 'reject')">退回</button>
-              <span v-if="tooFew(p)" class="text-danger small">至少 {{ bounds(p).min }} 人才能成局，先调整成员</span>
+              <span v-if="!sizeOk(p)" class="text-danger small">{{ sizeHint(p) }}</span>
             </div>
           </article>
         </template>
@@ -620,23 +650,27 @@ export default {
             <div class="proposal__top">
               <div class="proposal__info">
                 <div class="title-row"><h2 :id="'inv-title-' + item.event.id" class="card-title">{{ item.event.title }}</h2><span class="pill pill--gray">{{ fmt.categoryLabel(item.event.category) }}</span></div>
-                <span class="proposal__meta">{{ fmt.dateTime(item.event.startAt) }} · {{ item.event.place }} · {{ activeOf(item) }} 人</span>
+                <span class="proposal__meta">{{ fmt.dateTime(item.event.startAt) }} · {{ item.event.place }} · {{ totalOf(item) }} 人</span>
               </div>
               <span class="pill pill--accent pill--lg">邀请中</span>
             </div>
             <div class="stack-8">
-              <div class="progress-head"><span class="strong">{{ joinedOf(item) }} / {{ activeOf(item) }} 人已加入</span><span class="muted">{{ deadlineText(item) }}</span></div>
+              <div class="progress-head"><span class="strong">{{ item.event.joinedCount }} / {{ totalOf(item) }} 人已加入</span><span class="muted">{{ deadlineText(item) }}</span></div>
               <div class="progress" aria-hidden="true"><div class="progress__bar" :style="{ width: pctOf(item) }"></div></div>
             </div>
-            <ul class="member-grid member-grid--sm" aria-label="成员">
-              <li v-for="m in visibleMembers(item)" :key="m.id" class="member member--sm">
+            <ul v-if="membersOf(item).length" class="member-grid member-grid--sm" aria-label="成员">
+              <li v-for="m in membersOf(item)" :key="m.id" class="member member--sm">
                 <Avatar :user="m" :size="32" />
                 <span class="member__name grow">{{ m.nickname }}</span>
                 <span class="tag" :class="inviteTone(m)">{{ inviteLabel(m) }}</span>
               </li>
             </ul>
-            <p class="small muted">全员加入就自动成局、建群。到截止时间已加入 {{ item.event.minSize || 3 }} 人以上也会成局；不够就取消，意向放回池子。</p>
-            <div class="actions"><a class="btn btn--outline" :href="'#/events?id=' + item.event.id">在局管理里查看</a></div>
+            <p v-else-if="!item.detail" class="small muted">每个人的回复情况暂时没拿到，刷新页面再试试。</p>
+            <p class="small muted">全员加入就自动成局、建群。到截止时间已加入 {{ minSizeOf(item) ? minSizeOf(item) + ' 人以上' : '的人数够了' }}也会成局；不够就取消，意向放回池子。</p>
+            <div class="actions">
+              <button type="button" class="btn btn--outline" :disabled="s.reminding === item.event.id" @click="remind(item)">{{ s.reminding === item.event.id ? '正在提醒…' : '提醒还没回复的人' }}</button>
+              <a class="btn btn--ghost" :href="'#/events?id=' + item.event.id">在局管理里查看</a>
+            </div>
           </article>
         </template>
 
@@ -686,7 +720,7 @@ export default {
           <li v-for="q in sortedPool" :key="q.id" class="pool__item">
             <Avatar :user="q.user" :size="36" />
             <div class="pool__body">
-              <span class="pool__name">{{ q.user.nickname }}</span>
+              <span class="pool__name">{{ q.user.nickname }}<span v-if="q.isNew" class="pill pill--tint pill--xs">新人</span></span>
               <span class="pool__intent">{{ q.title }} · {{ q.slotLabel }} · {{ q.area }}</span>
             </div>
             <div class="pool__wait">

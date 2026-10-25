@@ -74,12 +74,17 @@ export default {
       return `${p.m} 月 ${p.d} 日 · ${fmt.weekday(p.date)}`;
     });
 
-    const newUsersDiff = computed(() => {
-      const series = (s.stats && s.stats.series) || [];
-      if (series.length < 2) return '';
-      const diff = series[series.length - 1].newUsers - series[series.length - 2].newUsers;
-      if (diff === 0) return '和昨天一样';
-      return `比昨天 ${diff > 0 ? '+' : '−'}${Math.abs(diff)}`;
+    // 和昨天、和前 7 天比（week 是滚动的最近 7×24 小时，prevWeek 是再往前 7×24 小时）
+    const deltas = computed(() => {
+      const st = s.stats;
+      if (!st || !st.yesterday || !st.prevWeek) return { users: '', intents: '', rate: '', noShow: '' };
+      const noShow = st.week.noShowCount - st.prevWeek.noShowCount;
+      return {
+        users: fmt.compare(st.today.newUsers - st.yesterday.newUsers, '昨天'),
+        intents: fmt.compare(st.today.newIntents - st.yesterday.newIntents, '昨天'),
+        rate: fmt.compare(st.week.attendanceRate - st.prevWeek.attendanceRate, '前 7 天', ' 个百分点'),
+        noShow: noShow === 0 ? '和前 7 天一样' : `比前 7 天${noShow > 0 ? '多' : '少'} ${Math.abs(noShow)} 次`,
+      };
     });
 
     const chart = computed(() => {
@@ -134,7 +139,8 @@ export default {
         items.push({ key: 'a-more', href: '#/users?tab=appeals', text: `还有 ${s.appeals.length - 2} 条申诉等你处理` });
       }
       for (const u of s.restricted.slice(0, 2)) {
-        items.push({ key: `u${u.id}`, href: `#/users?id=${u.id}`, text: `${u.nickname} 账号受限中 · 履约 ${u.credit.rate}%` });
+        const why = u.restrictedReason ? `：${u.restrictedReason}` : '';
+        items.push({ key: `u${u.id}`, href: `#/users?id=${u.id}`, text: `${u.nickname} 账号受限中${why}` });
       }
       if (longWaiting.value) {
         items.push({ key: 'wait', href: '#/matching', text: `${longWaiting.value} 个人等了超过一天还没配上` });
@@ -142,9 +148,7 @@ export default {
       return items;
     });
 
-    const reportWho = (r) => `${r.targetUser ? `${r.targetUser.nickname} · ` : ''}${fmt.REPORT_KIND[r.targetType] || '内容'}`;
-
-    return { s, view, hot, load, today, todayText, newUsersDiff, chart, otherPending, watchItems, reportWho, fmt };
+    return { s, view, hot, load, today, todayText, deltas, chart, otherPending, watchItems, fmt };
   },
   template: html`
 <div class="page page--dash">
@@ -164,12 +168,12 @@ export default {
       <div class="kpi">
         <span class="kpi__label">今日新用户</span>
         <span class="kpi__value">{{ today.newUsers }}</span>
-        <span class="kpi__sub">{{ newUsersDiff }}</span>
+        <span class="kpi__sub">{{ deltas.users }}</span>
       </div>
       <div class="kpi">
         <span class="kpi__label">今日新意向</span>
         <span class="kpi__value">{{ today.newIntents }}</span>
-        <span class="kpi__sub">池子里还有 {{ s.intents.length }} 人在等</span>
+        <span class="kpi__sub">{{ deltas.intents }}</span>
       </div>
       <a href="#/matching" class="kpi kpi--link">
         <span class="kpi__label">等你确认的局</span>
@@ -182,9 +186,9 @@ export default {
         <span class="kpi__more">{{ today.pendingPosts + today.pendingEvents ? '另有 ' + (today.pendingPosts + today.pendingEvents) + ' 条内容待审' : '去审核' }}<Icon name="chevron" :size="14" :weight="2.2" /></span>
       </a>
       <div class="kpi">
-        <span class="kpi__label">本周履约率</span>
+        <span class="kpi__label">近 7 天履约率</span>
         <span class="kpi__value">{{ s.stats.week.attendanceRate }}%</span>
-        <span class="kpi__sub">近 7 天结束了 {{ s.stats.week.eventsEnded }} 个局</span>
+        <span class="kpi__sub">{{ deltas.rate }}</span>
       </div>
     </section>
 
@@ -258,7 +262,7 @@ export default {
           <a href="#/moderation" class="text-link">去处理</a>
         </div>
         <a v-for="r in s.reports.slice(0, 3)" :key="r.id" :href="'#/moderation?tab=report&id=' + r.id" class="list-row list-row--col">
-          <span class="meta-row"><span class="pill" :class="'pill--' + fmt.reasonTone(r.reason)">{{ r.reason }}</span><span class="list-row__sub">{{ reportWho(r) }} · {{ fmt.ago(r.createdAt) }}</span></span>
+          <span class="meta-row"><span class="pill" :class="'pill--' + fmt.reasonTone(r.reason)">{{ r.reason }}</span><span class="list-row__sub">{{ fmt.reportWho(r) }} · {{ fmt.ago(r.createdAt) }}</span></span>
           <span class="list-row__preview">{{ r.preview }}</span>
         </a>
         <p v-if="!s.reports.length" class="list-empty">没有待处理的举报。</p>
@@ -272,7 +276,7 @@ export default {
           <Icon name="chevron" :size="18" stroke="#858C94" :weight="2" />
         </a>
         <p v-if="!watchItems.length" class="list-empty">暂时没有需要留意的事。</p>
-        <p class="list-foot list-foot--body">近 7 天放鸽子 {{ s.stats.week.noShowCount }} 次</p>
+        <p class="list-foot list-foot--body">近 7 天放鸽子 {{ s.stats.week.noShowCount }} 次，{{ deltas.noShow }} · 结束了 {{ s.stats.week.eventsEnded }} 个局</p>
       </section>
     </div>
   </template>

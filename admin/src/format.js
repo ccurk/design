@@ -141,8 +141,9 @@ export const EVENT_STATUS = {
   cancelled: { label: '已取消', tone: 'outline' },
   rejected: { label: '未通过', tone: 'danger' },
 };
+/** 和 GET /api/admin/events?status=ended 同一个口径：已经结束的 open / formed 局显示「已结束」 */
 export function displayStatus(event) {
-  return ['open', 'inviting', 'formed'].includes(event.status) && event.phase === 'ended' ? 'ended' : event.status;
+  return ['open', 'formed'].includes(event.status) && event.phase === 'ended' ? 'ended' : event.status;
 }
 
 /** 信用等级；封号的人单独显示「已封号」 */
@@ -196,6 +197,61 @@ export const REPORT_ACTION = {
   restrict_7d: '限制 7 天',
   ban: '封号',
 };
+
+/** 举报的标题：「南风 的动态」「大鹏 在「桌游夜 · 新手友好」群聊」 */
+export function reportTitle(r) {
+  const n = r.targetUser && r.targetUser.nickname;
+  const c = r.context || {};
+  switch (r.targetType) {
+    case 'user':
+      return n ? `${n} 的个人资料` : '一位用户的资料';
+    case 'post':
+      return n ? `${n} 的动态` : '一条动态';
+    case 'comment':
+      return n ? `${n} 的评论` : '一条评论';
+    case 'message':
+      if (c.eventTitle) return `${n || '有人'} 在「${c.eventTitle}」群聊`;
+      return n ? `${n} 在群聊里的发言` : '一条群聊消息';
+    case 'event':
+      if (c.eventTitle) return n ? `${n} 发起的局「${c.eventTitle}」` : `局「${c.eventTitle}」`;
+      return n ? `${n} 发起的局` : '一个局';
+    default:
+      return '被举报的内容';
+  }
+}
+
+/** 被举报的内容在哪：「来自「桌游夜 · 新手友好」群聊」「评论在动态「…」下面」 */
+export function reportWhere(r) {
+  const c = r.context;
+  if (r.targetType === 'user') return '被举报的是 TA 的昵称和简介';
+  if (!c) return '内容已经不在了';
+  switch (r.targetType) {
+    case 'post':
+      return '发在「动态」';
+    case 'comment':
+      return c.postPreview ? `评论在动态「${c.postPreview}」下面` : '发在动态下面的评论里';
+    case 'message':
+      return c.eventTitle ? `来自「${c.eventTitle}」群聊` : '发在局的群聊里';
+    case 'event':
+      return c.eventTitle ? `用户发起的局「${c.eventTitle}」` : '用户发起的局';
+    default:
+      return '';
+  }
+}
+
+/** 概览列表里的一行：「大鹏 · 「桌游夜」群聊」「南风 · 动态」 */
+export function reportWho(r) {
+  const n = r.targetUser ? `${r.targetUser.nickname} · ` : '';
+  if (r.targetType === 'message' && r.context && r.context.eventTitle) return `${n}「${r.context.eventTitle}」群聊`;
+  return `${n}${REPORT_KIND[r.targetType] || '内容'}`;
+}
+
+/** 和之前比：「比昨天 +5」「比前 7 天 −2 个百分点」「和昨天一样」 */
+export function compare(diff, than, unit = '') {
+  const n = Number(diff) || 0;
+  if (n === 0) return `和${than}一样`;
+  return `比${than} ${n > 0 ? '+' : '−'}${Math.abs(n)}${unit}`;
+}
 
 // ---- 撮合相关（默认值与 server/src/time.js defaultStartTime、constants.js defaultDurationForTask 一致）----
 

@@ -562,7 +562,11 @@ export function seed(db) {
       created_at: ago(2 * DAY),
       resolved_at: ago(DAY),
     });
-    db.update('users', U.dapeng, { status: 'restricted', restricted_until: new Date(t - DAY + 7 * DAY).toISOString() });
+    db.update('users', U.dapeng, {
+      status: 'restricted',
+      restricted_until: new Date(t - DAY + 7 * DAY).toISOString(),
+      restricted_reason: '被举报并核实违反社区公约',
+    });
     db.insert('reports', {
       reporter_id: U.qiqi,
       target_type: 'message',

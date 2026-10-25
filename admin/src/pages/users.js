@@ -55,16 +55,11 @@ export default {
       s.loading = true;
       s.error = '';
       try {
-        const query = { q: s.q.trim() || undefined };
-        if (['good', 'fair', 'restricted'].includes(s.lv)) query.level = s.lv;
-        // 封号的人等级也算「受限」，所以「已封号」按账号状态筛
-        if (s.lv === 'banned') query.status = 'banned';
-        const res = await api('/admin/users', { query });
+        // level：good / fair / restricted 按信用等级（不含封号的人），banned = 被封号的人
+        const res = await api('/admin/users', { query: { q: s.q.trim() || undefined, level: s.lv === 'all' ? undefined : s.lv } });
         if (seq !== listSeq) return;
-        let items = res.items;
-        if (s.lv === 'restricted') items = items.filter((u) => u.status !== 'banned');
-        if (s.tab === 'restricted') items = items.filter((u) => u.status !== 'active');
-        s.rows = items;
+        // 「受限中」= 受限 + 封号（接口的 status 一次只能筛一种）
+        s.rows = s.tab === 'restricted' ? res.items.filter((u) => u.status !== 'active') : res.items;
       } catch (e) {
         if (seq === listSeq) s.error = e.message;
       } finally {
@@ -206,34 +201,30 @@ export default {
       s.revokeAsk = null;
       focusSoon(`#revoke-${c.id}`);
     }
+    const appealing = (c) => !!(c.appeal && c.appeal.status === 'pending');
     function revokeText(c) {
-      if (c.appeal && c.appeal.status === 'pending') {
-        return `这条记录正在申诉中。撤销会同时通过 ${du.value.nickname} 的申诉，并通知 TA。确定吗？`;
-      }
-      return '撤销后这条不再算进履约率（不会单独通知 TA）。确定吗？';
+      const tail = appealing(c) ? '，这条记录上的申诉也会自动通过' : '';
+      return `撤销后这条不再算进履约率，会通知 ${du.value.nickname}${tail}。确定吗？`;
     }
 
+    /** 撤销一条信用记录：服务端会通知本人，并自动通过这条记录上待处理的申诉 */
     async function revoke(c) {
       if (s.busy) return;
       const user = du.value;
       const before = dc.value.rate;
-      const viaAppeal = !!(c.appeal && c.appeal.status === 'pending');
+      const hadAppeal = appealing(c);
       s.busy = true;
       try {
-        if (viaAppeal) {
-          await api(`/admin/appeals/${c.appeal.id}/resolve`, { method: 'POST', body: { approve: true } });
-        } else {
-          await api(`/admin/users/${user.id}/credit`, { method: 'POST', body: { revokeId: c.id } });
-        }
+        await api(`/admin/users/${user.id}/credit`, { method: 'POST', body: { revokeId: c.id } });
         s.revokeAsk = null;
         await loadDetail(user.id);
         const after = dc.value ? dc.value.rate : before;
         showBanner(
-          `已撤销 ${user.nickname} ${fmt.shortDate(c.createdAt)} 的「${typeLabel(c)}」，履约率 ${before}% → ${after}%${viaAppeal ? '，申诉已通过并通知了 TA' : ''}。`,
+          `已撤销 ${user.nickname} ${fmt.shortDate(c.createdAt)} 的「${typeLabel(c)}」，履约率 ${before}% → ${after}%，已通知 TA${hadAppeal ? '；这条记录上的申诉也自动通过了' : ''}。`,
         );
         loadList();
         loadCounts();
-        if (viaAppeal) loadAppeals();
+        if (hadAppeal) loadAppeals();
         refreshBadges();
       } catch (e) {
         failBanner(e, '没能撤销');
@@ -294,6 +285,22 @@ export default {
     }
 
     // ---- 申诉 ----
+
+    const hoursText = (h) => String(Math.round(Number(h) * 10) / 10);
+
+    /** 「系统找到的证据」下面那句提示（规则见 docs/api.md 3.1：提前 24 小时以上说去不了不记录，24 小时内算临时鸽） */
+    function evidenceHint(a) {
+      const ce = a.creditEvent;
+      if (!ce || !ce.eventId) return '这条记录没有关联具体的局，找不到群聊记录。';
+      const list = a.evidence || [];
+      if (!list.length) return '没找到 TA 在群里提前说过。';
+      const earliest = Math.max(...list.map((m) => m.hoursBeforeStart));
+      if (earliest >= 24) return '提前 24 小时以上说了，按规则不记录，建议通过。';
+      const h = hoursText(earliest);
+      if (ce.type === 'no_show') return `开场前 ${h} 小时才说，按规则应记「临时鸽」而不是「放鸽子」。`;
+      if (ce.type === 'cancel_late') return `开场前 ${h} 小时才说，按规则记「临时鸽」没有问题。`;
+      return `TA 在开场前 ${h} 小时说过，可以看看内容再决定。`;
+    }
 
     function appealStatus(a) {
       return { pending: ['待处理', 'warn'], approved: ['已通过', 'stone'], rejected: ['已驳回', 'stone'] }[a.status] || [a.status, 'stone'];
@@ -380,6 +387,8 @@ export default {
       cancelAsk,
       account,
       appealStatus,
+      hoursText,
+      evidenceHint,
       resolveAppeal,
       goAppeals,
       openFromAppeal,
@@ -389,7 +398,7 @@ export default {
 <div class="page">
   <header class="page-head page-head--col">
     <h1 class="page-title" tabindex="-1" data-page-title>用户与信用</h1>
-    <p class="page-desc">信用只看守不守约，不看话多不多。撤销一条记录或通过申诉后，履约率马上重算；通过申诉会通知本人。</p>
+    <p class="page-desc">信用只看守不守约，不看话多不多。撤销一条记录或通过申诉后，履约率马上重算，并通知本人。</p>
   </header>
 
   <StatusBanner :banner="banner" @close="closeBanner" />
@@ -423,7 +432,15 @@ export default {
             <tr v-else-if="!s.rows.length"><td colspan="10" class="table__state">{{ s.tab === 'restricted' && !s.q && s.lv === 'all' ? '现在没有受限的用户。' : '没有找到符合条件的用户。' }}</td></tr>
             <template v-if="!s.error">
               <tr v-for="u in s.rows" :key="u.id" :class="{ 'is-selected': s.sel === u.id }">
-                <td><span class="user-cell"><Avatar :user="u" :size="32" /><span class="user-cell__name">{{ u.nickname }}</span></span></td>
+                <td>
+                  <span class="user-cell">
+                    <Avatar :user="u" :size="32" />
+                    <span class="user-cell__text">
+                      <span class="user-cell__name">{{ u.nickname }}</span>
+                      <span v-if="u.status !== 'active' && u.restrictedReason" class="user-cell__sub">{{ u.status === 'banned' ? '封号' : '受限' }}：{{ u.restrictedReason }}</span>
+                    </span>
+                  </span>
+                </td>
                 <td class="body">{{ u.phoneMasked || '—' }}</td>
                 <td class="body">{{ fmt.shortDate(u.createdAt) }}</td>
                 <td class="num strong">{{ u.credit.rate }}%</td>
@@ -473,8 +490,8 @@ export default {
 
               <div class="account-box">
                 <span class="account-box__title">账号处理</span>
-                <span v-if="du.status === 'restricted'" class="text-danger small">受限到 {{ fmt.dateTime(du.restrictedUntil) }}，这期间不能撮合和报名。</span>
-                <span v-if="du.status === 'banned'" class="text-danger small">已封号，不能登录。</span>
+                <span v-if="du.status === 'restricted'" class="text-danger small">受限到 {{ fmt.dateTime(du.restrictedUntil) }}{{ du.restrictedReason ? ' · ' + du.restrictedReason : '' }}。这期间不能撮合和报名。</span>
+                <span v-if="du.status === 'banned'" class="text-danger small">已封号{{ du.restrictedReason ? ' · ' + du.restrictedReason : '' }}。不能登录。</span>
                 <div v-if="!s.ask" id="account-actions" class="actions actions--tight">
                   <button v-if="du.status === 'active'" type="button" class="btn btn--outline btn--sm" @click="ask('restrict')">限制 7 天</button>
                   <button v-if="du.status === 'restricted'" type="button" class="btn btn--outline btn--sm" :disabled="s.busy" @click="account('unrestrict')">解除限制</button>
@@ -562,6 +579,16 @@ export default {
             <span class="label">TA 说</span>
             <blockquote class="quote">{{ a.text }}</blockquote>
           </div>
+          <div class="stack-8">
+            <span class="label">系统找到的证据</span>
+            <div class="evidence">
+              <div v-for="(m, i) in a.evidence || []" :key="i" class="evidence__item">
+                <span class="evidence__meta">群聊记录 · {{ fmt.dateTime(m.createdAt) }} · 开场前 {{ hoursText(m.hoursBeforeStart) }} 小时</span>
+                <span class="evidence__text">{{ a.user.nickname }}：「{{ m.text }}」</span>
+              </div>
+              <span class="evidence__hint">{{ evidenceHint(a) }}</span>
+            </div>
+          </div>
           <div><button type="button" class="text-btn" @click="openFromAppeal(a.user.id)">看 {{ a.user.nickname }} 的全部信用记录</button></div>
           <div v-if="a.status === 'pending'" class="decide">
             <label :for="'ap-reply-' + a.id" class="field__label">回复{{ a.user.nickname }}（会用服务通知发给 TA）</label>
@@ -574,7 +601,7 @@ export default {
           </div>
           <div v-else class="done-box">
             <span class="done-box__title">{{ a.status === 'approved' ? '已通过，这条记录已撤销' : '已驳回，记录保留' }}</span>
-            <span class="small body">{{ a.adminNote ? '回复已发给' + a.user.nickname + '：' + a.adminNote : '已通知 ' + a.user.nickname + '。' }}</span>
+            <span class="small body">{{ a.adminNote ? '回复已发给 ' + a.user.nickname + '：' + a.adminNote : '已通知 ' + a.user.nickname + '。' }}</span>
           </div>
         </article>
         <p class="small muted">没有别的申诉了。</p>

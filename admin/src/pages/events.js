@@ -66,6 +66,7 @@ export default {
       rejOpen: false,
       rejWhy: '',
       rejErr: '',
+      reminding: false,
     });
 
     // ---- 列表 ----
@@ -76,15 +77,15 @@ export default {
       s.loading = true;
       s.error = '';
       try {
+        // status=ended 是按时间算的「已结束」；open / formed 只含还没结束的（服务端处理）
         const query = {
-          // 「已结束」不是存下来的状态（按时间算），拿全部再在前端筛
-          status: s.fs === 'all' || s.fs === 'ended' ? undefined : s.fs,
+          status: s.fs === 'all' ? undefined : s.fs,
           source: s.fsrc === 'all' ? undefined : s.fsrc,
           q: s.q.trim() || undefined,
         };
         const res = await api('/admin/events', { query });
         if (seq !== listSeq) return;
-        s.rows = s.fs === 'all' ? res.items : res.items.filter((e) => fmt.displayStatus(e) === s.fs);
+        s.rows = res.items;
       } catch (e) {
         if (seq === listSeq) s.error = e.message;
       } finally {
@@ -181,7 +182,7 @@ export default {
 
     function memberState(m) {
       const e = ev.value;
-      const OTHER = { invited: '还没回复邀请', applied: '申请加入中', declined: '没有加入', left: '已退出' };
+      const OTHER = { invited: '还没回复邀请', applied: '申请加入中', declined: '没有加入', expired: '邀请过期没回复', left: '已退出' };
       if (m.status !== 'joined') return OTHER[m.status] || m.status;
       const parts = [];
       if (m.role === 'host') parts.push('发起人');
@@ -253,6 +254,25 @@ export default {
         }
       } finally {
         s.busy = false;
+      }
+    }
+
+    // ---- 撮合局邀请中：提醒还没回复的人 ----
+
+    async function remind() {
+      if (s.reminding || !ev.value) return;
+      s.reminding = true;
+      try {
+        const { reminded } = await api(`/admin/events/${ev.value.id}/remind`, { method: 'POST' });
+        showBanner(reminded ? `已用微信服务通知提醒 ${reminded} 位还没回复的人。` : '都已回复，没有需要提醒的人。');
+      } catch (e) {
+        failBanner(e, '没能提醒');
+        if (e.code === 'CONFLICT' || e.code === 'NOT_FOUND') {
+          load();
+          loadDetail();
+        }
+      } finally {
+        s.reminding = false;
       }
     }
 
@@ -386,6 +406,7 @@ export default {
       confirmCancel,
       openRej,
       review,
+      remind,
       toggleCreate,
       publish,
       STATUS_FILTERS,
@@ -536,6 +557,10 @@ export default {
         <div class="info-tile"><span class="info-tile__label">群里</span><span class="info-tile__value">{{ msgCount }} 条消息 · AA {{ aaText }} · 被举报 {{ ev.reportCount }} 次</span></div>
       </div>
 
+      <div v-if="ev.inviteDeadline" class="invite-box">
+        <span class="invite-box__text">邀请中：{{ ev.joinedCount }} 人已加入，{{ ev.invitedCount }} 人还没回复 · 截止 {{ fmt.when(ev.inviteDeadline) }}</span>
+        <button type="button" class="btn btn--outline btn--sm" :disabled="s.reminding" @click="remind">{{ s.reminding ? '正在提醒…' : '提醒还没回复的人' }}</button>
+      </div>
       <p v-if="ev.status === 'cancelled' && ev.cancelReason" class="info-box">取消原因：{{ ev.cancelReason }}</p>
       <p v-if="ev.status === 'rejected' && ev.reviewNote" class="info-box">没通过的原因：{{ ev.reviewNote }}</p>
       <p v-if="ev.flags && ev.flags.length" class="info-box info-box--warn">系统标记：{{ ev.flags.join('、') }}</p>
