@@ -204,4 +204,16 @@ describe('撮合引擎', () => {
     const dup = await s.api('POST', '/api/intents', { token: tc, body: { task: '骑行', when: '2026-11-01' } });
     assert.equal(dup.status, 409);
   });
+
+  test('放宽条件：PUT 和 PATCH 都能改（小程序只能用 PUT）', async () => {
+    const token = await s.login(makeUser(s.db));
+    const intent = await s.ok('POST', '/api/intents', { token, body: { task: '爬山', when: '2026-11-01', slot: 'morning' } });
+    assert.equal(intent.relaxTime, false);
+    const viaPut = await s.ok('PUT', `/api/intents/${intent.id}`, { token, body: { relaxTime: true } });
+    assert.equal(viaPut.relaxTime, true);
+    assert.equal(viaPut.relaxSize, false);
+    const viaPatch = await s.ok('PATCH', `/api/intents/${intent.id}`, { token, body: { relaxSize: true } });
+    assert.equal(viaPatch.relaxTime, true);
+    assert.equal(viaPatch.relaxSize, true);
+  });
 });

@@ -206,7 +206,7 @@
 | `POST /api/intents` | `{task, when: "today"\|"tomorrow"\|"weekend"\|"YYYY-MM-DD", slot?, area?, sizeMin?, sizeMax?}` → `Intent`（提交后立刻触发一次撮合） |
 | `GET /api/intents/mine` | `{items: Intent[]}`（open / proposed / invited 状态） |
 | `GET /api/intents/:id` | `Intent` + `{similarCount, needMore, submittedAt}`。similarCount = 其他条件相同的 open 意向数 |
-| `PATCH /api/intents/:id` | `{relaxTime?, relaxSize?}` |
+| `PUT /api/intents/:id` | `{relaxTime?, relaxSize?}`（也接受 PATCH；小程序的 `wx.request` 不支持 PATCH，所以用 PUT） |
 | `DELETE /api/intents/:id` | 取消意向 |
 | `GET /api/matches/:eventId` | 被邀请人看撮合结果：`{event: EventDetail, members: UserBrief[], commonPoints: [], myStatus, joinedCount, deadline}` |
 | `POST /api/matches/:eventId/accept` | 加入这个局 → `{myStatus: "joined", eventStatus}` |

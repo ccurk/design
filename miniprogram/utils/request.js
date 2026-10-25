@@ -1,7 +1,8 @@
 // wx.request 的 Promise 封装：自动登录、带 Bearer token、401 时重新登录一次、失败时 toast error.message。
 const config = require('../config');
 
-const TOKEN_KEY = 'dz_token';
+// token 按登录方式分开存：改了 devLogin / devUserId 后会自动换身份重新登录
+const TOKEN_KEY = 'dz_token_' + (config.devLogin ? 'dev' + (config.devUserId || '') : 'wx');
 let token = '';
 try {
   token = wx.getStorageSync(TOKEN_KEY) || '';
@@ -130,9 +131,8 @@ module.exports = {
   request,
   get: (path, data, opts) => request('GET', path, data, opts),
   post: (path, data, opts) => request('POST', path, data, opts),
+  // wx.request 不支持 PATCH，部分更新也用 PUT
   put: (path, data, opts) => request('PUT', path, data, opts),
-  // 注意：wx.request 文档未列出 PATCH，开发者工具可用；真机若不支持需后端另开 POST 别名
-  patch: (path, data, opts) => request('PATCH', path, data, opts),
   del: (path, data, opts) => request('DELETE', path, data, opts),
   login,
   ensureLogin,

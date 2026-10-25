@@ -259,6 +259,7 @@ for (const f of appFiles('.js')) {
     const route = METHOD[m[1]] + ' ' + norm(lit);
     seen.add(m.index + m[0].indexOf(m[2]));
     apiCount++;
+    if (m[1] === 'patch') fail(f, `wx.request 不支持 PATCH，请改用 PUT：${route}`);
     if (!docRoutes.has(route)) fail(f, `接口不在 docs/api.md 里：${route}`);
   }
   // send('POST', '/api/...')
@@ -267,6 +268,7 @@ for (const f of appFiles('.js')) {
     seen.add(m.index + m[0].indexOf("'" + m[2]));
     apiCount++;
     const route = m[1] + ' ' + norm(m[2]);
+    if (m[1] === 'PATCH') fail(f, `wx.request 不支持 PATCH，请改用 PUT：${route}`);
     if (!docRoutes.has(route)) fail(f, `接口不在 docs/api.md 里：${route}`);
   }
   // 其余 /api 字面量（如上传地址）只核对路径

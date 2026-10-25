@@ -13,7 +13,10 @@ export function matchingRoutes({ db }) {
   r.post('/intents', auth, (req, res) => res.json(createIntent(db, req.user, body(req))));
   r.get('/intents/mine', auth, (req, res) => res.json(myIntents(db, req.user)));
   r.get('/intents/:id', auth, (req, res) => res.json(intentDetail(db, req.user, pid(req))));
-  r.patch('/intents/:id', auth, (req, res) => res.json(updateIntent(db, req.user, pid(req), body(req))));
+  // wx.request 不支持 PATCH，小程序用 PUT；两个方法等价
+  const update = (req, res) => res.json(updateIntent(db, req.user, pid(req), body(req)));
+  r.put('/intents/:id', auth, update);
+  r.patch('/intents/:id', auth, update);
   r.delete('/intents/:id', auth, (req, res) => res.json(cancelIntent(db, req.user, pid(req))));
 
   r.get('/matches/:eventId', auth, (req, res) => res.json(matchView(db, req.user, pid(req, 'eventId'))));

@@ -1,5 +1,5 @@
 // 所有接口集中在这里，路径与 docs/api.md 一一对应（tools/check.js 会核对）。
-const { get, post, put, patch, del } = require('./request');
+const { get, post, put, del } = require('./request');
 
 const q = (params) => {
   const out = {};
@@ -29,7 +29,7 @@ module.exports = {
   createIntent: (data) => post('/api/intents', data),
   myIntents: (opts) => get('/api/intents/mine', {}, opts),
   intent: (id, opts) => get(`/api/intents/${id}`, {}, opts),
-  updateIntent: (id, data) => patch(`/api/intents/${id}`, data),
+  updateIntent: (id, data) => put(`/api/intents/${id}`, data),
   cancelIntent: (id) => del(`/api/intents/${id}`),
   match: (eventId) => get(`/api/matches/${eventId}`),
   acceptMatch: (eventId) => post(`/api/matches/${eventId}/accept`),
