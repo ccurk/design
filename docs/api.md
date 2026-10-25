@@ -27,8 +27,8 @@
 { "id": 3, "nickname": "阿野", "avatarUrl": null, "avatarText": "野", "avatarColor": "stone", "creditRate": 98, "creditLevel": "good" }
 ```
 
-- `avatarText`：昵称第一个字；没有头像时客户端用它画圆形头像。
-- `avatarColor`：`ink | stone | accent | slate`，按 `id % 4` 固定分配。客户端映射：ink=#193543 白字，stone=#E3E8EC 黑字，accent=主题色（默认 #7CCAE3）黑字，slate=#2E4A5C 白字。
+- `avatarText`：昵称第一个字；「阿 / 小 / 老 / 大」开头时取第二个字（阿野 → 野）。没有头像时客户端用它画圆形头像。
+- `avatarColor`：`ink | stone | accent | slate`，按 `id % 4` 依次取 `slate / accent / ink / stone`（1 栗子 = accent，3 阿野 = stone）。客户端映射：ink=#193543 白字，stone=#E3E8EC 黑字，accent=主题色（默认 #7CCAE3）黑字，slate=#2E4A5C 白字。
 - `creditRate`：履约率，0–100 整数；`creditLevel`：`good | fair | restricted`（良好 / 一般 / 受限）。
 
 ### 1.2 分类与任务
@@ -197,13 +197,13 @@
 | --- | --- |
 | `GET /api/users/:id` | `{user: UserBrief + {bio, interests, phoneVerified, idVerified}, credit: {...同 Me.credit}, commonPoints: ["都喜欢看日出"], recentEvents: [{id, title, dateLabel, sharedWithMe, ended}], blockedByMe, profileHidden}`。对方关了「同局的人可以看我的主页」且不同局时，`profileHidden=true`，只返回昵称和履约率 |
 | `POST /api/blocks/:userId` · `DELETE /api/blocks/:userId` | 拉黑 / 移出黑名单 |
-| `POST /api/mutes/:userId` | 不看 TA 的动态 |
+| `POST /api/mutes/:userId` · `DELETE /api/mutes/:userId` | 不看 TA 的动态 / 恢复 |
 
 ### 4.3 撮合意向与撮合结果
 
 | 接口 | 说明 |
 | --- | --- |
-| `POST /api/intents` | `{task, when: "today"\|"tomorrow"\|"weekend"\|"YYYY-MM-DD", slot?, area?, sizeMin?, sizeMax?}` → `Intent`（提交后立刻触发一次撮合） |
+| `POST /api/intents` | `{task, when: "today"\|"tomorrow"\|"weekend"\|"YYYY-MM-DD", slot?, area?, sizeMin?, sizeMax?, label?, relaxTime?, relaxSize?}` → `Intent`（提交后立刻触发一次撮合）。`label` 是展示名，如「洱海边骑行」 |
 | `GET /api/intents/mine` | `{items: Intent[]}`（open / proposed / invited 状态） |
 | `GET /api/intents/:id` | `Intent` + `{similarCount, needMore, submittedAt}`。similarCount = 其他条件相同的 open 意向数 |
 | `PUT /api/intents/:id` | `{relaxTime?, relaxSize?}`（也接受 PATCH；小程序的 `wx.request` 不支持 PATCH，所以用 PUT） |
@@ -299,7 +299,7 @@
 | `POST /api/reports` | `{targetType, targetId, reason, detail?, images?, alsoBlock?}` → `{id, status: "pending"}` |
 | `POST /api/upload` | multipart，字段名 `file`，只收图片，≤ 5MB → `{url}` |
 | `GET /api/inbox` | `{actions: [...], chats: [...], notices: [...]}`（见下） |
-| `POST /api/notices/:id/read` | 标记已读 |
+| `POST /api/notices/:id/read` · `POST /api/notices/read-all` | 标记一条 / 全部已读 |
 
 ```json
 {
@@ -312,6 +312,17 @@
   "notices": [ { "id": 9, "type": "report_result", "title": "你的举报已处理", "body": "对方已被限制使用", "link": null, "read": false, "createdAt": "..." } ]
 }
 ```
+
+通知的 `link` 告诉客户端点了去哪：`match:<eventId>` 撮合成功页、`event:<eventId>` 局详情、`chat:<eventId>` 群聊、`review:<eventId>` 互评、`post:<postId>` 动态详情、`credit` 我的信用记录，`null` 不跳转。
+
+### 4.9 开发辅助接口（仅 `NODE_ENV` 不是 `production` 时开放）
+
+演示登录见 4.1 的 `POST /api/auth/dev-login`。
+
+| 接口 | 说明 |
+| --- | --- |
+| `POST /api/dev/clock` | `{now}` / `{advanceMinutes}` / `{reset: true}` 让服务端「穿越时间」，用来演示提醒、邀请到期、互评 |
+| `POST /api/dev/tick` | `{match?}` 立刻跑一遍定时任务（提醒、邀请到期）；`match: true` 时连撮合一起跑 |
 
 ---
 
