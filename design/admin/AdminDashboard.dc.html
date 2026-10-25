@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>后台 · 概览</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 100vh; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<nav aria-label="后台菜单" style="flex: 1 1 232px; box-sizing: border-box; padding: 24px 16px; background: #FFFFFF; border-right: 1px solid #E2E7EB; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 8px 20px">
+<span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 12px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900">搭</span>
+<div style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-size: 15px; font-weight: 800">活动搭子</span><span style="font-size: 12px; color: #5B5F68">运营后台</span></div>
+</div>
+<a href="AdminDashboard.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; background: #E4F2F8; color: #15171C; font-size: 15px; font-weight: 700; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="2"></rect></svg><span style="flex: 1">概览</span></a>
+<a href="AdminMatching.dc.html" aria-label="撮合池，3 个方案等你确认" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"></path><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4"></path><path d="M18 14.8c1.9.7 3.1 2.4 3.5 5.2"></path></svg><span style="flex: 1">撮合池</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">3</span></a>
+<a href="AdminModeration.dc.html" aria-label="审核与举报，4 条待处理" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.1 8.2-7.5 9.5-4.4-1.3-7.5-4.9-7.5-9.5V6L12 3z"></path><path d="M8.8 12l2.2 2.2 4.2-4.4"></path></svg><span style="flex: 1">审核与举报</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">4</span></a>
+<a href="AdminEvents.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"></rect><path d="M3.5 10h17"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg><span style="flex: 1">局管理</span></a>
+<a href="AdminUsers.dc.html" aria-label="用户与信用，1 条申诉待处理" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 20.5c1-4 3.9-6 7.5-6s6.5 2 7.5 6"></path></svg><span style="flex: 1">用户与信用</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span></a>
+<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #E8ECEF">
+<a href="AdminLogin.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #5B5F68; font-size: 14px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"></path><path d="M10 8l-4 4 4 4"></path><path d="M6 12h10"></path></svg><span>退出登录</span></a>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px clamp(16px, 3vw, 40px) 56px; display: flex; flex-direction: column; gap: 24px">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><h1 style="margin: 0; font-size: 28px; font-weight: 800">概览</h1><span style="padding: 4px 10px; border-radius: 999px; background: #E1E7EC; color: #3D4048; font-size: 12px; font-weight: 700">示例数据</span></div>
+<p style="margin: 0; font-size: 14px; color: #5B5F68">10 月 25 日 · 周日 · 每 5 分钟更新一次</p>
+</div>
+<a href="AdminMatching.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 0 20px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none">去确认 3 个局<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6"></path></svg></a>
+</header>
+<section aria-label="今天的数字" style="display: flex; flex-wrap: wrap; gap: 16px">
+<div style="flex: 1 1 170px; min-width: 0; box-sizing: border-box; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">今日新用户</span>
+<span style="font-size: 32px; font-weight: 800; line-height: 1.15">18</span>
+<span style="font-size: 13px; color: #5B5F68">比昨天 +5</span>
+</div>
+<div style="flex: 1 1 170px; min-width: 0; box-sizing: border-box; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">今日新意向</span>
+<span style="font-size: 32px; font-weight: 800; line-height: 1.15">42</span>
+<span style="font-size: 13px; color: #5B5F68">比昨天 +9</span>
+</div>
+<a href="AdminMatching.dc.html" style="flex: 1 1 170px; min-width: 0; box-sizing: border-box; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; color: #15171C; text-decoration: none; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">等你确认的局</span>
+<span style="font-size: 32px; font-weight: 800; line-height: 1.15">3</span>
+<span style="display: flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; color: #193543">去撮合池<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6"></path></svg></span>
+</a>
+<a href="AdminModeration.dc.html" style="flex: 1 1 170px; min-width: 0; box-sizing: border-box; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; color: #15171C; text-decoration: none; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">待处理举报</span>
+<span style="font-size: 32px; font-weight: 800; line-height: 1.15">2</span>
+<span style="display: flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; color: #193543">另有 2 条内容待审<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6"></path></svg></span>
+</a>
+<div style="flex: 1 1 170px; min-width: 0; box-sizing: border-box; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">本周履约率</span>
+<span style="font-size: 32px; font-weight: 800; line-height: 1.15">94%</span>
+<span style="font-size: 13px; color: #5B5F68">比上周 +2 个百分点</span>
+</div>
+</section>
+<section aria-labelledby="trend-title" style="box-sizing: border-box; padding: 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h2 id="trend-title" style="margin: 0; font-size: 18px; font-weight: 800">近 7 天成局数</h2>
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #5B5F68">撮合局和用户发起的局都算 · 这 7 天共 40 个，今天到目前 6 个</p>
+</div>
+<div role="group" aria-label="显示方式" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #F1F4F6">
+<button type="button" aria-pressed="{{chartPressed}}" onClick="{{showChart}}" style="min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: {{chartBg}}; color: #15171C; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">图表</button>
+<button type="button" aria-pressed="{{tablePressed}}" onClick="{{showTable}}" style="min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: {{tableBg}}; color: #15171C; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">表格</button>
+</div>
+</div>
+<sc-if value="{{isChart}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 12px; padding-top: 48px">
+<div aria-hidden="true" style="position: relative; flex-shrink: 0; width: 24px; height: 192px">
+<span style="position: absolute; right: 0; bottom: 185px; font-size: 12px; line-height: 14px; color: #6B6F78">12</span>
+<span style="position: absolute; right: 0; bottom: 121px; font-size: 12px; line-height: 14px; color: #6B6F78">8</span>
+<span style="position: absolute; right: 0; bottom: 57px; font-size: 12px; line-height: 14px; color: #6B6F78">4</span>
+<span style="position: absolute; right: 0; bottom: -7px; font-size: 12px; line-height: 14px; color: #6B6F78">0</span>
+</div>
+<div style="position: relative; flex: 1; min-width: 0; height: 192px">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 192px; border-top: 1px solid #E8ECEF"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 128px; border-top: 1px solid #E8ECEF"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 64px; border-top: 1px solid #E8ECEF"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; border-top: 1px solid #C9D1D8"></div>
+<div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: stretch">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+<button type="button" aria-label="{{b.aria}}" onMouseEnter="{{b.enter}}" onMouseLeave="{{b.leave}}" onFocus="{{b.enter}}" onBlur="{{b.leave}}" style="position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; justify-content: center; padding: 0; border: 0; border-radius: 8px 8px 0 0; background: {{b.hitBg}}; font-family: inherit; cursor: pointer">
+<span aria-hidden="true" style="width: 24px; max-width: 60%; height: {{b.h}}; border-radius: 4px 4px 0 0; background: #1E84B8"></span>
+<sc-if value="{{b.showLabel}}" hint-placeholder-val="{{ false }}">
+<span aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: {{b.labelBottom}}; text-align: center; font-size: 13px; font-weight: 700; color: #15171C">{{b.v}}</span>
+</sc-if>
+<sc-if value="{{b.hot}}" hint-placeholder-val="{{ false }}">
+<span role="tooltip" style="position: absolute; z-index: 2; bottom: {{b.tipBottom}}; left: {{b.tipLeft}}; right: {{b.tipRight}}; transform: {{b.tipTf}}; white-space: nowrap; padding: 8px 12px; border-radius: 12px; background: #15171C; color: #FFFFFF; font-size: 13px; font-weight: 500; pointer-events: none">{{b.tip}}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</div>
+</div>
+<div aria-hidden="true" style="display: flex; padding-left: 36px">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: {{b.dayColor}}; font-weight: {{b.dayWeight}}"><span>{{b.d}}</span><span>{{b.w}}</span></span>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{isTable}}" hint-placeholder-val="{{ false }}">
+<div role="table" aria-label="近 7 天成局数" style="display: flex; flex-direction: column; font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 10px 4px; border-bottom: 1px solid #E2E7EB; font-size: 13px; font-weight: 700; color: #5B5F68">
+<span role="columnheader">日期</span><span role="columnheader" style="text-align: right">成局数</span>
+</div>
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+<div role="row" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px 4px; border-bottom: 1px solid #E8ECEF">
+<span role="cell">{{b.dateLong}}</span><span role="cell" style="text-align: right; font-variant-numeric: tabular-nums; font-weight: 700">{{b.v}}</span>
+</div>
+</sc-for>
+<div role="row" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px 4px; font-weight: 800">
+<span role="cell">合计</span><span role="cell" style="text-align: right; font-variant-numeric: tabular-nums">40</span>
+</div>
+</div>
+</sc-if>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section aria-labelledby="todo-match" style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; padding: 16px 24px 8px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 4px">
+<h2 id="todo-match" style="margin: 0; font-size: 17px; font-weight: 800">等你确认的局</h2>
+<a href="AdminMatching.dc.html" style="display: flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 700; color: #193543; text-decoration: none">全部 3 个</a>
+</div>
+<a href="AdminMatching.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none">
+<span style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px; background: #E4F2F8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px"><span style="font-size: 18px; font-weight: 800; line-height: 1">95</span><span style="font-size: 11px; font-weight: 700; color: #3D4048">匹配度</span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 700">周三下午 · 古城咖啡慢聊</span><span style="font-size: 13px; color: #5B5F68">3 人 · 没有风险提示</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 6l6 6-6 6"></path></svg>
+</a>
+<a href="AdminMatching.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none">
+<span style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px; background: #F1F4F6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px"><span style="font-size: 18px; font-weight: 800; line-height: 1">80</span><span style="font-size: 11px; font-weight: 700; color: #3D4048">匹配度</span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 700">周日下午 · 洱海边骑行</span><span style="font-size: 13px; color: #5B5F68">4 人 · 2 条风险提示</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 6l6 6-6 6"></path></svg>
+</a>
+<a href="AdminMatching.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none">
+<span style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px; background: #F1F4F6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px"><span style="font-size: 18px; font-weight: 800; line-height: 1">70</span><span style="font-size: 11px; font-weight: 700; color: #3D4048">匹配度</span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 700">周五晚上 · 人民路吃饭</span><span style="font-size: 13px; color: #5B5F68">5 人 · 3 条风险提示</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 6l6 6-6 6"></path></svg>
+</a>
+</section>
+<section aria-labelledby="todo-report" style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; padding: 16px 24px 8px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 4px">
+<h2 id="todo-report" style="margin: 0; font-size: 17px; font-weight: 800">待处理的举报</h2>
+<a href="AdminModeration.dc.html" style="display: flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 700; color: #193543; text-decoration: none">去处理</a>
+</div>
+<a href="AdminModeration.dc.html" style="display: flex; flex-direction: column; gap: 6px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none; min-width: 0">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="padding: 3px 10px; border-radius: 999px; background: #FCEFD9; color: #8A4B00; font-size: 12px; font-weight: 700">推销 / 拉人头</span><span style="font-size: 13px; color: #5B5F68">南风 的动态 · 2 小时前</span></span>
+<span style="font-size: 14px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">朋友开的客栈，报我名字打八折，私聊我拿优惠码～</span>
+</a>
+<a href="AdminModeration.dc.html" style="display: flex; flex-direction: column; gap: 6px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none; min-width: 0">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="padding: 3px 10px; border-radius: 999px; background: #FBE4E1; color: #B42318; font-size: 12px; font-weight: 700">骚扰或不当言行</span><span style="font-size: 13px; color: #5B5F68">大鹏 · 桌游夜群聊 · 昨天 23:10</span></span>
+<span style="font-size: 14px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">散了以后加个微信呗，下次单独约你出来玩</span>
+</a>
+<p style="margin: 0; padding: 14px 0 12px; border-top: 1px solid #E8ECEF; font-size: 13px; color: #5B5F68">另有 1 条动态、1 个用户发起的局等你审核</p>
+</section>
+<section aria-labelledby="watch" style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; padding: 16px 24px 8px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; min-height: 44px; padding-bottom: 4px">
+<h2 id="watch" style="margin: 0; font-size: 17px; font-weight: 800">需要留意</h2>
+</div>
+<a href="AdminUsers.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none">
+<span style="flex: 1; min-width: 0; font-size: 14px; line-height: 1.5">七七 对一条「放鸽子」记录提出申诉</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 6l6 6-6 6"></path></svg>
+</a>
+<a href="AdminUsers.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none">
+<span style="flex: 1; min-width: 0; font-size: 14px; line-height: 1.5">橙子 一个月内放鸽子 2 次，系统已限制 7 天</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 6l6 6-6 6"></path></svg>
+</a>
+<a href="AdminMatching.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #E8ECEF; color: #15171C; text-decoration: none">
+<span style="flex: 1; min-width: 0; font-size: 14px; line-height: 1.5">2 个人等了超过一天还没配上</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 6l6 6-6 6"></path></svg>
+</a>
+<p style="margin: 0; padding: 14px 0 12px; border-top: 1px solid #E8ECEF; font-size: 14px; line-height: 1.5; color: #3D4048">本周放鸽子 3 次，比上周少 1 次</p>
+</section>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const view = s.view || 'chart';
+    const days = [
+      { d: '10/19', w: '周一', long: '10月19日 周一', v: 4 },
+      { d: '10/20', w: '周二', long: '10月20日 周二', v: 3 },
+      { d: '10/21', w: '周三', long: '10月21日 周三', v: 5 },
+      { d: '10/22', w: '周四', long: '10月22日 周四', v: 4 },
+      { d: '10/23', w: '周五', long: '10月23日 周五', v: 7 },
+      { d: '10/24', w: '周六', long: '10月24日 周六', v: 11 },
+      { d: '10/25', w: '今天', long: '10月25日 今天（到目前）', v: 6 }
+    ];
+    const H = 192;
+    const MAX = 12;
+    const top = Math.max.apply(null, days.map((x) => x.v));
+    const last = days.length - 1;
+    const leave = () => this.setState({ hot: -1 });
+    const bars = days.map((x, i) => {
+      const h = Math.round(x.v / MAX * H);
+      const labeled = x.v === top || i === last;
+      const hot = s.hot === i;
+      const tip = (i === last ? '今天到目前' : x.long) + ' · 成局 ' + x.v + ' 个';
+      return {
+        v: x.v,
+        d: x.d,
+        w: x.w,
+        dateLong: x.long,
+        h: h + 'px',
+        labelBottom: (h + 6) + 'px',
+        showLabel: labeled,
+        hot: hot,
+        hitBg: hot ? 'rgba(21, 23, 28, 0.05)' : 'transparent',
+        tip: tip,
+        aria: tip,
+        tipBottom: (h + (labeled ? 30 : 10)) + 'px',
+        tipLeft: i === 0 ? '0' : (i === last ? 'auto' : '50%'),
+        tipRight: i === last ? '0' : 'auto',
+        tipTf: i === 0 || i === last ? 'none' : 'translateX(-50%)',
+        dayColor: i === last ? '#15171C' : '#6B6F78',
+        dayWeight: i === last ? '700' : '500',
+        enter: () => this.setState({ hot: i }),
+        leave: leave
+      };
+    });
+    return {
+      accent: this.props.accent ?? '#7CCAE3',
+      bars: bars,
+      isChart: view === 'chart',
+      isTable: view === 'table',
+      chartPressed: view === 'chart' ? 'true' : 'false',
+      tablePressed: view === 'table' ? 'true' : 'false',
+      chartBg: view === 'chart' ? '#FFFFFF' : 'transparent',
+      tableBg: view === 'table' ? '#FFFFFF' : 'transparent',
+      showChart: () => this.setState({ view: 'chart' }),
+      showTable: () => this.setState({ view: 'table', hot: -1 })
+    };
+  }
+}
+</script>
+</body>
+</html>

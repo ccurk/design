@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>广场</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 50px 16px 0 20px">
+<h1 style="margin: 0; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.01em">广场</h1>
+<div style="display: flex; align-items: center; gap: 6px">
+<a href="Create.dc.html" style="display: flex; align-items: center; gap: 4px; min-height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 14px; font-weight: 700; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>发起</span></a>
+<a href="Search.dc.html" aria-label="搜索" style="width: 44px; height: 44px; border-radius: 999px; color: #15171C; display: flex; align-items: center; justify-content: center; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4.2-4.2"></path></svg></a>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+</div>
+<p style="margin: 4px 20px 0; font-size: 14px; color: #5B5F68">大理 · 这周的局，看到合适的直接加入</p>
+<div style="display: flex; gap: 8px; padding: 14px 20px 0; overflow-x: auto; scrollbar-width: none">
+<sc-for list="{{cats}}" as="c" hint-placeholder-count="6">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="flex-shrink: 0; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 0">
+<sc-for list="{{events}}" as="ev" hint-placeholder-count="3">
+<a href="Detail.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 10px 10px 14px; border-radius: 26px; background: #FFFFFF; color: #15171C; text-decoration: none">
+<sc-if value="{{ev.isOutdoor}}" hint-placeholder-val="{{ true }}">
+<div aria-hidden="true" style="height: 124px; border-radius: 18px; background: #193543; color: {{ev.accent}}; overflow: hidden"><svg width="338" height="124" viewBox="0 0 338 124" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="236" cy="46" r="14"></circle><path d="M0 122L66 66l42 28 60-58 58 64 36-22 76 42"></path><circle cx="44" cy="26" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="110" cy="18" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="300" cy="30" r="1.5" fill="currentColor" stroke="none"></circle></svg></div>
+</sc-if>
+<sc-if value="{{ev.isFood}}" hint-placeholder-val="{{ false }}">
+<div aria-hidden="true" style="height: 124px; border-radius: 18px; background: {{ev.accent}}; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="120" height="80" viewBox="0 0 96 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 30h60"></path><path d="M22 30a26 24 0 0 0 52 0"></path><path d="M38 58h20"></path><path d="M40 20c0-4 3-4 3-8"></path><path d="M52 20c0-4 3-4 3-8"></path></svg></div>
+</sc-if>
+<sc-if value="{{ev.isCoffee}}" hint-placeholder-val="{{ false }}">
+<div aria-hidden="true" style="height: 124px; border-radius: 18px; background: #E3E8EC; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="120" height="80" viewBox="0 0 96 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M30 26h32v14a14 14 0 0 1-14 14h-4a14 14 0 0 1-14-14z"></path><path d="M62 30h4a7 7 0 0 1 0 14h-4"></path><path d="M24 60h48"></path><path d="M40 8c0 4-3 4-3 8"></path><path d="M50 8c0 4-3 4-3 8"></path></svg></div>
+</sc-if>
+<sc-if value="{{ev.isGame}}" hint-placeholder-val="{{ false }}">
+<div aria-hidden="true" style="height: 124px; border-radius: 18px; background: #2E4A5C; color: {{ev.accent}}; display: flex; align-items: center; justify-content: center"><svg width="120" height="80" viewBox="0 0 96 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="14" width="32" height="32" rx="7"></rect><circle cx="25" cy="23" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="32" cy="30" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="39" cy="37" r="2.4" fill="currentColor" stroke="none"></circle><rect x="54" y="24" width="28" height="28" rx="6"></rect><circle cx="62" cy="32" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="74" cy="32" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="62" cy="44" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="74" cy="44" r="2.4" fill="currentColor" stroke="none"></circle></svg></div>
+</sc-if>
+<sc-if value="{{ev.isCar}}" hint-placeholder-val="{{ false }}">
+<div aria-hidden="true" style="height: 124px; border-radius: 18px; background: #DDE4E9; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="120" height="80" viewBox="0 0 96 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 44v-9l9-15h50l9 15v9z"></path><path d="M22 35h52"></path><path d="M48 20v15"></path><circle cx="29" cy="46" r="6" fill="#DDE4E9"></circle><circle cx="67" cy="46" r="6" fill="#DDE4E9"></circle></svg></div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 0 6px">
+<div style="font-size: 17px; font-weight: 800">{{ev.title}}</div>
+<div style="font-size: 13px; color: #5B5F68">{{ev.meta}}</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 6px">
+<div aria-hidden="true" style="display: flex">
+<span style="width: 28px; height: 28px; box-sizing: border-box; border-radius: 999px; border: 2px solid #FFFFFF; background: #193543; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{ev.a1}}</span>
+<span style="width: 28px; height: 28px; box-sizing: border-box; margin-left: -8px; border-radius: 999px; border: 2px solid #FFFFFF; background: #E3E8EC; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{ev.a2}}</span>
+<span style="width: 28px; height: 28px; box-sizing: border-box; margin-left: -8px; border-radius: 999px; border: 2px solid #FFFFFF; background: {{ev.accent}}; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{ev.a3}}</span>
+</div>
+<span style="font-size: 13px; color: #3D4048">{{ev.count}}</span>
+<span style="margin-left: auto; padding: 5px 10px; border-radius: 999px; background: #F1F4F6; color: #15171C; font-size: 12px; font-weight: 700">{{ev.price}}</span>
+</div>
+</a>
+</sc-for>
+</div>
+<nav aria-label="底部导航" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 6px 6px 26px; background: #FFFFFF; border-top: 1px solid #E2E7EB; display: flex; justify-content: space-around">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 19c.6-3.1 2.8-5 5.5-5s4.9 1.9 5.5 5"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M15.8 14.2c2.3.2 4 1.9 4.6 4.8"></path></svg></span><span style="font-size: 11px; font-weight: 500">撮合</span></a>
+<a href="Square.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #15171C; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px; border-radius: 999px; background: {{accent}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg></span><span style="font-size: 11px; font-weight: 700">广场</span></a>
+<a href="Feed.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M20.5 16l-4.5-4.5-7.5 8"></path></svg></span><span style="font-size: 11px; font-weight: 500">动态</span></a>
+<a href="Messages.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.5z"></path></svg></span><span style="font-size: 11px; font-weight: 500">消息</span></a>
+<a href="Profile.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"></circle><path d="M4.5 20c.9-3.8 3.9-6 7.5-6s6.6 2.2 7.5 6"></path></svg></span><span style="font-size: 11px; font-weight: 500">我的</span></a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const cat = s.cat || '全部';
+    const cats = ['全部', '户外', '咖啡', '吃饭', '桌游', '拼车'].map((c) => {
+      const on = c === cat;
+      return {
+        label: c,
+        bg: on ? '#193543' : '#FFFFFF',
+        fg: on ? '#FFFFFF' : '#15171C',
+        bd: on ? '#193543' : '#E2E7EB',
+        pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ cat: c })
+      };
+    });
+    const all = [
+      { cat: '户外', title: '周六清晨 · 苍山看日出', meta: '周六 05:50 · 古城南门集合', a1: '满', a2: '野', a3: '木', count: '4/5 人', price: 'AA 约 ¥30' },
+      { cat: '咖啡', title: '安静读书局 · 不用聊天', meta: '周五 14:00 · 人民路咖啡馆', a1: '南', a2: '七', a3: '栗', count: '2/4 人', price: '各付各' },
+      { cat: '吃饭', title: '喜洲稻田边吃早餐', meta: '周日 08:30 · 喜洲古镇', a1: '七', a2: '南', a3: '满', count: '3/4 人', price: 'AA' },
+      { cat: '桌游', title: '桌游夜 · 新手友好', meta: '周五 20:00 · 古城内', a1: '木', a2: '野', a3: '南', count: '5/8 人', price: 'AA 约 ¥25' },
+      { cat: '拼车', title: '拼车去双廊', meta: '周六 10:00 · 古城北门出发', a1: '野', a2: '七', a3: '木', count: '3/4 人', price: 'AA 车费' },
+      { cat: '户外', title: '洱海西岸骑行', meta: '周日 15:00 · 才村码头', a1: '南', a2: '满', a3: '七', count: '2/6 人', price: '租车自理' }
+    ];
+    const events = all
+      .filter((e) => cat === '全部' || e.cat === cat)
+      .map((e) => ({
+        ...e,
+        accent: accent,
+        isOutdoor: e.cat === '户外',
+        isFood: e.cat === '吃饭',
+        isCoffee: e.cat === '咖啡',
+        isGame: e.cat === '桌游',
+        isCar: e.cat === '拼车'
+      }));
+    return { accent: accent, cats: cats, events: events };
+  }
+}
+</script>
+</body>
+</html>

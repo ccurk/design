@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>我的局</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; gap: 4px; padding: 50px 16px 0 4px">
+<a href="Profile.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #15171C; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"></path></svg></a>
+<h1 style="flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 800">我的局</h1>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+<div style="margin: 8px 16px 0; display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #E1E7EC">
+<button type="button" aria-pressed="{{t1.pressed}}" onClick="{{t1.pick}}" style="flex: 1; min-height: 44px; border-radius: 999px; border: 0; background: {{t1.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: {{t1.weight}}; cursor: pointer">进行中 2</button>
+<button type="button" aria-pressed="{{t2.pressed}}" onClick="{{t2.pick}}" style="flex: 1; min-height: 44px; border-radius: 999px; border: 0; background: {{t2.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: {{t2.weight}}; cursor: pointer">已结束 3</button>
+<button type="button" aria-pressed="{{t3.pressed}}" onClick="{{t3.pick}}" style="flex: 1; min-height: 44px; border-radius: 999px; border: 0; background: {{t3.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: {{t3.weight}}; cursor: pointer">我发起的 0</button>
+</div>
+<sc-if value="{{ongoing}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 14px 16px 0; display: flex; flex-direction: column; gap: 10px">
+<a href="Group.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: #FFFFFF; color: #15171C; text-decoration: none">
+<span aria-hidden="true" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: #193543; color: {{accent}}; display: flex; align-items: flex-end; overflow: hidden"><svg width="56" height="38" viewBox="0 0 56 38" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="39" cy="13" r="5"></circle><path d="M0 37l13-13 9 6 11-13 10 13 13 6"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">周六清晨 · 苍山看日出</span><span style="font-size: 12px; color: #5B5F68">10月31日 05:50 · 古城南门</span><span style="align-self: flex-start; padding: 3px 8px; border-radius: 999px; background: {{accent}}; color: #15171C; font-size: 11px; font-weight: 700">已成局 · 5/5 · 去群聊</span></span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"></path></svg>
+</a>
+<a href="Waiting.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: #FFFFFF; color: #15171C; text-decoration: none">
+<span aria-hidden="true" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: #193543; color: {{accent}}; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c2 0 2-1.5 4.5-1.5S9.5 9 12 9s2.5-1.5 4.5-1.5S19 9 21 9"></path><path d="M3 14c2 0 2-1.5 4.5-1.5S9.5 14 12 14s2.5-1.5 4.5-1.5S19 14 21 14"></path><path d="M3 19c2 0 2-1.5 4.5-1.5S9.5 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">周日 · 洱海边骑行</span><span style="font-size: 12px; color: #5B5F68">下午 · 古城附近出发</span><span style="align-self: flex-start; padding: 3px 8px; border-radius: 999px; background: #E1E7EC; color: #15171C; font-size: 11px; font-weight: 700">撮合中 · 还差 1 人</span></span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"></path></svg>
+</a>
+</div>
+</sc-if>
+<sc-if value="{{ended}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: #FFFFFF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: #2E4A5C; color: {{accent}}; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"></rect><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">桌游夜 · 新手友好</span><span style="font-size: 12px; color: #5B5F68">上周五 20:00 · 待评价</span></span>
+<a href="Review.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 14px; font-weight: 700; text-decoration: none">去评价</a>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: #FFFFFF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="30" height="20" viewBox="0 0 96 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 30h60"></path><path d="M22 30a26 24 0 0 0 52 0"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">喜洲稻田边吃早餐</span><span style="font-size: 12px; color: #5B5F68">上周日 08:30</span></span>
+<span style="flex-shrink: 0; padding: 4px 10px; border-radius: 999px; background: #E3E8EC; color: #15171C; font-size: 12px; font-weight: 700">已评价</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: #FFFFFF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: #E3E8EC; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h11v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"></path><path d="M16 9h1.5a2 2 0 0 1 0 4H16"></path><path d="M4 20h14"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">安静读书局 · 不用聊天</span><span style="font-size: 12px; color: #5B5F68">上周五 14:00</span></span>
+<span style="flex-shrink: 0; padding: 4px 10px; border-radius: 999px; background: #E3E8EC; color: #15171C; font-size: 12px; font-weight: 700">已评价</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{mine}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 80px 32px 0; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<span aria-hidden="true" style="width: 64px; height: 64px; border-radius: 999px; background: #FFFFFF; color: #193543; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span>
+<div style="font-size: 18px; font-weight: 800">还没自己发起过局</div>
+<div style="font-size: 14px; line-height: 1.6; color: #5B5F68">不发起也完全没关系。哪天想组了，在这里发起。</div>
+<a href="Create.dc.html" style="display: flex; align-items: center; justify-content: center; height: 52px; margin-top: 8px; padding: 0 28px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none">发起一个局</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const tab = s.tab || 'ongoing';
+    const t = (key) => ({
+      pressed: tab === key ? 'true' : 'false',
+      bg: tab === key ? '#FFFFFF' : 'transparent',
+      weight: tab === key ? '700' : '500',
+      pick: () => this.setState({ tab: key })
+    });
+    return {
+      accent: this.props.accent ?? '#7CCAE3',
+      t1: t('ongoing'),
+      t2: t('ended'),
+      t3: t('mine'),
+      ongoing: tab === 'ongoing',
+      ended: tab === 'ended',
+      mine: tab === 'mine'
+    };
+  }
+}
+</script>
+</body>
+</html>

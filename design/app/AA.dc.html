@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AA 记账</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; gap: 4px; padding: 50px 16px 0 4px">
+<a href="Group.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #15171C; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"></path></svg></a>
+<h1 style="flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 800">AA 记账</h1>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+<div style="margin: 8px 16px 0; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 16px; background: #E1E7EC; font-size: 13px; line-height: 1.5; color: #3D4048"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M12 3.5l7 2.8v5.4c0 4.2-2.9 7.4-7 8.8-4.1-1.4-7-4.6-7-8.8V6.3z"></path><path d="M9 12l2 2 4-4"></path></svg><span>平台不经手钱，只帮大家算清楚。钱在微信里直接转。</span></div>
+<div style="margin: 12px 16px 0; padding: 18px 20px; border-radius: 24px; background: #193543; color: #FFFFFF; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; font-weight: 700; color: {{accent}}">苍山看日出 · 5 人平摊</div>
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 34px; font-weight: 800; letter-spacing: -0.02em">¥{{total}}</span><span style="font-size: 14px; color: #C9D6DF">每人 ¥{{each}}</span></div>
+</div>
+<div style="margin: 12px 16px 0; padding: 4px 16px 12px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<sc-for list="{{items}}" as="it" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid #E8ECEF">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">{{it.name}}</span><span style="font-size: 12px; color: #5B5F68">{{it.payer}}垫付</span></span>
+<span style="font-size: 16px; font-weight: 800">¥{{it.amount}}</span>
+</div>
+</sc-for>
+<sc-if value="{{adding}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding-top: 12px">
+<label for="aaname" style="font-size: 12px; font-weight: 700; color: #5B5F68">花在哪</label>
+<input id="aaname" type="text" value="{{newName}}" onChange="{{onName}}" placeholder="比如：早餐" style="height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 14px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px">
+<label for="aaamt" style="font-size: 12px; font-weight: 700; color: #5B5F68">金额（元）</label>
+<input id="aaamt" type="number" value="{{newAmt}}" onChange="{{onAmt}}" placeholder="0" style="height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 14px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px">
+<button type="button" onClick="{{save}}" style="height: 44px; border-radius: 999px; border: 0; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">记下这笔（我垫付的）</button>
+</div>
+</sc-if>
+<sc-if value="{{notAdding}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{startAdd}}" style="display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; margin-top: 10px; border-radius: 999px; border: 1px dashed #B8C0C7; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>记一笔</span></button>
+</sc-if>
+</div>
+<div style="margin: 16px 20px 8px; font-size: 13px; font-weight: 700; color: #5B5F68">谁该转给谁</div>
+<div style="margin: 0 16px; padding: 4px 0; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<sc-for list="{{settle}}" as="st" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 12px 0 16px">
+<span style="flex: 1; font-size: 15px"><span style="font-weight: 700">{{st.from}}</span><span style="color: #5B5F68"> → </span><span>{{st.to}}</span></span>
+<span style="font-size: 15px; font-weight: 800">¥{{st.amount}}</span>
+<sc-if value="{{st.isMineOpen}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{st.pay}}" style="min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">我已转账</button>
+</sc-if>
+<sc-if value="{{st.showStatus}}" hint-placeholder-val="{{ true }}">
+<span style="padding: 4px 10px; border-radius: 999px; background: {{st.pillBg}}; color: #15171C; font-size: 12px; font-weight: 700">{{st.status}}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="margin: 10px 20px 0; font-size: 12px; line-height: 1.6; color: #5B5F68">转完点「我已转账」，对方确认后就清账。</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const items = s.items || [
+      { name: '拼车车费', payer: '阿野', amount: 120 },
+      { name: '早餐', payer: '小满', amount: 30 }
+    ];
+    const people = ['阿野', '小满', '木木', '七七', '我'];
+    const r2 = (x) => Math.round(x * 100) / 100;
+    const total = r2(items.reduce((a, it) => a + Number(it.amount || 0), 0));
+    const each = r2(total / people.length);
+    const net = people.map((p) => ({
+      p: p,
+      v: r2(items.filter((it) => it.payer === p).reduce((a, it) => a + Number(it.amount || 0), 0) - each)
+    }));
+    const cred = net.filter((x) => x.v > 0.009).map((x) => ({ p: x.p, v: x.v }));
+    const debt = net.filter((x) => x.v < -0.009).map((x) => ({ p: x.p, v: -x.v }));
+    const transfers = [];
+    let i = 0;
+    let j = 0;
+    while (i < debt.length && j < cred.length) {
+      const amt = r2(Math.min(debt[i].v, cred[j].v));
+      transfers.push({ from: debt[i].p, to: cred[j].p, amount: amt });
+      debt[i].v = r2(debt[i].v - amt);
+      cred[j].v = r2(cred[j].v - amt);
+      if (debt[i].v < 0.01) i++;
+      if (cred[j].v < 0.01) j++;
+    }
+    const paid = !!s.paid;
+    const settle = transfers.map((t) => {
+      const mine = t.from === '我';
+      const status = mine ? '等对方确认' : (t.from === '木木' ? '已结清' : '待转');
+      return {
+        from: t.from,
+        to: t.to,
+        amount: t.amount,
+        isMineOpen: mine && !paid,
+        showStatus: !(mine && !paid),
+        status: status,
+        pillBg: status === '已结清' ? '#E3E8EC' : accent,
+        pay: () => this.setState({ paid: true })
+      };
+    });
+    return {
+      accent: accent,
+      items: items,
+      total: total,
+      each: each,
+      settle: settle,
+      adding: !!s.adding,
+      notAdding: !s.adding,
+      newName: s.newName || '',
+      newAmt: s.newAmt || '',
+      onName: (e) => this.setState({ newName: e.target.value }),
+      onAmt: (e) => this.setState({ newAmt: e.target.value }),
+      startAdd: () => this.setState({ adding: true }),
+      save: () => {
+        const amt = Number(s.newAmt || 0);
+        const name = s.newName || '其他花费';
+        this.setState({
+          adding: false,
+          newName: '',
+          newAmt: '',
+          items: amt > 0 ? items.concat([{ name: name, payer: '我', amount: amt }]) : items
+        });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

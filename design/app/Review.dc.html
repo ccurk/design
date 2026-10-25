@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>评价同行的人</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; gap: 4px; padding: 50px 16px 0 4px">
+<a href="MyEvents.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #15171C; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"></path></svg></a>
+<h1 style="flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 800">评价同行的人</h1>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+<sc-if value="{{editing}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: #FFFFFF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 16px; background: #2E4A5C; color: {{accent}}; display: flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"></rect><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 800">桌游夜 · 新手友好</span><span style="font-size: 12px; color: #5B5F68">上周五 20:00 · 古城内 · 5 人</span></span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 16px; background: #E1E7EC; font-size: 13px; line-height: 1.5; color: #3D4048"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M12 3.5l7 2.8v5.4c0 4.2-2.9 7.4-7 8.8-4.1-1.4-7-4.6-7-8.8V6.3z"></path><path d="M9 12l2 2 4-4"></path></svg><span>评价是匿名的，只用来算信用，不会公开具体内容。</span></div>
+<div style="padding: 4px 12px 4px 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 40px; font-size: 13px; color: #5B5F68"><span style="font-weight: 700">他们到了吗？</span><span>默认都是准时</span></div>
+<sc-for list="{{people}}" as="p" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-top: 1px solid #E8ECEF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 999px; background: {{p.bg}}; color: {{p.fg}}; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">{{p.av}}</span>
+<span style="flex: 1; min-width: 0; font-size: 15px; font-weight: 500">{{p.name}}</span>
+<div style="display: flex; gap: 4px">
+<button type="button" aria-pressed="{{p.o1.pressed}}" onClick="{{p.o1.pick}}" style="min-height: 44px; padding: 0 10px; border-radius: 999px; border: 1px solid {{p.o1.bd}}; background: {{p.o1.bg}}; color: {{p.o1.fg}}; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">准时</button>
+<button type="button" aria-pressed="{{p.o2.pressed}}" onClick="{{p.o2.pick}}" style="min-height: 44px; padding: 0 10px; border-radius: 999px; border: 1px solid {{p.o2.bd}}; background: {{p.o2.bg}}; color: {{p.o2.fg}}; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">迟到</button>
+<button type="button" aria-pressed="{{p.o3.pressed}}" onClick="{{p.o3.pick}}" style="min-height: 44px; padding: 0 10px; border-radius: 999px; border: 1px solid {{p.o3.bd}}; background: {{p.o3.bg}}; color: {{p.o3.fg}}; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">没来</button>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; font-weight: 700; color: #5B5F68">这个局整体感觉？（选填，可多选）</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{feels}}" as="c" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; box-sizing: border-box; padding: 12px 20px 30px; background: #FFFFFF; border-top: 1px solid #E2E7EB">
+<button type="button" onClick="{{submit}}" style="width: 100%; height: 56px; border-radius: 999px; border: 0; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer">提交评价</button>
+</div>
+</sc-if>
+<sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 120px 32px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+<span aria-hidden="true" style="width: 72px; height: 72px; border-radius: 999px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"></path></svg></span>
+<div style="font-size: 22px; font-weight: 800">谢谢你的评价</div>
+<div style="font-size: 15px; line-height: 1.6; color: #3D4048">大家的信用已经更新，你的履约记录也 +1 局。</div>
+<a href="MyEvents.dc.html" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; margin-top: 12px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 17px; font-weight: 700; text-decoration: none">回到我的局</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const att = s.att || {};
+    const base = [
+      { name: '木木', av: '木', bg: accent, fg: '#15171C' },
+      { name: '阿野', av: '野', bg: '#E3E8EC', fg: '#15171C' },
+      { name: '七七', av: '七', bg: '#2E4A5C', fg: '#FFFFFF' },
+      { name: '南风', av: '南', bg: '#E3E8EC', fg: '#15171C' }
+    ];
+    const onStyle = {
+      '准时': { bg: '#193543', fg: '#FFFFFF' },
+      '迟到': { bg: accent, fg: '#15171C' },
+      '没来': { bg: '#B42318', fg: '#FFFFFF' }
+    };
+    const opt = (p, label) => {
+      const cur = att[p.name] || '准时';
+      const on = cur === label;
+      return {
+        pressed: on ? 'true' : 'false',
+        bg: on ? onStyle[label].bg : '#FFFFFF',
+        fg: on ? onStyle[label].fg : '#15171C',
+        bd: on ? onStyle[label].bg : '#E2E7EB',
+        pick: () => this.setState({ att: Object.assign({}, att, { [p.name]: label }) })
+      };
+    };
+    const people = base.map((p) => ({ ...p, o1: opt(p, '准时'), o2: opt(p, '迟到'), o3: opt(p, '没来') }));
+    const picked = s.feels || [];
+    const feels = ['很放松', '不尴尬', '下次还来', '节奏刚好'].map((t) => {
+      const on = picked.indexOf(t) >= 0;
+      return {
+        label: t,
+        bg: on ? accent : '#FFFFFF',
+        bd: on ? accent : '#E2E7EB',
+        pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ feels: on ? picked.filter((x) => x !== t) : picked.concat([t]) })
+      };
+    });
+    return {
+      accent: accent,
+      people: people,
+      feels: feels,
+      editing: !s.done,
+      done: !!s.done,
+      submit: () => this.setState({ done: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

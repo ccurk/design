@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>发动态</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; gap: 4px; padding: 50px 16px 0 4px">
+<a href="Feed.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #15171C; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"></path></svg></a>
+<h1 style="flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 800">发动态</h1>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+<sc-if value="{{editing}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 6px">
+<label for="post" style="font-size: 13px; font-weight: 700; color: #5B5F68">想说点什么</label>
+<textarea id="post" value="{{text}}" onChange="{{onText}}" placeholder="说说这个局的感受，不用写很多" style="height: 100px; box-sizing: border-box; padding: 0; border: 0; background: transparent; color: #15171C; font-family: inherit; font-size: 16px; line-height: 1.6; resize: none"></textarea>
+<div style="text-align: right; font-size: 12px; color: #5B5F68">{{len}}/500</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px">
+<sc-for list="{{photos}}" as="p" hint-placeholder-count="2">
+<div style="position: relative; width: 92px; height: 92px; border-radius: 16px; background: {{p.bg}}; color: {{p.fg}}; display: flex; align-items: center; justify-content: center">
+<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19l6-8 4 5 3-3.5L21 19z"></path><circle cx="16.5" cy="6.5" r="2"></circle></svg>
+<button type="button" aria-label="移除这张照片" onClick="{{p.remove}}" style="position: absolute; top: 0; right: 0; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: flex-start; justify-content: flex-end; cursor: pointer"><span style="margin: 6px; width: 22px; height: 22px; border-radius: 999px; background: #FFFFFF; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></button>
+</div>
+</sc-for>
+<button type="button" aria-label="添加照片" onClick="{{addPhoto}}" style="width: 92px; height: 92px; border-radius: 16px; border: 1px dashed #B8C0C7; background: #FFFFFF; color: #5B5F68; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; font-weight: 700; color: #5B5F68">关联一个局（选填，再点一下取消）</div>
+<sc-for list="{{events}}" as="e" hint-placeholder-count="2">
+<button type="button" aria-pressed="{{e.pressed}}" onClick="{{e.pick}}" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border: 0; background: transparent; color: #15171C; font-family: inherit; text-align: left; cursor: pointer"><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">{{e.title}}</span><span style="font-size: 12px; color: #5B5F68">{{e.sub}}</span></span><span aria-hidden="true" style="flex-shrink: 0; width: 20px; height: 20px; box-sizing: border-box; border-radius: 999px; border: {{e.dot}}"></span></button>
+</sc-for>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; font-weight: 700; color: #5B5F68">谁能看到</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{scopes}}" as="c" hint-placeholder-count="2">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; align-items: flex-start; gap: 6px; padding: 0 4px; font-size: 12px; line-height: 1.5; color: #5B5F68"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M12 3.5l7 2.8v5.4c0 4.2-2.9 7.4-7 8.8-4.1-1.4-7-4.6-7-8.8V6.3z"></path><path d="M9 12l2 2 4-4"></path></svg><span>发布前会审核：联系方式、广告、约会擦边的内容会被拦截。</span></div>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; box-sizing: border-box; padding: 12px 20px 30px; background: #FFFFFF; border-top: 1px solid #E2E7EB">
+<button type="button" onClick="{{post}}" style="width: 100%; height: 56px; border-radius: 999px; border: 0; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer">发布</button>
+</div>
+</sc-if>
+<sc-if value="{{posted}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 120px 32px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+<span aria-hidden="true" style="width: 72px; height: 72px; border-radius: 999px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"></path></svg></span>
+<div style="font-size: 22px; font-weight: 800">已发布，正在审核</div>
+<div style="font-size: 15px; line-height: 1.6; color: #3D4048">审核通过后会出现在动态里，一般几分钟。</div>
+<a href="Feed.dc.html" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; margin-top: 12px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 17px; font-weight: 700; text-decoration: none">回到动态</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const text = s.text || '';
+    const kinds = s.photos || ['ink', 'accent'];
+    const look = {
+      ink: { bg: '#193543', fg: accent },
+      accent: { bg: accent, fg: '#15171C' },
+      stone: { bg: '#E3E8EC', fg: '#15171C' }
+    };
+    const photos = kinds.map((k, i) => ({
+      bg: look[k].bg,
+      fg: look[k].fg,
+      remove: () => this.setState({ photos: kinds.filter((x, j) => j !== i) })
+    }));
+    const assoc = s.assoc === undefined ? '周六清晨 · 苍山看日出' : s.assoc;
+    const events = [
+      { title: '周六清晨 · 苍山看日出', sub: '本周六 · 5 人' },
+      { title: '桌游夜 · 新手友好', sub: '上周五 · 8 人' }
+    ].map((e) => {
+      const on = e.title === assoc;
+      return {
+        title: e.title,
+        sub: e.sub,
+        pressed: on ? 'true' : 'false',
+        dot: on ? '6px solid #193543' : '2px solid #B8C0C7',
+        pick: () => this.setState({ assoc: on ? '' : e.title })
+      };
+    });
+    const scope = s.scope || '所有人';
+    const scopes = ['所有人', '只给同局的人'].map((t) => {
+      const on = t === scope;
+      return {
+        label: t,
+        bg: on ? accent : '#FFFFFF',
+        bd: on ? accent : '#E2E7EB',
+        pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ scope: t })
+      };
+    });
+    return {
+      accent: accent,
+      text: text,
+      len: text.length,
+      onText: (e) => this.setState({ text: e.target.value.slice(0, 500) }),
+      photos: photos,
+      addPhoto: () => this.setState({ photos: kinds.length < 6 ? kinds.concat(['stone']) : kinds }),
+      events: events,
+      scopes: scopes,
+      editing: !s.posted,
+      posted: !!s.posted,
+      post: () => this.setState({ posted: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

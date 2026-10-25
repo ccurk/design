@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>编辑资料</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1010px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; gap: 4px; padding: 50px 16px 0 4px">
+<a href="Profile.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #15171C; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"></path></svg></a>
+<h1 style="flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 800">编辑资料</h1>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+<div style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 24px; background: #FFFFFF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 999px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800">栗</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">头像</span><span style="font-size: 12px; line-height: 1.5; color: #5B5F68">真实照片更容易被信任，插画也可以</span></div>
+<button type="button" style="flex-shrink: 0; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">更换</button>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<label for="nick" style="font-size: 13px; font-weight: 700; color: #5B5F68">昵称</label>
+<input id="nick" type="text" value="{{nick}}" onChange="{{onNick}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 14px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px">
+<label for="bio" style="padding-top: 6px; font-size: 13px; font-weight: 700; color: #5B5F68">一句话介绍</label>
+<textarea id="bio" value="{{bio}}" onChange="{{onBio}}" style="height: 80px; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px; line-height: 1.5; resize: none"></textarea>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; font-weight: 700; color: #5B5F68">兴趣（撮合会参考）</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{tags}}" as="c" hint-placeholder-count="12">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; font-weight: 700; color: #5B5F68">社交节奏（只用来配人，不公开）</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{paces}}" as="c" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="padding: 16px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px"><span style="font-size: 13px; font-weight: 700; color: #5B5F68">性别</span><span style="font-size: 12px; color: #5B5F68">只用于「同性局」匹配，不公开</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{genders}}" as="c" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; box-sizing: border-box; padding: 12px 20px 30px; background: #FFFFFF; border-top: 1px solid #E2E7EB">
+<a href="Profile.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 17px; font-weight: 700; text-decoration: none">保存</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":1010}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const one = (label, current, key) => {
+      const on = label === current;
+      return {
+        label: label,
+        bg: on ? accent : '#FFFFFF',
+        bd: on ? accent : '#E2E7EB',
+        pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ [key]: label })
+      };
+    };
+    const picked = s.picked || ['看日出', '咖啡', '骑行', '读书'];
+    const tags = ['看日出', '爬山', '骑行', '咖啡', '读书', '拍照', '吃饭', '桌游', '电影', '瑜伽', '拼车', '随便走走'].map((t) => {
+      const on = picked.indexOf(t) >= 0;
+      return {
+        label: t,
+        bg: on ? accent : '#FFFFFF',
+        bd: on ? accent : '#E2E7EB',
+        pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ picked: on ? picked.filter((x) => x !== t) : picked.concat([t]) })
+      };
+    });
+    const pace = s.pace || '比较慢热';
+    const gender = s.gender || '女';
+    return {
+      accent: accent,
+      nick: s.nick === undefined ? '栗子' : s.nick,
+      onNick: (e) => this.setState({ nick: e.target.value }),
+      bio: s.bio === undefined ? '慢热，但很靠谱。喜欢清晨和安静的地方。' : s.bio,
+      onBio: (e) => this.setState({ bio: e.target.value }),
+      tags: tags,
+      paces: ['比较慢热', '熟了就话多', '随时都能聊'].map((p) => one(p, pace, 'pace')),
+      genders: ['女', '男', '不填'].map((g) => one(g, gender, 'gender'))
+    };
+  }
+}
+</script>
+</body>
+</html>

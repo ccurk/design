@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>成局群聊</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; gap: 4px; padding: 50px 16px 10px 4px; background: #FFFFFF; border-bottom: 1px solid #E2E7EB">
+<a href="Messages.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #15171C; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"></path></svg></a>
+<a href="GroupInfo.dc.html" style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 44px; color: #15171C; text-decoration: none"><span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 16px; font-weight: 800">苍山看日出 · 5 人</span><span style="font-size: 12px; color: #5B5F68">周六 05:50 · 古城南门</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#858C94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M9.5 5.5L16 12l-6.5 6.5"></path></svg></a>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+<div style="margin: 10px 16px 0; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 20px; background: #193543; color: #FFFFFF">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 12px; font-weight: 700; color: {{accent}}">集合小任务</div>
+<div style="font-size: 13px; line-height: 1.45">周六 05:50 到古城南门，点「我到了」</div>
+</div>
+<button type="button" aria-pressed="{{arrivedPressed}}" onClick="{{arrive}}" style="flex-shrink: 0; min-height: 44px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: {{arriveBorder}}; background: {{arriveBg}}; color: {{arriveFg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{arriveLabel}}</button>
+</div>
+<div style="position: absolute; left: 0; right: 0; top: 183px; bottom: 84px; box-sizing: border-box; overflow-y: auto; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="align-self: center; padding: 6px 12px; border-radius: 999px; background: #E1E7EC; color: #3D4048; font-size: 12px">满员啦，群已自动建好 · 第一次见面，慢慢来</div>
+<div style="flex-shrink: 0; padding: 6px 16px 16px; border-radius: 24px; background: #FFFFFF; border: 1px solid #E2E7EB; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="padding: 4px 10px; border-radius: 999px; background: {{accent}}; color: #15171C; font-size: 12px; font-weight: 700">破冰话题 {{qNo}}/3</span>
+<button type="button" onClick="{{nextQ}}" style="display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 0 0 8px; border: 0; background: transparent; color: #3D4048; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"></path><path d="M19.5 4.5v4h-4"></path></svg><span>换一个</span></button>
+</div>
+<div style="font-size: 17px; line-height: 1.45; font-weight: 800">{{question}}</div>
+<div style="font-size: 13px; color: #5B5F68">想说再说，不想说也可以先听听大家的。</div>
+<div style="display: flex; gap: 8px; padding-top: 4px">
+<button type="button" onClick="{{listen}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer">我先听听</button>
+<button type="button" onClick="{{speak}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #193543; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">我来说一个</button>
+</div>
+</div>
+<sc-for list="{{msgs}}" as="m" hint-placeholder-count="3">
+<sc-if value="{{m.other}}" hint-placeholder-val="{{ true }}">
+<div style="flex-shrink: 0; display: flex; gap: 8px; align-items: flex-start">
+<span aria-hidden="true" style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px; background: {{m.avBg}}; color: {{m.avFg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{m.av}}</span>
+<div style="display: flex; flex-direction: column; gap: 4px; max-width: 260px">
+<span style="font-size: 12px; color: #5B5F68">{{m.name}}</span>
+<div style="padding: 10px 14px; border-radius: 4px 18px 18px 18px; background: #FFFFFF; font-size: 15px; line-height: 1.5">{{m.text}}</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{m.mine}}" hint-placeholder-val="{{ false }}">
+<div style="flex-shrink: 0; display: flex; justify-content: flex-end">
+<div style="max-width: 260px; padding: 10px 14px; border-radius: 18px 4px 18px 18px; background: {{m.accent}}; color: #15171C; font-size: 15px; line-height: 1.5">{{m.text}}</div>
+</div>
+</sc-if>
+</sc-for>
+</div>
+<sc-if value="{{showPlus}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; right: 0; bottom: 84px; padding: 16px 20px; background: #FFFFFF; border-top: 1px solid #E2E7EB; display: flex; gap: 20px">
+<a href="AA.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 64px; color: #15171C; font-size: 12px; text-decoration: none"><span style="width: 56px; height: 56px; border-radius: 18px; background: #F1F4F6; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12.5" rx="2.5"></rect><path d="M3.5 10h17"></path><path d="M15.5 14.5h2"></path></svg></span><span>AA 记账</span></a>
+<button type="button" style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 64px; padding: 0; border: 0; background: transparent; color: #15171C; font-family: inherit; font-size: 12px; cursor: pointer"><span style="width: 56px; height: 56px; border-radius: 18px; background: #F1F4F6; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M20.5 16l-4.5-4.5-7.5 8"></path></svg></span><span>照片</span></button>
+<button type="button" style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 64px; padding: 0; border: 0; background: transparent; color: #15171C; font-family: inherit; font-size: 12px; cursor: pointer"><span style="width: 56px; height: 56px; border-radius: 18px; background: #F1F4F6; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"></path><circle cx="12" cy="10" r="2.3"></circle></svg></span><span>位置</span></button>
+</div>
+</sc-if>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 10px 12px 30px; background: #FFFFFF; border-top: 1px solid #E2E7EB; display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="更多功能" aria-expanded="{{plusExpanded}}" onClick="{{togglePlus}}" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<label for="msg" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">输入消息</label>
+<input id="msg" type="text" value="{{draft}}" onChange="{{onDraft}}" placeholder="说点什么…" style="flex: 1; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px">
+<button type="button" aria-label="发送" onClick="{{send}}" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 999px; border: 0; background: #193543; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3.5L10.5 14"></path><path d="M21 3.5l-6.5 17-4-6.5-6.5-4z"></path></svg></button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const qs = [
+      '来大理以后，你最喜欢的一个瞬间是什么？',
+      '如果只能带一样东西上山，你会带什么？',
+      '最近一次觉得「刚刚好」，是什么时候？'
+    ];
+    const qi = s.qi || 0;
+    const base = [
+      { name: '阿野', av: '野', avBg: '#E3E8EC', avFg: '#15171C', text: '我带了几个暖宝宝，山上清晨挺冷的' },
+      { name: '小满', av: '满', avBg: '#193543', avFg: '#FFFFFF', text: '第一次看日出，有点期待' },
+      { mine: true, text: '我也是第一次！' }
+    ];
+    const list = s.msgs || base;
+    const msgs = list.map((m) => ({
+      name: m.name || '',
+      av: m.av || '',
+      avBg: m.avBg || '#E3E8EC',
+      avFg: m.avFg || '#15171C',
+      text: m.text,
+      mine: !!m.mine,
+      other: !m.mine,
+      accent: accent
+    }));
+    const arrived = !!s.arrived;
+    const draft = s.draft || '';
+    return {
+      accent: accent,
+      question: qs[qi],
+      qNo: qi + 1,
+      nextQ: () => this.setState({ qi: (qi + 1) % qs.length }),
+      listen: () => this.setState({ msgs: list.concat([{ name: '阿野', av: '野', avBg: '#E3E8EC', avFg: '#15171C', text: '我先说：去年在洱海边骑车，风特别舒服，什么都不用想。' }]) }),
+      speak: () => this.setState({ draft: '我最喜欢的瞬间是：' }),
+      msgs: msgs,
+      arrive: () => this.setState({ arrived: !arrived }),
+      arrivedPressed: arrived ? 'true' : 'false',
+      arriveLabel: arrived ? '已到达' : '我到了',
+      arriveBg: arrived ? 'transparent' : accent,
+      arriveFg: arrived ? '#FFFFFF' : '#15171C',
+      arriveBorder: arrived ? '1px solid #858C94' : '0',
+      showPlus: !!s.plus,
+      plusExpanded: s.plus ? 'true' : 'false',
+      togglePlus: () => this.setState({ plus: !s.plus }),
+      draft: draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      send: () => {
+        if (draft.trim()) {
+          this.setState({ msgs: list.concat([{ mine: true, text: draft.trim() }]), draft: '' });
+        }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

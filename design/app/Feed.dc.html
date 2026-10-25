@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>动态</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 50px 16px 0 20px">
+<h1 style="margin: 0; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.01em">动态</h1>
+<div style="display: flex; align-items: center; gap: 8px">
+<a href="Compose.dc.html" aria-label="发动态" style="width: 44px; height: 44px; border-radius: 999px; background: #193543; color: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+<div aria-hidden="true" style="flex-shrink: 0; display: flex; align-items: center; width: 87px; height: 32px; box-sizing: border-box; border: 1px solid #E2E7EB; border-radius: 999px; background: #FFFFFF"><span style="flex: 1; display: flex; justify-content: center; gap: 3px"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span><span style="width: 1px; height: 18px; background: #E2E7EB"></span><span style="flex: 1; display: flex; justify-content: center"><span style="width: 15px; height: 15px; box-sizing: border-box; border: 2px solid #15171C; border-radius: 999px; display: flex; align-items: center; justify-content: center"><span style="width: 4px; height: 4px; border-radius: 999px; background: #15171C"></span></span></span></div>
+</div>
+</div>
+<p style="margin: 4px 20px 0; font-size: 14px; color: #5B5F68">局结束后的花絮，先看看氛围再决定去不去</p>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px 16px 0">
+<article style="padding: 12px 8px 12px 16px; border-radius: 26px; background: #FFFFFF; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 4px">
+<a href="UserProfile.dc.html" style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px; color: #15171C; text-decoration: none"><span aria-hidden="true" style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: #E3E8EC; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">野</span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 700">阿野</span><span style="font-size: 12px; color: #5B5F68">2 小时前 · 履约 98%</span></span></a>
+<button type="button" aria-label="更多操作" onClick="{{openMore}}" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 999px; border: 0; background: transparent; color: #5B5F68; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6" fill="currentColor"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor"></circle><circle cx="18.5" cy="12" r="1.6" fill="currentColor"></circle></svg></button>
+</div>
+<a href="Comments.dc.html" style="padding-right: 8px; color: #15171C; font-size: 15px; line-height: 1.6; text-decoration: none">凌晨爬起来真的值。一路上没人尬聊，太阳出来那一刻大家都没说话，刚刚好。</a>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-right: 8px">
+<div aria-hidden="true" style="height: 150px; border-radius: 16px 6px 6px 16px; background: #193543; color: {{accent}}; overflow: hidden"><svg width="100%" height="150" viewBox="0 0 160 150" preserveAspectRatio="none" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="108" cy="54" r="13"></circle><path d="M0 146L40 98l26 20 38-52 36 56 20-14"></path><circle cx="30" cy="30" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="70" cy="22" r="1.4" fill="currentColor" stroke="none"></circle></svg></div>
+<div aria-hidden="true" style="height: 150px; border-radius: 6px 16px 16px 6px; background: {{accent}}; color: #15171C; overflow: hidden"><svg width="100%" height="150" viewBox="0 0 160 150" preserveAspectRatio="none" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 104h128"></path><path d="M50 104a30 30 0 0 1 60 0"></path><path d="M80 62V48"></path><path d="M52 74l-9-9"></path><path d="M108 74l9-9"></path><path d="M40 96H28"></path><path d="M120 96h12"></path><path d="M44 118h30"></path><path d="M86 118h30"></path><path d="M60 130h40"></path></svg></div>
+</div>
+<div style="display: flex; align-items: center; gap: 2px">
+<a href="Detail.dc.html" style="display: inline-flex; align-items: center; gap: 4px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; background: #F1F4F6; color: #15171C; font-size: 13px; font-weight: 700; text-decoration: none"><span>来自局：苍山看日出</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"></path></svg></a>
+<button type="button" aria-pressed="{{l1pressed}}" aria-label="喜欢 {{l1count}}" onClick="{{like1}}" style="margin-left: auto; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; border: 0; background: transparent; color: #15171C; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="{{l1fill}}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19.5s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4z"></path></svg><span>{{l1count}}</span></button>
+<a href="Comments.dc.html" aria-label="评论 5" style="display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; color: #15171C; font-size: 13px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.5z"></path></svg><span>5</span></a>
+</div>
+</article>
+<article style="padding: 12px 8px 12px 16px; border-radius: 26px; background: #FFFFFF; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 4px">
+<div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px"><span aria-hidden="true" style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">木</span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 700">木木</span><span style="font-size: 12px; color: #5B5F68">昨天 · 第一次参加</span></span></div>
+<button type="button" aria-label="更多操作" onClick="{{openMore}}" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 999px; border: 0; background: transparent; color: #5B5F68; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6" fill="currentColor"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor"></circle><circle cx="18.5" cy="12" r="1.6" fill="currentColor"></circle></svg></button>
+</div>
+<p style="margin: 0; padding-right: 8px; font-size: 15px; line-height: 1.6">第一次参加桌游局，前五分钟有点紧张，后来笑了一整晚。新手友好是真的。</p>
+<div aria-hidden="true" style="margin-right: 8px; height: 150px; border-radius: 16px; background: #2E4A5C; color: {{accent}}; display: flex; align-items: center; justify-content: center"><svg width="120" height="80" viewBox="0 0 96 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="14" width="32" height="32" rx="7"></rect><circle cx="25" cy="23" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="32" cy="30" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="39" cy="37" r="2.4" fill="currentColor" stroke="none"></circle><rect x="54" y="24" width="28" height="28" rx="6"></rect><circle cx="62" cy="32" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="74" cy="32" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="62" cy="44" r="2.4" fill="currentColor" stroke="none"></circle><circle cx="74" cy="44" r="2.4" fill="currentColor" stroke="none"></circle></svg></div>
+<div style="display: flex; align-items: center; gap: 2px">
+<a href="Square.dc.html" style="display: inline-flex; align-items: center; gap: 4px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; background: #F1F4F6; color: #15171C; font-size: 13px; font-weight: 700; text-decoration: none"><span>来自局：桌游夜 · 新手友好</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"></path></svg></a>
+<button type="button" aria-pressed="{{l2pressed}}" aria-label="喜欢 {{l2count}}" onClick="{{like2}}" style="margin-left: auto; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; border: 0; background: transparent; color: #15171C; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="{{l2fill}}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19.5s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4z"></path></svg><span>{{l2count}}</span></button>
+</div>
+</article>
+</div>
+<nav aria-label="底部导航" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 6px 6px 26px; background: #FFFFFF; border-top: 1px solid #E2E7EB; display: flex; justify-content: space-around">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 19c.6-3.1 2.8-5 5.5-5s4.9 1.9 5.5 5"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M15.8 14.2c2.3.2 4 1.9 4.6 4.8"></path></svg></span><span style="font-size: 11px; font-weight: 500">撮合</span></a>
+<a href="Square.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg></span><span style="font-size: 11px; font-weight: 500">广场</span></a>
+<a href="Feed.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #15171C; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px; border-radius: 999px; background: {{accent}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M20.5 16l-4.5-4.5-7.5 8"></path></svg></span><span style="font-size: 11px; font-weight: 700">动态</span></a>
+<a href="Messages.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.5z"></path></svg></span><span style="font-size: 11px; font-weight: 500">消息</span></a>
+<a href="Profile.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 64px; min-height: 48px; color: #6B6F78; text-decoration: none"><span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 30px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"></circle><path d="M4.5 20c.9-3.8 3.9-6 7.5-6s6.6 2.2 7.5 6"></path></svg></span><span style="font-size: 11px; font-weight: 500">我的</span></a>
+</nav>
+<sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+<output style="position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%); padding: 10px 16px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 13px; white-space: nowrap">好的，以后不再给你看 TA 的动态</output>
+</sc-if>
+<sc-if value="{{more}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: rgba(21, 23, 28, 0.45); display: flex; flex-direction: column; justify-content: flex-end">
+<section aria-label="更多操作" style="padding: 8px 16px 34px; border-radius: 28px 28px 0 0; background: #FFFFFF; display: flex; flex-direction: column">
+<a href="Report.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 8px; border-bottom: 1px solid #E8ECEF; color: #15171C; font-size: 16px; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 5h11l-2 4 2 4h-11"></path></svg><span>举报这条动态</span></a>
+<button type="button" onClick="{{hideAuthor}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 8px; border: 0; border-bottom: 1px solid #E8ECEF; background: transparent; color: #15171C; font-family: inherit; font-size: 16px; text-align: left; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M6 6l12 12"></path></svg><span>不看 TA 的动态</span></button>
+<button type="button" onClick="{{closeMore}}" style="min-height: 56px; border: 0; background: transparent; color: #5B5F68; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer">取消</button>
+</section>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const l1 = !!s.l1;
+    const l2 = !!s.l2;
+    return {
+      accent: this.props.accent ?? '#7CCAE3',
+      l1fill: l1 ? '#15171C' : 'none',
+      l1count: l1 ? 24 : 23,
+      l1pressed: l1 ? 'true' : 'false',
+      like1: () => this.setState({ l1: !l1 }),
+      l2fill: l2 ? '#15171C' : 'none',
+      l2count: l2 ? 42 : 41,
+      l2pressed: l2 ? 'true' : 'false',
+      like2: () => this.setState({ l2: !l2 }),
+      more: !!s.more,
+      openMore: () => this.setState({ more: true, toast: false }),
+      closeMore: () => this.setState({ more: false }),
+      hideAuthor: () => this.setState({ more: false, toast: true }),
+      toast: !!s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

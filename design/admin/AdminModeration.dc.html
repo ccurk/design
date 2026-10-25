@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>后台 · 审核与举报</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 100vh; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<nav aria-label="后台菜单" style="flex: 1 1 232px; box-sizing: border-box; padding: 24px 16px; background: #FFFFFF; border-right: 1px solid #E2E7EB; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 8px 20px">
+<span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 12px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900">搭</span>
+<div style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-size: 15px; font-weight: 800">活动搭子</span><span style="font-size: 12px; color: #5B5F68">运营后台</span></div>
+</div>
+<a href="AdminDashboard.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="2"></rect></svg><span style="flex: 1">概览</span></a>
+<a href="AdminMatching.dc.html" aria-label="撮合池，3 个方案等你确认" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"></path><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4"></path><path d="M18 14.8c1.9.7 3.1 2.4 3.5 5.2"></path></svg><span style="flex: 1">撮合池</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">3</span></a>
+<a href="AdminModeration.dc.html" aria-current="page" aria-label="审核与举报，{{navCount}} 条待处理" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; background: #E4F2F8; color: #15171C; font-size: 15px; font-weight: 700; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.1 8.2-7.5 9.5-4.4-1.3-7.5-4.9-7.5-9.5V6L12 3z"></path><path d="M8.8 12l2.2 2.2 4.2-4.4"></path></svg><span style="flex: 1">审核与举报</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{navCount}}</span></a>
+<a href="AdminEvents.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"></rect><path d="M3.5 10h17"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg><span style="flex: 1">局管理</span></a>
+<a href="AdminUsers.dc.html" aria-label="用户与信用，1 条申诉待处理" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 20.5c1-4 3.9-6 7.5-6s6.5 2 7.5 6"></path></svg><span style="flex: 1">用户与信用</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span></a>
+<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #E8ECEF">
+<a href="AdminLogin.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #5B5F68; font-size: 14px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"></path><path d="M10 8l-4 4 4 4"></path><path d="M6 12h10"></path></svg><span>退出登录</span></a>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px clamp(16px, 3vw, 40px) 56px; display: flex; flex-direction: column; gap: 20px">
+<header style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800">审核与举报</h1>
+<p style="margin: 0; max-width: 680px; font-size: 14px; line-height: 1.7; color: #5B5F68">举报尽量 24 小时内处理完，结果会用微信服务通知告诉举报的人。举报人对你也只显示匿名编号。系统拦下的动态和局，要你看过才会发出来。</p>
+</header>
+<sc-if value="{{hasBanner}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 10px 10px 20px; border-radius: 16px; background: #193543; color: #FFFFFF">
+<span style="flex: 1 1 240px; min-width: 0; font-size: 14px; line-height: 1.6">{{banner}}</span>
+<button type="button" aria-label="关闭提示" onClick="{{closeBanner}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #FFFFFF; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</sc-if>
+<div role="tablist" aria-label="审核类型" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{t.bd}}; background: {{t.bg}}; color: {{t.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{t.label}}<span style="min-width: 20px; box-sizing: border-box; padding: 2px 7px; border-radius: 999px; background: {{t.countBg}}; color: {{t.countFg}}; font-size: 12px; text-align: center">{{t.count}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{items}}" as="it" hint-placeholder-count="2">
+<button type="button" aria-pressed="{{it.sel}}" onClick="{{it.pick}}" style="width: 100%; box-sizing: border-box; text-align: left; padding: 16px 18px; border-radius: 20px; border: 2px solid {{it.bd}}; background: #FFFFFF; color: #15171C; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%"><span style="padding: 3px 10px; border-radius: 999px; background: {{it.tagBg}}; color: {{it.tagFg}}; font-size: 12px; font-weight: 700">{{it.tag}}</span><span style="font-size: 12px; color: #6B6F78">{{it.when}}</span><span style="margin-left: auto; padding: 2px 8px; border-radius: 999px; background: {{it.stBg}}; color: {{it.stFg}}; font-size: 12px; font-weight: 700">{{it.st}}</span></span>
+<span style="font-size: 15px; font-weight: 700">{{it.title}}</span>
+<span style="width: 100%; font-size: 13px; line-height: 1.5; color: #5B5F68; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{it.preview}}</span>
+</button>
+</sc-for>
+</div>
+<section aria-label="详情与处理" style="flex: 2 1 460px; min-width: 0; box-sizing: border-box; padding: 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 18px">
+<sc-if value="{{isReport}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="padding: 3px 10px; border-radius: 999px; background: {{r.tagBg}}; color: {{r.tagFg}}; font-size: 12px; font-weight: 700">{{r.reason}}</span><span style="font-size: 13px; color: #5B5F68">{{r.kind}} · {{r.when}} · 举报人：{{r.reporter}}（匿名）</span></div>
+<h2 style="margin: 0; font-size: 20px; font-weight: 800">{{r.title}}</h2>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">被举报的内容</span>
+<blockquote style="margin: 0; padding: 16px 18px; border-radius: 16px; background: #F1F4F6; font-size: 16px; line-height: 1.7">{{r.content}}</blockquote>
+<span style="font-size: 13px; color: #5B5F68">{{r.where}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">举报人补充</span>
+<p style="margin: 0; font-size: 15px; line-height: 1.7">{{r.note}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{r.shots}}" as="x" hint-placeholder-count="2">
+<span style="width: 88px; height: 88px; border-radius: 14px; background: #E3E8EC; color: #3D4048; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{x.t}}</span>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; border: 1px solid #E2E7EB">
+<span aria-hidden="true" style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: {{r.target.bg}}; color: {{r.target.fg}}; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800">{{r.target.ch}}</span>
+<div style="flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">被举报人 · {{r.target.name}}</span><span style="font-size: 13px; line-height: 1.5; color: #5B5F68">{{r.target.credit}} · {{r.target.history}}</span></div>
+<a href="AdminUsers.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #D3DAE0; color: #15171C; font-size: 13px; font-weight: 700; text-decoration: none">看信用记录</a>
+</div>
+<sc-if value="{{r.open}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid #E8ECEF">
+<span style="font-size: 15px; font-weight: 800">怎么处理</span>
+<div role="group" aria-label="处理方式" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{acts}}" as="a" hint-placeholder-count="5">
+<button type="button" aria-pressed="{{a.pressed}}" onClick="{{a.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{a.bd}}; background: {{a.bg}}; color: {{a.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{a.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{hasActDesc}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 12px 14px; border-radius: 14px; background: #F1F4F6; font-size: 13px; line-height: 1.6; color: #3D4048">{{actDesc}}</p>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="mod-note" style="font-size: 13px; font-weight: 700; color: #5B5F68">备注（选填，只有后台能看到）</label><input id="mod-note" type="text" value="{{note}}" onChange="{{setNote}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+<sc-if value="{{err}}" hint-placeholder-val="{{ false }}">
+<p role="alert" style="margin: 0; font-size: 13px; color: #B42318">先选一种处理方式</p>
+</sc-if>
+<sc-if value="{{banAsk}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; background: #FBE4E1">
+<span style="font-size: 14px; line-height: 1.6">封号后，{{r.target.name}} 不能再登录，也不能参加任何局。确定吗？</span>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{confirmBan}}" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #B42318; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">确定封号</button>
+<button type="button" onClick="{{cancelBan}}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">再想想</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{noBanAsk}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{submit}}" style="min-height: 48px; padding: 0 24px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">确认处理</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{r.done}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 16px; background: #E4F2F8">
+<span style="font-size: 15px; font-weight: 800">已处理 · {{r.result}}</span>
+<span style="font-size: 13px; line-height: 1.6; color: #3D4048">举报人已收到处理结果通知。</span>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{isPost}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="padding: 3px 10px; border-radius: 999px; background: #FCEFD9; color: #8A4B00; font-size: 12px; font-weight: 700">{{pp.flag}}</span><span style="font-size: 13px; color: #5B5F68">{{pp.when}}</span></div>
+<h2 style="margin: 0; font-size: 20px; font-weight: 800">{{pp.title}}</h2>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<blockquote style="margin: 0; padding: 16px 18px; border-radius: 16px; background: #F1F4F6; font-size: 16px; line-height: 1.7">{{pp.text}}</blockquote>
+<span style="font-size: 13px; color: #5B5F68">{{pp.from}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; border: 1px solid #E2E7EB">
+<span aria-hidden="true" style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: {{pp.bg}}; color: {{pp.fg}}; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800">{{pp.ch}}</span>
+<div style="flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">作者 · {{pp.author}}</span><span style="font-size: 13px; color: #5B5F68">{{pp.credit}}</span></div>
+</div>
+<sc-if value="{{pp.open}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid #E8ECEF">
+<span style="font-size: 15px; font-weight: 800">这条动态要发出来吗？</span>
+<sc-if value="{{notRejecting}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{passPost}}" style="min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">通过，发出来</button>
+<button type="button" onClick="{{openRej}}" style="min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #B42318; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">不通过</button>
+</div>
+</sc-if>
+<sc-if value="{{rejOpen}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="不通过的原因" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{rejChips}}" as="c" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #5B5F68">作者会收到通知「你的动态没有通过审核」和原因，可以改了再发。</p>
+<sc-if value="{{rejErr}}" hint-placeholder-val="{{ false }}">
+<p role="alert" style="margin: 0; font-size: 13px; color: #B42318">先选一个原因</p>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{rejectPost}}" style="min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: #B42318; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">确认不通过</button>
+<button type="button" onClick="{{closeRej}}" style="min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">取消</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{pp.done}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 16px; background: #E4F2F8">
+<span style="font-size: 15px; font-weight: 800">{{pp.result}}</span>
+<span style="font-size: 13px; line-height: 1.6; color: #3D4048">已通知作者。</span>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{isEvent}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="padding: 3px 10px; border-radius: 999px; background: #FCEFD9; color: #8A4B00; font-size: 12px; font-weight: 700">{{pe.flag}}</span><span style="font-size: 13px; color: #5B5F68">{{pe.when}}</span></div>
+<h2 style="margin: 0; font-size: 20px; font-weight: 800">{{pe.title}}</h2>
+<span style="font-size: 14px; line-height: 1.6; color: #3D4048">{{pe.info}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">发起人写的介绍</span>
+<blockquote style="margin: 0; padding: 16px 18px; border-radius: 16px; background: #F1F4F6; font-size: 16px; line-height: 1.7">{{pe.desc}}</blockquote>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; border: 1px solid #E2E7EB">
+<span aria-hidden="true" style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: {{pe.bg}}; color: {{pe.fg}}; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800">{{pe.ch}}</span>
+<div style="flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">发起人 · {{pe.creator}}</span><span style="font-size: 13px; color: #5B5F68">{{pe.credit}}</span></div>
+</div>
+<sc-if value="{{pe.open}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid #E8ECEF">
+<span style="font-size: 15px; font-weight: 800">这个局能发到广场吗？</span>
+<sc-if value="{{notRejecting}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{passEvent}}" style="min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">通过，发到广场</button>
+<button type="button" onClick="{{openRej}}" style="min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #B42318; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">不通过</button>
+</div>
+</sc-if>
+<sc-if value="{{rejOpen}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="不通过的原因" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{rejChips}}" as="c" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #5B5F68">发起人会收到通知「你发起的局没有通过审核」和原因，可以改了再发。</p>
+<sc-if value="{{rejErr}}" hint-placeholder-val="{{ false }}">
+<p role="alert" style="margin: 0; font-size: 13px; color: #B42318">先选一个原因</p>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{rejectEvent}}" style="min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: #B42318; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">确认不通过</button>
+<button type="button" onClick="{{closeRej}}" style="min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">取消</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{pe.done}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 16px; background: #E4F2F8">
+<span style="font-size: 15px; font-weight: 800">{{pe.result}}</span>
+<span style="font-size: 13px; line-height: 1.6; color: #3D4048">已通知发起人。</span>
+</div>
+</sc-if>
+</sc-if>
+</section>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const tab = s.tab || 'report';
+    const res = s.res || {};
+    const reports = [
+      {
+        id: 'r1', kind: '动态', reason: '推销 / 拉人头', when: '2 小时前', reporter: '用户#3a9',
+        title: '南风 的动态', content: '朋友开的客栈，报我名字打八折，私聊我拿优惠码～',
+        where: '发在「动态」· 来自局：洱海西岸骑行', note: '他在好几条动态下面都发了一样的话，感觉是在拉客。', shots: 2,
+        target: { name: '南风', ch: '南', bg: '#2E4A5C', fg: '#FFFFFF', credit: '履约 100% · 良好', history: '以前没被举报过' },
+        tagBg: '#FCEFD9', tagFg: '#8A4B00'
+      },
+      {
+        id: 'r2', kind: '群聊', reason: '骚扰或不当言行', when: '昨天 23:10', reporter: '用户#7c2',
+        title: '大鹏 在「桌游夜 · 新手友好」群聊', content: '散了以后加个微信呗，下次单独约你出来玩',
+        where: '「桌游夜 · 新手友好」群聊 · 局已结束', note: '局结束后一直找我要联系方式，说了不方便还在问。', shots: 1,
+        target: { name: '大鹏', ch: '鹏', bg: '#15171C', fg: '#FFFFFF', credit: '履约 86% · 一般', history: '30 天内被举报过 1 次（已警告）' },
+        tagBg: '#FBE4E1', tagFg: '#B42318'
+      }
+    ];
+    const posts = [
+      {
+        id: 'pp1', author: '小北', ch: '北', bg: '#7CCAE3', fg: '#15171C', credit: '履约 100% · 参加过 4 次',
+        when: '40 分钟前', flag: '自动拦下：包含联系方式', title: '小北 发的动态',
+        text: '今天在才村码头拍到的晚霞，周末还想去，想一起拍的私聊我 vx：xb_dali2025', from: '没有关联的局 · 带 3 张照片'
+      }
+    ];
+    const events = [
+      {
+        id: 'pe1', creator: '阿青', ch: '青', bg: '#15171C', fg: '#FFFFFF', credit: '履约 100% · 参加过 3 次',
+        when: '1 小时前', flag: '自动标记：夜间局 · 提到「酒吧」', title: '周五晚上 · 古城酒吧小聚',
+        info: '10月30日 周五 21:00 · 人民路 · 最多 6 人 · 各付各',
+        desc: '不劝酒，想喝什么点什么，11 点前散。刚来大理，想认识几个能一起玩的人。'
+      }
+    ];
+    const reset = { act: '', note: '', err: false, banAsk: false, rejOpen: false, rejWhy: '', rejErr: false };
+    const finish = (id, label, msg) => this.setState(Object.assign({}, reset, { res: Object.assign({}, res, { [id]: label }), banner: msg }));
+    const chip = (label, on, pick) => ({
+      label: label,
+      pressed: on ? 'true' : 'false',
+      bg: on ? '#193543' : '#FFFFFF',
+      bd: on ? '#193543' : '#D3DAE0',
+      fg: on ? '#FFFFFF' : '#15171C',
+      pick: pick
+    });
+    const openOf = (list) => list.filter((x) => !res[x.id]).length;
+    const navCount = openOf(reports) + openOf(posts) + openOf(events);
+
+    const tabs = [['report', '举报', openOf(reports)], ['post', '动态待审', openOf(posts)], ['event', '局待审', openOf(events)]].map((t) => {
+      const on = tab === t[0];
+      return {
+        label: t[1],
+        count: t[2],
+        sel: on ? 'true' : 'false',
+        bg: on ? '#193543' : '#FFFFFF',
+        fg: on ? '#FFFFFF' : '#15171C',
+        bd: on ? '#193543' : '#E2E7EB',
+        countBg: on ? '#2E4A5C' : '#F1F4F6',
+        countFg: on ? '#FFFFFF' : '#3D4048',
+        pick: () => this.setState(Object.assign({ tab: t[0] }, reset))
+      };
+    });
+
+    const selR = s.selR || 'r1';
+    const selP = s.selP || 'pp1';
+    const selE = s.selE || 'pe1';
+    const badge = (id, openLabel) => {
+      const done = res[id];
+      return {
+        st: done ? (done.indexOf('未通过') === 0 ? '未通过' : (openLabel === '待处理' ? '已处理' : done)) : openLabel,
+        stBg: done ? '#E3E8EC' : '#FCEFD9',
+        stFg: done ? '#3D4048' : '#8A4B00'
+      };
+    };
+    const card = (o, selected, pick) => Object.assign(o, {
+      sel: selected ? 'true' : 'false',
+      bd: selected ? '#193543' : 'transparent',
+      pick: pick
+    });
+    let items;
+    if (tab === 'report') {
+      items = reports.map((x) => card(Object.assign({ title: x.title, preview: x.content, when: x.when, tag: x.reason, tagBg: x.tagBg, tagFg: x.tagFg }, badge(x.id, '待处理')), selR === x.id, () => this.setState(Object.assign({ selR: x.id }, reset))));
+    } else if (tab === 'post') {
+      items = posts.map((x) => card(Object.assign({ title: x.title, preview: x.text, when: x.when, tag: '动态', tagBg: '#F1F4F6', tagFg: '#3D4048' }, badge(x.id, '待审核')), selP === x.id, () => this.setState(Object.assign({ selP: x.id }, reset))));
+    } else {
+      items = events.map((x) => card(Object.assign({ title: x.title, preview: x.info, when: x.when, tag: '用户发起的局', tagBg: '#F1F4F6', tagFg: '#3D4048' }, badge(x.id, '待审核')), selE === x.id, () => this.setState(Object.assign({ selE: x.id }, reset))));
+    }
+
+    const R = reports.find((x) => x.id === selR) || reports[0];
+    const r = Object.assign({}, R, {
+      shots: Array.from({ length: R.shots }, (_, i) => ({ t: '截图 ' + (i + 1) })),
+      open: !res[R.id],
+      done: !!res[R.id],
+      result: res[R.id] || ''
+    });
+    const P = posts.find((x) => x.id === selP) || posts[0];
+    const pp = Object.assign({}, P, { open: !res[P.id], done: !!res[P.id], result: res[P.id] || '' });
+    const E = events.find((x) => x.id === selE) || events[0];
+    const pe = Object.assign({}, E, { open: !res[E.id], done: !!res[E.id], result: res[E.id] || '' });
+
+    const ACTS = [
+      ['dismiss', '驳回', '内容没问题，不处理。举报人会收到「已核实，没有发现违规」。'],
+      ['warn', '警告', '给 TA 发一条提醒，内容保留。'],
+      ['delete', '删除内容', '删掉这条内容，并提醒 TA。'],
+      ['restrict', '限制 7 天', '7 天内不能参与撮合和报名，只能看。'],
+      ['ban', '封号', '不能再登录。只用于严重违规：擦边、诈骗、多次骚扰。']
+    ];
+    const act = s.act || '';
+    const cur = ACTS.find((a) => a[0] === act);
+    const acts = ACTS.map((a) => {
+      const on = act === a[0];
+      const danger = a[0] === 'ban';
+      return {
+        label: a[1],
+        pressed: on ? 'true' : 'false',
+        bg: on ? (danger ? '#B42318' : '#193543') : '#FFFFFF',
+        bd: on ? (danger ? '#B42318' : '#193543') : '#D3DAE0',
+        fg: on ? '#FFFFFF' : (danger ? '#B42318' : '#15171C'),
+        pick: () => this.setState({ act: a[0], err: false, banAsk: false })
+      };
+    });
+    const rejList = tab === 'event' ? ['像交友或约会', '有安全风险', '广告推销', '其他'] : ['包含联系方式', '广告推销', '擦边低俗', '其他'];
+
+    return {
+      accent: accent,
+      navCount: navCount,
+      tabs: tabs,
+      items: items,
+      isReport: tab === 'report',
+      isPost: tab === 'post',
+      isEvent: tab === 'event',
+      r: r,
+      pp: pp,
+      pe: pe,
+      acts: acts,
+      hasActDesc: !!cur,
+      actDesc: cur ? cur[2] : '',
+      note: s.note || '',
+      setNote: (e) => this.setState({ note: e.target.value }),
+      err: !!s.err,
+      banAsk: !!s.banAsk,
+      noBanAsk: !s.banAsk,
+      submit: () => {
+        if (!cur) {
+          this.setState({ err: true });
+          return;
+        }
+        if (cur[0] === 'ban') {
+          this.setState({ banAsk: true });
+          return;
+        }
+        finish(R.id, cur[1], '已处理：' + cur[1] + '。举报人会收到处理结果通知。');
+      },
+      confirmBan: () => finish(R.id, '封号', '已封号：' + R.target.name + ' 不能再登录。举报人会收到处理结果通知。'),
+      cancelBan: () => this.setState({ banAsk: false }),
+      rejOpen: !!s.rejOpen,
+      notRejecting: !s.rejOpen,
+      openRej: () => this.setState({ rejOpen: true, rejWhy: '', rejErr: false }),
+      closeRej: () => this.setState({ rejOpen: false, rejErr: false }),
+      rejChips: rejList.map((x) => chip(x, s.rejWhy === x, () => this.setState({ rejWhy: x, rejErr: false }))),
+      rejErr: !!s.rejErr,
+      passPost: () => finish(P.id, '已通过', '已通过：' + P.author + ' 的动态已经出现在「动态」里。'),
+      rejectPost: () => {
+        if (!s.rejWhy) {
+          this.setState({ rejErr: true });
+          return;
+        }
+        finish(P.id, '未通过：' + s.rejWhy, '没有通过：已通知 ' + P.author + '，可以改了再发。');
+      },
+      passEvent: () => finish(E.id, '已通过', '已通过：「' + E.title + '」已经发到广场。'),
+      rejectEvent: () => {
+        if (!s.rejWhy) {
+          this.setState({ rejErr: true });
+          return;
+        }
+        finish(E.id, '未通过：' + s.rejWhy, '没有通过：已通知 ' + E.creator + '，可以改了再发。');
+      },
+      hasBanner: !!s.banner,
+      banner: s.banner || '',
+      closeBanner: () => this.setState({ banner: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

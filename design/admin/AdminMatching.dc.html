@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>后台 · 撮合池</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15171C}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 100vh; background: #F1F4F6; color: #15171C; font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'PingFang SC', sans-serif">
+<div style="max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<nav aria-label="后台菜单" style="flex: 1 1 232px; box-sizing: border-box; padding: 24px 16px; background: #FFFFFF; border-right: 1px solid #E2E7EB; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 8px 20px">
+<span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 12px; background: {{accent}}; color: #15171C; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900">搭</span>
+<div style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-size: 15px; font-weight: 800">活动搭子</span><span style="font-size: 12px; color: #5B5F68">运营后台</span></div>
+</div>
+<a href="AdminDashboard.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="2"></rect></svg><span style="flex: 1">概览</span></a>
+<a href="AdminMatching.dc.html" aria-current="page" aria-label="撮合池，{{navCount}} 个方案等你确认" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; background: #E4F2F8; color: #15171C; font-size: 15px; font-weight: 700; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"></path><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4"></path><path d="M18 14.8c1.9.7 3.1 2.4 3.5 5.2"></path></svg><span style="flex: 1">撮合池</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{navCount}}</span></a>
+<a href="AdminModeration.dc.html" aria-label="审核与举报，4 条待处理" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.1 8.2-7.5 9.5-4.4-1.3-7.5-4.9-7.5-9.5V6L12 3z"></path><path d="M8.8 12l2.2 2.2 4.2-4.4"></path></svg><span style="flex: 1">审核与举报</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">4</span></a>
+<a href="AdminEvents.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"></rect><path d="M3.5 10h17"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg><span style="flex: 1">局管理</span></a>
+<a href="AdminUsers.dc.html" aria-label="用户与信用，1 条申诉待处理" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #3D4048; font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 20.5c1-4 3.9-6 7.5-6s6.5 2 7.5 6"></path></svg><span style="flex: 1">用户与信用</span><span style="min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 7px; border-radius: 999px; background: #193543; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span></a>
+<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #E8ECEF">
+<a href="AdminLogin.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: #5B5F68; font-size: 14px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"></path><path d="M10 8l-4 4 4 4"></path><path d="M6 12h10"></path></svg><span>退出登录</span></a>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px clamp(16px, 3vw, 40px) 56px; display: flex; flex-direction: column; gap: 20px">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800">撮合池</h1>
+<p style="margin: 0; max-width: 660px; font-size: 14px; line-height: 1.7; color: #5B5F68">系统每 5 分钟按「同一件事 · 时间对得上 · 同一片区域」自动配一次。你看一眼成员和风险提示，没问题就确认成局；确认后才会给每个人发邀请。</p>
+</div>
+<button type="button" onClick="{{runMatch}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5"></path><path d="M4 4v4.5h4.5"></path><path d="M4 12.5a8 8 0 0 0 13.7 5.2l2.3-2.2"></path><path d="M20 20v-4.5h-4.5"></path></svg>{{runLabel}}</button>
+</header>
+<sc-if value="{{hasBanner}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 10px 10px 20px; border-radius: 16px; background: #193543; color: #FFFFFF">
+<span style="flex: 1 1 240px; min-width: 0; font-size: 14px; line-height: 1.6">{{banner}}</span>
+<sc-if value="{{bannerHasGo}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{goBanner}}" style="min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: #FFFFFF; color: #193543; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">去看看</button>
+</sc-if>
+<button type="button" aria-label="关闭提示" onClick="{{closeBanner}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #FFFFFF; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div role="tablist" aria-label="方案状态" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{t.bd}}; background: {{t.bg}}; color: {{t.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{t.label}}<span style="min-width: 20px; box-sizing: border-box; padding: 2px 7px; border-radius: 999px; background: {{t.countBg}}; color: {{t.countFg}}; font-size: 12px; text-align: center">{{t.count}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{isPending}}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{noPending}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 48px 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<span style="font-size: 17px; font-weight: 800">都确认完了</span>
+<span style="font-size: 14px; line-height: 1.6; color: #5B5F68">新方案配出来会出现在这里，也可以点右上角「立即撮合一次」。</span>
+</div>
+</sc-if>
+<sc-for list="{{pending}}" as="p" hint-placeholder-count="3">
+<article style="box-sizing: border-box; padding: 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: flex-start; gap: 16px">
+<div style="flex-shrink: 0; width: 68px; height: 68px; border-radius: 18px; background: {{p.scoreBg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><span style="font-size: 26px; font-weight: 800; line-height: 1">{{p.score}}</span><span style="font-size: 11px; font-weight: 700; color: #3D4048">匹配度</span></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><h2 style="margin: 0; font-size: 19px; font-weight: 800">{{p.title}}</h2><span style="padding: 3px 10px; border-radius: 999px; background: #F1F4F6; color: #3D4048; font-size: 12px; font-weight: 700">{{p.cat}}</span></div>
+<span style="font-size: 14px; line-height: 1.5; color: #3D4048">{{p.meta}} · {{p.n}} 人</span>
+<span style="font-size: 12px; color: #6B6F78">{{p.made}}</span>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<sc-for list="{{p.members}}" as="m" hint-placeholder-count="4">
+<div style="flex: 1 1 210px; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid #E2E7EB">
+<span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 999px; background: {{m.bg}}; color: {{m.fg}}; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800">{{m.ch}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; font-weight: 700">{{m.name}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{m.tags}}" as="g" hint-placeholder-count="2">
+<span style="padding: 2px 8px; border-radius: 999px; background: {{g.bg}}; color: {{g.fg}}; font-size: 12px; font-weight: 700">{{g.t}}</span>
+</sc-for>
+</span>
+</div>
+<sc-if value="{{m.canRemove}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{m.remove}}" aria-label="把 {{m.name}} 移出这个方案" style="flex-shrink: 0; min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">移出</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 260px; min-width: 0; box-sizing: border-box; padding: 14px 16px; border-radius: 16px; background: #F1F4F6; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #3D4048">为什么配到一起</span>
+<sc-for list="{{p.reasons}}" as="r" hint-placeholder-count="3">
+<span style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#193543" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span>{{r.t}}</span></span>
+</sc-for>
+</div>
+<div style="flex: 1 1 260px; min-width: 0; box-sizing: border-box; padding: 14px 16px; border-radius: 16px; background: {{p.riskBg}}; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #3D4048">风险提示</span>
+<sc-if value="{{p.hasRisks}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{p.risks}}" as="r" hint-placeholder-count="2">
+<span style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B26B00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px"><path d="M12 3.5l9 16H3l9-16z"></path><path d="M12 10v4"></path><path d="M12 17.2v.1"></path></svg><span>{{r.t}}</span></span>
+</sc-for>
+</sc-if>
+<sc-if value="{{p.noRisks}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#193543" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span>没有发现风险</span></span>
+</sc-if>
+</div>
+</div>
+<sc-if value="{{p.isAdjusting}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; padding: 16px 18px; border-radius: 16px; border: 1px solid #D3DAE0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px"><span style="font-size: 15px; font-weight: 800">调整成员</span><span style="font-size: 13px; color: {{p.adjustHintColor}}">{{p.adjustHint}}</span></div>
+<span style="font-size: 13px; line-height: 1.6; color: #5B5F68">点上面成员卡片里的「移出」，被移出的人回到池子里继续等。</span>
+<span style="padding-top: 4px; font-size: 13px; font-weight: 700; color: #3D4048">池子里同样想{{p.verb}}的人</span>
+<sc-if value="{{p.hasCands}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{p.cands}}" as="c" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #E8ECEF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px; background: {{c.bg}}; color: {{c.fg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800">{{c.ch}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">{{c.name}} · {{c.credit}}</span><span style="font-size: 13px; line-height: 1.5; color: #5B5F68">{{c.sub}}</span></div>
+<button type="button" onClick="{{c.add}}" aria-label="把 {{c.name}} 加进这个方案" style="flex-shrink: 0; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #193543; background: #FFFFFF; color: #193543; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">加进来</button>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{p.noCands}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #5B5F68">池子里暂时没有同样想{{p.verb}}的人。</span>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px">
+<button type="button" onClick="{{p.doneAdjust}}" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">调整好了</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{p.isEditing}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; padding: 20px; border-radius: 16px; background: #F1F4F6; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">确认前，可以改一下细节</span><span style="font-size: 13px; line-height: 1.6; color: #5B5F68">发出后，每个人会收到「撮合成功」，自己点「加入这个局」才算数；有人点「换一批」，系统会从池子里补人。</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: 6px"><label for="f-title" style="font-size: 13px; font-weight: 700; color: #5B5F68">标题</label><input id="f-title" type="text" value="{{p.f.title}}" onChange="{{p.setTitle}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+<div style="flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px"><label for="f-date" style="font-size: 13px; font-weight: 700; color: #5B5F68">日期</label><input id="f-date" type="text" value="{{p.f.date}}" onChange="{{p.setDate}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+<div style="flex: 1 1 120px; min-width: 0; display: flex; flex-direction: column; gap: 6px"><label for="f-time" style="font-size: 13px; font-weight: 700; color: #5B5F68">开始时间</label><input id="f-time" type="text" value="{{p.f.time}}" onChange="{{p.setTime}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+<div style="flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px"><label for="f-place" style="font-size: 13px; font-weight: 700; color: #5B5F68">地点</label><input id="f-place" type="text" value="{{p.f.place}}" onChange="{{p.setPlace}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+<div style="flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px"><label for="f-meet" style="font-size: 13px; font-weight: 700; color: #5B5F68">集合点</label><input id="f-meet" type="text" value="{{p.f.meet}}" onChange="{{p.setMeet}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #5B5F68">费用</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<sc-for list="{{p.feeChips}}" as="c" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{c.label}}</button>
+</sc-for>
+<input type="text" aria-label="费用说明" value="{{p.f.feeNote}}" onChange="{{p.setFee}}" style="flex: 1 1 200px; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px">
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<span id="cap-label" style="font-size: 13px; font-weight: 700; color: #5B5F68">人数上限</span>
+<div role="group" aria-labelledby="cap-label" style="display: flex; align-items: center; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF">
+<button type="button" aria-label="少一个名额" onClick="{{p.dec}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #15171C; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+<span style="min-width: 28px; text-align: center; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums">{{p.f.cap}}</span>
+<button type="button" aria-label="多一个名额" onClick="{{p.inc}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #15171C; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+</div>
+<span style="font-size: 13px; line-height: 1.5; color: #5B5F68">已配 {{p.n}} 人，多出来的名额系统会从池子里补邀</span>
+</div>
+<sc-if value="{{p.formErr}}" hint-placeholder-val="{{ false }}">
+<p role="alert" style="margin: 0; font-size: 13px; color: #B42318">标题、日期、开始时间和地点都要填</p>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{p.send}}" style="min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">发出邀请（{{p.n}} 人）</button>
+<button type="button" onClick="{{p.cancelEdit}}" style="min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">先不发</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{p.isRejecting}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; padding: 20px; border-radius: 16px; background: #F1F4F6; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 800">为什么退回？</span><span style="font-size: 13px; line-height: 1.6; color: #5B5F68">退回后，这 {{p.n}} 个意向回到池子里，系统会换个组合再配。成员不会知道被退回过。</span></div>
+<div role="group" aria-label="退回原因" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{p.reasonChips}}" as="c" hint-placeholder-count="5">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="rj-note" style="font-size: 13px; font-weight: 700; color: #5B5F68">补充说明（选填，只有后台能看到）</label><input id="rj-note" type="text" value="{{p.rjNote}}" onChange="{{p.setRjNote}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px"></div>
+<sc-if value="{{p.rjErr}}" hint-placeholder-val="{{ false }}">
+<p role="alert" style="margin: 0; font-size: 13px; color: #B42318">先选一个原因</p>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{p.confirmReject}}" style="min-height: 48px; padding: 0 22px; border-radius: 999px; border: 1px solid #B42318; background: #FFFFFF; color: #B42318; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">确认退回</button>
+<button type="button" onClick="{{p.cancelReject}}" style="min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">先不退</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{p.isIdle}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<button type="button" onClick="{{p.openEdit}}" disabled="{{p.tooFew}}" style="min-height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: #193543; color: #FFFFFF; opacity: {{p.confirmOpacity}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">确认成局</button>
+<button type="button" onClick="{{p.openAdjust}}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">调整成员</button>
+<button type="button" onClick="{{p.openReject}}" style="min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #5B5F68; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">退回</button>
+<sc-if value="{{p.tooFew}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #B42318">至少 3 人才能成局，先调整成员</span>
+</sc-if>
+</div>
+</sc-if>
+</article>
+</sc-for>
+</sc-if>
+<sc-if value="{{isInvited}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{noInvited}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 48px 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<span style="font-size: 17px; font-weight: 800">还没有发出去的邀请</span>
+<span style="font-size: 14px; color: #5B5F68">确认成局后，会在这里看到每个人有没有点加入。</span>
+</div>
+</sc-if>
+<sc-for list="{{invited}}" as="p" hint-placeholder-count="1">
+<article style="box-sizing: border-box; padding: 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><h2 style="margin: 0; font-size: 19px; font-weight: 800">{{p.title}}</h2><span style="padding: 3px 10px; border-radius: 999px; background: #F1F4F6; color: #3D4048; font-size: 12px; font-weight: 700">{{p.cat}}</span></div>
+<span style="font-size: 14px; line-height: 1.5; color: #3D4048">{{p.meta}} · {{p.n}} 人</span>
+</div>
+<span style="flex-shrink: 0; padding: 4px 12px; border-radius: 999px; background: {{p.accent}}; color: #15171C; font-size: 13px; font-weight: 700">邀请中</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 14px"><span style="font-weight: 700">{{p.joined}} / {{p.n}} 人已加入</span><span style="color: #5B5F68">{{p.deadline}}</span></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 999px; background: #E3E8EC; overflow: hidden"><div style="width: {{p.pct}}; height: 100%; border-radius: 999px; background: #193543"></div></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<sc-for list="{{p.members}}" as="m" hint-placeholder-count="4">
+<div style="flex: 1 1 180px; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid #E2E7EB">
+<span aria-hidden="true" style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px; background: {{m.bg}}; color: {{m.fg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800">{{m.ch}}</span>
+<span style="flex: 1; min-width: 0; font-size: 14px; font-weight: 700">{{m.name}}</span>
+<span style="flex-shrink: 0; padding: 2px 8px; border-radius: 999px; background: {{m.stBg}}; color: {{m.stFg}}; font-size: 12px; font-weight: 700">{{m.stLabel}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #5B5F68">全员加入就自动成局、建群。到截止时间已加入 3 人以上也会成局；不够就取消，意向放回池子。</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" onClick="{{p.remind}}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #D3DAE0; background: #FFFFFF; color: #15171C; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">提醒还没回复的人</button>
+</div>
+</article>
+</sc-for>
+</sc-if>
+<sc-if value="{{isReturned}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{noReturned}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 48px 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<span style="font-size: 17px; font-weight: 800">没有退回过的方案</span>
+</div>
+</sc-if>
+<sc-for list="{{returned}}" as="p" hint-placeholder-count="1">
+<article style="box-sizing: border-box; padding: 24px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><h2 style="margin: 0; font-size: 19px; font-weight: 800">{{p.title}}</h2><span style="padding: 3px 10px; border-radius: 999px; background: #F1F4F6; color: #3D4048; font-size: 12px; font-weight: 700">{{p.cat}}</span></div>
+<span style="font-size: 14px; line-height: 1.5; color: #3D4048">{{p.meta}} · {{p.n}} 人</span>
+</div>
+<span style="flex-shrink: 0; padding: 4px 12px; border-radius: 999px; background: #E3E8EC; color: #3D4048; font-size: 13px; font-weight: 700">已退回</span>
+</div>
+<div style="padding: 12px 14px; border-radius: 14px; background: #F1F4F6; font-size: 14px; line-height: 1.6">退回原因：{{p.returnReason}}</div>
+<span style="font-size: 13px; line-height: 1.6; color: #5B5F68">{{p.n}} 个意向已回到撮合池，系统会换个组合再配。</span>
+</article>
+</sc-for>
+</sc-if>
+</div>
+<aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section aria-labelledby="auto-title" style="box-sizing: border-box; padding: 20px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: flex-start; gap: 12px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<h2 id="auto-title" style="margin: 0; font-size: 16px; font-weight: 800">自动成局</h2>
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #5B5F68">打开后，匹配度够高、又没有任何风险提示的方案直接成局，不用等你确认。</p>
+</div>
+<button type="button" role="switch" aria-checked="{{autoChecked}}" aria-labelledby="auto-title" onClick="{{toggleAuto}}" style="flex-shrink: 0; width: 56px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; cursor: pointer"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 3px; border-radius: 999px; background: {{autoTrack}}; display: flex; justify-content: {{autoJustify}}"><span style="width: 26px; height: 26px; border-radius: 999px; background: #FFFFFF"></span></span></button>
+</div>
+<sc-if value="{{autoOn}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; font-weight: 700; color: #3D4048">匹配度门槛</span>
+<div role="group" aria-label="匹配度门槛" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{thChips}}" as="c" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+<p style="margin: 0; padding: 12px 14px; border-radius: 14px; background: #F1F4F6; font-size: 13px; line-height: 1.6; color: #3D4048">{{autoText}}</p>
+</div>
+</sc-if>
+<sc-if value="{{autoOff}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; padding: 12px 14px; border-radius: 14px; background: #F1F4F6; font-size: 13px; line-height: 1.6; color: #3D4048">已关闭：每个方案都等你看过再发邀请。刚开始建议保持关闭。</p>
+</sc-if>
+</section>
+<section aria-labelledby="pool-title" style="box-sizing: border-box; padding: 20px 20px 8px; border-radius: 24px; background: #FFFFFF; display: flex; flex-direction: column">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 id="pool-title" style="margin: 0; font-size: 16px; font-weight: 800">还在等的人</h2>
+<span style="font-size: 13px; color: #5B5F68">{{poolCount}} 人</span>
+</div>
+<p style="margin: 6px 0 10px; font-size: 13px; line-height: 1.6; color: #5B5F68">系统每 5 分钟再配一次。成局前，他们互相看不到彼此。</p>
+<sc-for list="{{pool}}" as="q" hint-placeholder-count="8">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #E8ECEF">
+<span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 999px; background: {{q.bg}}; color: {{q.fg}}; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800">{{q.ch}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700">{{q.name}}<sc-if value="{{q.isNew}}" hint-placeholder-val="{{ false }}"><span style="padding: 1px 7px; border-radius: 999px; background: #E4F2F8; color: #15171C; font-size: 11px; font-weight: 700">新人</span></sc-if></span>
+<span style="font-size: 13px; line-height: 1.5; color: #5B5F68">{{q.intent}}</span>
+</div>
+<div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px">
+<span style="font-size: 12px; color: #6B6F78; white-space: nowrap">{{q.wait}}</span>
+<sc-if value="{{q.long}}" hint-placeholder-val="{{ false }}"><span style="padding: 1px 7px; border-radius: 999px; background: #FCEFD9; color: #8A4B00; font-size: 11px; font-weight: 700; white-space: nowrap">超过一天</span></sc-if>
+</div>
+</div>
+</sc-for>
+</section>
+</aside>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#7CCAE3","options":["#7CCAE3","#C4B5FD","#D2F65A","#FDBA74"]},"$preview":{"width":1440,"height":1720}}'>
+class Component extends DCLogic {
+  seed() {
+    const T = {
+      ink: ['#15171C', '#FFFFFF'],
+      stone: ['#E3E8EC', '#15171C'],
+      accent: ['#7CCAE3', '#15171C'],
+      slate: ['#2E4A5C', '#FFFFFF']
+    };
+    const u = (id, name, ch, tone, pace, credit, intent, more) => Object.assign({
+      id: id, name: name, ch: ch, bg: T[tone][0], fg: T[tone][1], pace: pace, credit: credit, intent: intent, fair: false, isNew: false
+    }, more || {});
+    return {
+      proposals: [
+        {
+          id: 'p2', status: 'pending', task: 'coffee', verb: '喝咖啡', cat: '咖啡', made: '系统 12 分钟前配出',
+          title: '周三下午 · 古城咖啡慢聊', meta: '10月28日 周三 下午 · 古城叶榆路一带',
+          base: 80, interests: '读书、咖啡', reasons: ['都想找人安静喝杯咖啡', '时间都在周三下午'], extraRisks: [],
+          members: [
+            u('u3', '小满', '满', 'accent', '慢热', '履约 100%', '周三 · 喝咖啡 · 下午 · 古城'),
+            u('u21', '一一', '一', 'stone', '慢热', '履约 100%', '周三 · 喝咖啡 · 下午 · 古城'),
+            u('u22', '森森', '森', 'ink', '慢热', '履约 96%', '这周 · 喝咖啡 · 下午 · 古城')
+          ],
+          form: { title: '周三下午 · 古城咖啡慢聊', date: '10月28日 周三', time: '15:00', place: '叶榆路一带的咖啡馆', meet: '咖啡馆门口 · 14:55', fee: '各付各', feeNote: '各点各的', cap: 4 }
+        },
+        {
+          id: 'p1', status: 'pending', task: 'ride', verb: '骑行', cat: '户外', made: '系统 35 分钟前配出',
+          title: '周日下午 · 洱海边骑行', meta: '11月1日 周日 下午 · 古城附近出发',
+          base: 80, interests: '拍照、咖啡', reasons: ['都想周日下午去洱海边骑行', '出发点都在古城附近'], extraRisks: [],
+          members: [
+            u('u1', '栗子', '栗', 'accent', '慢热', '履约 100%', '周日 · 洱海边骑行 · 下午 · 古城'),
+            u('u6', '南风', '南', 'slate', '慢热', '履约 100%', '周日 · 洱海边骑行 · 下午 · 古城'),
+            u('u4', '木木', '木', 'stone', '慢热', '参加过 1 次', '本周末 · 骑行 · 下午 · 古城', { isNew: true }),
+            u('u7', '大鹏', '鹏', 'ink', '熟了就话多', '履约 86%', '周日 · 骑行 · 下午 · 古城', { fair: true })
+          ],
+          form: { title: '周日下午 · 洱海边骑行', date: '11月1日 周日', time: '14:00', place: '才村码头 → 洱海生态廊道', meet: '古城北门 · 13:30', fee: 'AA 分摊', feeNote: '租车自理，约 ¥30/人', cap: 4 }
+        },
+        {
+          id: 'p3', status: 'pending', task: 'food', verb: '吃饭', cat: '吃饭', made: '系统 1 小时前配出',
+          title: '周五晚上 · 人民路吃饭', meta: '10月30日 周五 晚上 · 古城人民路',
+          base: 70, interests: '', reasons: ['都想周五晚上找人吃饭', '都在古城'], extraRisks: ['夜间局，集合点要选人多的地方'],
+          members: [
+            u('u2', '阿野', '野', 'ink', '熟了就话多', '履约 100%', '周五 · 吃饭 · 晚上 · 古城'),
+            u('u5', '七七', '七', 'stone', '随时都能聊', '履约 89%', '周五 · 吃饭 · 晚上 · 古城', { fair: true }),
+            u('u31', '老周', '周', 'slate', '随时都能聊', '履约 92%', '这周 · 吃饭 · 晚上 · 古城'),
+            u('u32', 'Momo', 'M', 'accent', '熟了就话多', '第一次参加', '周五 · 吃饭 · 晚上 · 古城', { isNew: true }),
+            u('u33', '小雨', '雨', 'stone', '慢热', '履约 100%', '周五 · 吃饭 · 全天 · 古城')
+          ],
+          form: { title: '周五晚上 · 人民路吃饭', date: '10月30日 周五', time: '19:00', place: '人民路中段', meet: '人民路和博爱路路口 · 18:50', fee: 'AA 分摊', feeNote: '约 ¥60/人', cap: 6 }
+        },
+        {
+          id: 'i1', status: 'invited', task: 'hike', verb: '爬山', cat: '户外',
+          title: '周六上午 · 爬苍山（中和寺）', meta: '10月31日 周六 09:00 · 中和寺索道口', deadline: '截止 明天 09:00',
+          base: 80, interests: '', reasons: [], extraRisks: [],
+          members: [
+            u('u41', '阿峰', '峰', 'slate', '慢热', '履约 100%', '', { st: 'in' }),
+            u('u42', '晴天', '晴', 'accent', '慢热', '履约 100%', '', { st: 'in' }),
+            u('u43', '小林', '林', 'stone', '随时都能聊', '履约 95%', '', { st: 'in' }),
+            u('u44', '阿杰', '杰', 'ink', '慢热', '履约 100%', '', { st: 'wait' })
+          ],
+          form: {}
+        },
+        {
+          id: 'r1', status: 'returned', task: 'run', verb: '夜跑', cat: '户外',
+          title: '周六晚上 · 古城夜跑', meta: '10月31日 周六 21:30 · 古城南门', returnReason: '夜间局不安全：集合时间太晚',
+          base: 70, interests: '', reasons: [], extraRisks: [],
+          members: [
+            u('u51', '阿杜', '杜', 'ink', '熟了就话多', '履约 100%', ''),
+            u('u52', '橘子', '橘', 'accent', '慢热', '履约 100%', ''),
+            u('u53', '小舟', '舟', 'stone', '慢热', '第一次参加', '', { isNew: true })
+          ],
+          form: {}
+        }
+      ],
+      pool: [
+        u('q1', '米粒', '米', 'stone', '慢热', '履约 100%', '周五 · 看电影 · 晚上 · 古城', { task: 'movie', waitH: 31 }),
+        u('q2', '阿青', '青', 'ink', '随时都能聊', '履约 100%', '本周末 · 拼车去双廊 · 全天 · 下关', { task: 'carpool', waitH: 26 }),
+        u('q3', '小北', '北', 'accent', '慢热', '履约 100%', '周二 · 喝咖啡 · 下午 · 才村', { task: 'coffee', waitH: 14, note: '日期不重叠：只有周二有空' }),
+        u('q4', '安安', '安', 'slate', '慢热', '履约 100%', '周四 · 桌游 · 晚上 · 古城', { task: 'game', waitH: 9 }),
+        u('q5', '大树', '树', 'stone', '熟了就话多', '履约 93%', '周日 · 爬苍山 · 下午 · 古城', { task: 'hike', waitH: 7 }),
+        u('q6', '豆豆', '豆', 'accent', '慢热', '第一次参加', '周四 · 桌游 · 晚上 · 古城', { task: 'game', waitH: 5, isNew: true }),
+        u('q7', '阿凯', '凯', 'ink', '熟了就话多', '履约 100%', '周日 · 洱海边骑行 · 全天 · 古城', { task: 'ride', waitH: 3, note: '时间对得上' }),
+        u('q8', '小鹿', '鹿', 'slate', '慢热', '履约 100%', '周日 · 洱海边骑行 · 上午 · 才村', { task: 'ride', waitH: 1, note: '只有上午有空' })
+      ]
+    };
+  }
+
+  renderVals() {
+    const s = this.state || {};
+    const accent = this.props.accent ?? '#7CCAE3';
+    const data = s.data || this.seed();
+    const tab = s.tab || 'pending';
+    const form = s.form || {};
+    const save = (proposals, pool, extra) => this.setState(Object.assign({ data: { proposals: proposals, pool: pool } }, extra || {}));
+    const swap = (id, patch) => data.proposals.map((x) => (x.id === id ? Object.assign({}, x, patch) : x));
+    const toPool = (list, task) => list.map((x) => Object.assign({}, x, { task: task, waitH: 0, note: '', st: '' }));
+    const setF = (key) => (e) => this.setState({ form: Object.assign({}, form, { [key]: e.target.value }), formErr: false });
+    const chip = (label, on, pick) => ({
+      label: label,
+      pressed: on ? 'true' : 'false',
+      bg: on ? '#193543' : '#FFFFFF',
+      bd: on ? '#193543' : '#D3DAE0',
+      fg: on ? '#FFFFFF' : '#15171C',
+      pick: pick
+    });
+    const tagsOf = (m) => {
+      const t = [{ t: m.credit, bg: '#F1F4F6', fg: '#3D4048' }, { t: m.pace, bg: '#F1F4F6', fg: '#3D4048' }];
+      if (m.isNew) t.push({ t: '新人', bg: '#E4F2F8', fg: '#15171C' });
+      if (m.fair) t.push({ t: '信用一般', bg: '#FCEFD9', fg: '#8A4B00' });
+      return t;
+    };
+    const judge = (p) => {
+      const ms = p.members;
+      const paces = ms.map((x) => x.pace);
+      const same = ms.length > 1 && paces.every((x) => x === paces[0]);
+      const fair = ms.filter((x) => x.fair).length;
+      const fresh = ms.filter((x) => x.isNew).length;
+      const reasons = p.reasons.slice();
+      if (same) reasons.push(paces[0] === '慢热' ? '都偏慢热' : '聊天节奏一样：' + paces[0]);
+      if (p.interests) reasons.push('共同兴趣：' + p.interests);
+      const risks = p.extraRisks.slice();
+      if (fair) risks.push('有 ' + fair + ' 人信用一般');
+      if (fresh) risks.push(fresh + ' 位是第一次参加');
+      return { score: Math.min(100, p.base + (same ? 10 : 0) + (fair === 0 ? 5 : 0)), reasons: reasons, risks: risks };
+    };
+
+    const pending = data.proposals.filter((x) => x.status === 'pending').map((p) => {
+      const v = judge(p);
+      const n = p.members.length;
+      const editing = s.editing === p.id;
+      const adjusting = s.adjusting === p.id;
+      const rejecting = s.rejecting === p.id;
+      const f = editing ? form : p.form;
+      const cands = data.pool.filter((q) => q.task === p.task);
+      return {
+        id: p.id,
+        title: p.title,
+        cat: p.cat,
+        meta: p.meta,
+        made: p.made,
+        n: n,
+        verb: p.verb,
+        score: v.score,
+        scoreBg: v.score >= 90 ? '#E4F2F8' : '#F1F4F6',
+        reasons: v.reasons.map((t) => ({ t: t })),
+        risks: v.risks.map((t) => ({ t: t })),
+        hasRisks: v.risks.length > 0,
+        noRisks: v.risks.length === 0,
+        riskBg: v.risks.length ? '#FCF4E6' : '#F1F4F6',
+        members: p.members.map((m) => ({
+          name: m.name,
+          ch: m.ch,
+          bg: m.bg,
+          fg: m.fg,
+          tags: tagsOf(m),
+          canRemove: adjusting && n > 2,
+          remove: () => save(swap(p.id, { members: p.members.filter((x) => x.id !== m.id) }), data.pool.concat(toPool([m], p.task)))
+        })),
+        isEditing: editing,
+        isAdjusting: adjusting,
+        isRejecting: rejecting,
+        isIdle: !editing && !adjusting && !rejecting,
+        tooFew: n < 3,
+        confirmOpacity: n < 3 ? '0.4' : '1',
+        openEdit: () => {
+          if (n < 3) return;
+          this.setState({ editing: p.id, adjusting: null, rejecting: null, formErr: false, form: Object.assign({}, p.form, { cap: Math.max(p.form.cap, n) }) });
+        },
+        openAdjust: () => this.setState({ adjusting: p.id, editing: null, rejecting: null }),
+        openReject: () => this.setState({ rejecting: p.id, editing: null, adjusting: null, rjReason: '', rjNote: '', rjErr: false }),
+        cands: cands.map((c) => ({
+          name: c.name,
+          ch: c.ch,
+          bg: c.bg,
+          fg: c.fg,
+          credit: c.credit,
+          sub: c.intent + (c.note ? ' · ' + c.note : ''),
+          add: () => save(swap(p.id, { members: p.members.concat([Object.assign({}, c)]) }), data.pool.filter((x) => x.id !== c.id))
+        })),
+        hasCands: cands.length > 0,
+        noCands: cands.length === 0,
+        adjustHint: n < 3 ? '至少 3 人才能成局，现在 ' + n + ' 人' : '现在 ' + n + ' 人 · 匹配度和风险会跟着重新算',
+        adjustHintColor: n < 3 ? '#B42318' : '#5B5F68',
+        doneAdjust: () => this.setState({ adjusting: null }),
+        f: {
+          title: f.title || '',
+          date: f.date || '',
+          time: f.time || '',
+          place: f.place || '',
+          meet: f.meet || '',
+          feeNote: f.feeNote || '',
+          cap: f.cap || n
+        },
+        setTitle: setF('title'),
+        setDate: setF('date'),
+        setTime: setF('time'),
+        setPlace: setF('place'),
+        setMeet: setF('meet'),
+        setFee: setF('feeNote'),
+        feeChips: ['AA 分摊', '各付各', '免费'].map((x) => chip(x, f.fee === x, () => this.setState({ form: Object.assign({}, form, { fee: x }) }))),
+        dec: () => this.setState({ form: Object.assign({}, form, { cap: Math.max(n, (form.cap || n) - 1) }) }),
+        inc: () => this.setState({ form: Object.assign({}, form, { cap: Math.min(8, (form.cap || n) + 1) }) }),
+        formErr: !!s.formErr,
+        send: () => {
+          const ok = ['title', 'date', 'time', 'place'].every((k) => String(form[k] || '').trim());
+          if (!ok) {
+            this.setState({ formErr: true });
+            return;
+          }
+          const title = form.title.trim();
+          save(
+            swap(p.id, {
+              status: 'invited',
+              title: title,
+              meta: form.date + ' ' + form.time + ' · ' + form.place,
+              deadline: '截止 明天 18:00',
+              members: p.members.map((m) => Object.assign({}, m, { st: 'wait' }))
+            }),
+            data.pool,
+            { editing: null, banner: '已发邀请给 ' + n + ' 人：「' + title + '」。都点「加入」就自动成群。', bannerGo: 'invited' }
+          );
+        },
+        cancelEdit: () => this.setState({ editing: null, formErr: false }),
+        reasonChips: ['时间对不上', '地点太远', '成员不太合适', '夜间局不安全', '其他'].map((x) => chip(x, s.rjReason === x, () => this.setState({ rjReason: x, rjErr: false }))),
+        rjNote: s.rjNote || '',
+        setRjNote: (e) => this.setState({ rjNote: e.target.value }),
+        rjErr: !!s.rjErr,
+        confirmReject: () => {
+          if (!s.rjReason) {
+            this.setState({ rjErr: true });
+            return;
+          }
+          const note = (s.rjNote || '').trim();
+          save(
+            swap(p.id, { status: 'returned', returnReason: s.rjReason + (note ? '：' + note : '') }),
+            data.pool.concat(toPool(p.members, p.task)),
+            { rejecting: null, banner: '已退回「' + p.title + '」，' + n + ' 个意向回到撮合池。', bannerGo: 'returned' }
+          );
+        },
+        cancelReject: () => this.setState({ rejecting: null, rjErr: false })
+      };
+    });
+
+    const invited = data.proposals.filter((x) => x.status === 'invited').map((p) => {
+      const n = p.members.length;
+      const joined = p.members.filter((m) => m.st === 'in').length;
+      const waiting = n - joined;
+      return {
+        title: p.title,
+        cat: p.cat,
+        meta: p.meta,
+        n: n,
+        joined: joined,
+        deadline: p.deadline,
+        accent: accent,
+        pct: Math.round(joined / n * 100) + '%',
+        members: p.members.map((m) => ({
+          name: m.name,
+          ch: m.ch,
+          bg: m.bg,
+          fg: m.fg,
+          stLabel: m.st === 'in' ? '已加入' : '待回复',
+          stBg: m.st === 'in' ? '#E4F2F8' : '#F1F4F6',
+          stFg: m.st === 'in' ? '#15171C' : '#5B5F68'
+        })),
+        remind: () => this.setState({ banner: waiting ? '已用微信服务通知提醒 ' + waiting + ' 位还没回复的人。' : '都已加入，马上自动成局。', bannerGo: '' })
+      };
+    });
+
+    const returned = data.proposals.filter((x) => x.status === 'returned').map((p) => ({
+      title: p.title,
+      cat: p.cat,
+      meta: p.meta,
+      n: p.members.length,
+      returnReason: p.returnReason
+    }));
+
+    const tabs = [['pending', '待确认', pending.length], ['invited', '已发邀请', invited.length], ['returned', '已退回', returned.length]].map((t) => {
+      const on = tab === t[0];
+      return {
+        label: t[1],
+        count: t[2],
+        sel: on ? 'true' : 'false',
+        bg: on ? '#193543' : '#FFFFFF',
+        fg: on ? '#FFFFFF' : '#15171C',
+        bd: on ? '#193543' : '#E2E7EB',
+        countBg: on ? '#2E4A5C' : '#F1F4F6',
+        countFg: on ? '#FFFFFF' : '#3D4048',
+        pick: () => this.setState({ tab: t[0] })
+      };
+    });
+
+    const auto = !!s.auto;
+    const th = s.th || 90;
+    const fit = pending.filter((p) => p.score >= th && !p.hasRisks);
+    const autoText = fit.length
+      ? '待确认里有 ' + fit.length + ' 个符合：' + fit.map((p) => '「' + p.title + '」' + p.score + ' 分').join('、') + '。下次撮合时会直接成局。'
+      : '待确认里暂时没有符合条件的方案。';
+
+    const pool = data.pool.slice().sort((a, b) => b.waitH - a.waitH).map((q) => ({
+      name: q.name,
+      ch: q.ch,
+      bg: q.bg,
+      fg: q.fg,
+      intent: q.intent,
+      isNew: q.isNew,
+      wait: q.waitH > 0 ? '等了 ' + q.waitH + ' 小时' : '刚回到池子',
+      long: q.waitH >= 24
+    }));
+
+    const runMatch = () => {
+      if (s.ran) {
+        this.setState({ banner: '撮合完成 · 这次没有配出新方案，池子里的人还在等合适的同伴。', bannerGo: '' });
+        return;
+      }
+      const games = data.pool.filter((q) => q.task === 'game').map((q) => Object.assign({}, q));
+      const yihe = { id: 'u45', name: '一禾', ch: '禾', bg: '#E3E8EC', fg: '#15171C', pace: '慢热', credit: '履约 100%', intent: '周四 · 桌游 · 晚上 · 古城', fair: false, isNew: false };
+      const p4 = {
+        id: 'p4', status: 'pending', task: 'game', verb: '玩桌游', cat: '桌游', made: '刚刚配出',
+        title: '周四晚上 · 新手桌游', meta: '10月29日 周四 晚上 · 古城人民路',
+        base: 75, interests: '桌游', reasons: ['都想周四晚上玩桌游', '都在古城'], extraRisks: ['夜间局，集合点要选人多的地方'],
+        members: games.concat([yihe]),
+        form: { title: '周四晚上 · 新手桌游', date: '10月29日 周四', time: '19:30', place: '人民路的桌游店', meet: '店门口 · 19:25', fee: 'AA 分摊', feeNote: '约 ¥25/人', cap: 5 }
+      };
+      save([p4].concat(data.proposals), data.pool.filter((q) => q.task !== 'game'), {
+        ran: true,
+        tab: 'pending',
+        banner: '撮合完成 · 刚进来 1 个新意向（一禾 · 周四 · 桌游），配出 1 个新方案。',
+        bannerGo: ''
+      });
+    };
+
+    const bannerGo = s.bannerGo || '';
+    return {
+      accent: accent,
+      navCount: pending.length,
+      tabs: tabs,
+      isPending: tab === 'pending',
+      isInvited: tab === 'invited',
+      isReturned: tab === 'returned',
+      pending: pending,
+      noPending: pending.length === 0,
+      invited: invited,
+      noInvited: invited.length === 0,
+      returned: returned,
+      noReturned: returned.length === 0,
+      runMatch: runMatch,
+      runLabel: s.ran ? '再撮合一次' : '立即撮合一次',
+      hasBanner: !!s.banner,
+      banner: s.banner || '',
+      bannerHasGo: !!bannerGo,
+      goBanner: () => this.setState({ tab: bannerGo, banner: '', bannerGo: '' }),
+      closeBanner: () => this.setState({ banner: '', bannerGo: '' }),
+      autoChecked: auto ? 'true' : 'false',
+      autoTrack: auto ? '#193543' : '#858C94',
+      autoJustify: auto ? 'flex-end' : 'flex-start',
+      toggleAuto: () => this.setState({ auto: !auto }),
+      autoOn: auto,
+      autoOff: !auto,
+      thChips: [85, 90, 95].map((v) => chip('≥ ' + v, th === v, () => this.setState({ th: v }))),
+      autoText: autoText,
+      pool: pool,
+      poolCount: pool.length
+    };
+  }
+}
+</script>
+</body>
+</html>
