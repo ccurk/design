@@ -1,0 +1,17 @@
+<view class="ev" hover-class="pressed" bindtap="open">
+  <dz-cover variant="card" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+  <view class="ev-text">
+    <view class="ev-title">{{event.title}}</view>
+    <view class="ev-meta">{{meta}}</view>
+  </view>
+  <view class="ev-foot">
+    <view class="stack" wx:if="{{preview.length}}">
+      <view class="stack-item" wx:for="{{preview}}" wx:key="id">
+        <dz-avatar user="{{item}}" size="28" ring="{{true}}" />
+      </view>
+    </view>
+    <text class="ev-count">{{event.memberCount}}/{{event.capacity}} 人</text>
+    <text wx:if="{{event.isFull}}" class="pill pill-stone">已满员</text>
+    <text wx:if="{{event.feeLabel}}" class="pill pill-ground ev-fee">{{event.feeLabel}}</text>
+  </view>
+</view>

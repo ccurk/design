@@ -1,0 +1,110 @@
+.head {
+  padding: 8rpx 40rpx 0;
+}
+.body {
+  padding: 28rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.gap-2 {
+  gap: 4rpx;
+}
+.gap-3 {
+  gap: 6rpx;
+}
+.action {
+  padding: 32rpx;
+  border-radius: 48rpx;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.action-link {
+  flex-direction: row;
+  align-items: center;
+  padding: 28rpx 24rpx 28rpx 32rpx;
+}
+.act-ico {
+  flex-shrink: 0;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.act-accent {
+  background: var(--accent);
+}
+.act-dark {
+  background: var(--primary);
+}
+.act-stone {
+  background: var(--stone);
+}
+.act-btn {
+  font-size: 28rpx;
+  min-height: 88rpx;
+}
+.answered {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-height: 88rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: var(--body);
+}
+.answered-yes {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--primary);
+}
+.chat-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  min-height: 136rpx;
+  padding: 0 32rpx;
+}
+.chat-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+}
+.badge {
+  min-width: 40rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 22rpx;
+  font-weight: 800;
+  text-align: center;
+}
+.empty-card {
+  padding: 32rpx;
+  border-radius: 48rpx;
+  background: #FFFFFF;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.notice-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  min-height: 120rpx;
+  padding: 16rpx 24rpx 16rpx 32rpx;
+}
+.dot {
+  flex-shrink: 0;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 999rpx;
+  background: var(--accent);
+}

@@ -1,0 +1,36 @@
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+.sw {
+  width: 112rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sw-disabled {
+  opacity: 0.5;
+}
+.sw-track {
+  width: 104rpx;
+  height: 64rpx;
+  padding: 6rpx;
+  border-radius: 999rpx;
+  background: #B8C0C7;
+  transition: background 0.2s;
+}
+.sw-track.on {
+  background: #193543;
+}
+.sw-knob {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 999rpx;
+  background: #FFFFFF;
+  box-shadow: 0 2rpx 6rpx rgba(21, 23, 28, 0.25);
+  transition: transform 0.2s;
+}
+.on .sw-knob {
+  transform: translateX(40rpx);
+}

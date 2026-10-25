@@ -1,0 +1,65 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="打不开 AA 记账" desc="{{error}}" icon="/assets/icons/wallet-ink.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goBack">返回</view>
+</dz-empty>
+
+<view wx:else class="page">
+  <view class="tip mx-16 mt-8">
+    <image class="ico-16" src="/assets/icons/shield-check-body.svg" />
+    <text>平台不经手钱，只帮大家算清楚。钱在微信里直接转。</text>
+  </view>
+
+  <view class="sum">
+    <text class="sum-title">{{title}} · {{memberCount}} 人平摊</text>
+    <view class="sum-row">
+      <text class="sum-total">¥{{total}}</text>
+      <text class="sum-each">每人 ¥{{each}}</text>
+    </view>
+  </view>
+
+  <view class="items">
+    <view wx:for="{{items}}" wx:key="id" class="item" hover-class="{{item.mine ? 'pressed' : 'none'}}" data-index="{{index}}" bindtap="onItem">
+      <view class="flex1 col gap-2">
+        <text class="t-15 w5">{{item.name}}</text>
+        <text class="t-12 c-2">{{item.payerText}}</text>
+      </view>
+      <text class="t-16 w8">¥{{item.amountText}}</text>
+    </view>
+    <view wx:if="{{!items.length && !adding}}" class="items-empty">还没有记账。谁先垫付了，就记一笔。</view>
+
+    <view wx:if="{{adding}}" class="form">
+      <text class="form-label">花在哪</text>
+      <input class="field field-sm" value="{{name}}" placeholder="比如：早餐" placeholder-class="ph" maxlength="20" bindinput="onName" />
+      <text class="form-label">金额（元）</text>
+      <input class="field field-sm" type="digit" value="{{amount}}" placeholder="0" placeholder-class="ph" bindinput="onAmount" />
+      <view class="btn btn-xs btn-primary save-btn {{saving ? 'disabled' : ''}}" hover-class="pressed" bindtap="save">记下这笔（我垫付的）</view>
+      <view class="cancel-add" hover-class="pressed" bindtap="cancelAdd">先不记了</view>
+    </view>
+    <view wx:else class="add" hover-class="pressed" bindtap="startAdd">
+      <image class="ico-16" src="/assets/icons/plus-ink.svg" />
+      <text>记一笔</text>
+    </view>
+  </view>
+
+  <block wx:if="{{transfers.length}}">
+    <view class="section-label settle-label">谁该转给谁</view>
+    <view class="list-card mx-16">
+      <view wx:for="{{transfers}}" wx:key="key" class="transfer">
+        <view class="flex1 t-15">
+          <text class="w7">{{item.fromName}}</text>
+          <text class="c-2"> → </text>
+          <text>{{item.toName}}</text>
+        </view>
+        <text class="t-15 w8">¥{{item.amountText}}</text>
+        <view wx:if="{{item.action === 'pay'}}" class="btn btn-xs btn-primary" hover-class="pressed" data-index="{{index}}" bindtap="pay">我已转账</view>
+        <view wx:elif="{{item.action === 'confirm'}}" class="btn btn-xs btn-primary" hover-class="pressed" data-index="{{index}}" bindtap="confirmPaid">确认收到</view>
+        <text wx:else class="pill {{item.pillClass}}">{{item.statusText}}</text>
+      </view>
+    </view>
+    <view class="settle-note">转完点「我已转账」，对方确认后就清账。</view>
+  </block>
+  <view wx:elif="{{items.length}}" class="settle-note">大家已经两清了。</view>
+
+  <view class="bottom-pad"></view>
+</view>

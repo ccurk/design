@@ -1,0 +1,144 @@
+// wx.request 的 Promise 封装：自动登录、带 Bearer token、401 时重新登录一次、失败时 toast error.message。
+const config = require('../config');
+
+const TOKEN_KEY = 'dz_token';
+let token = '';
+try {
+  token = wx.getStorageSync(TOKEN_KEY) || '';
+} catch (e) {
+  token = '';
+}
+let loginTask = null;
+let loginListener = null;
+
+function setToken(value) {
+  token = value || '';
+  try {
+    if (token) wx.setStorageSync(TOKEN_KEY, token);
+    else wx.removeStorageSync(TOKEN_KEY);
+  } catch (e) {
+    // 存储失败不影响本次会话
+  }
+}
+
+function getToken() {
+  return token;
+}
+
+function makeError(code, message, status) {
+  const err = new Error(message || '出了点问题，稍后再试');
+  err.code = code || 'INTERNAL';
+  err.status = status || 0;
+  err.isApiError = true;
+  return err;
+}
+
+function fromResponse(res) {
+  const body = res && res.data;
+  const e = body && body.error;
+  if (e && e.message) return makeError(e.code, e.message, res.statusCode);
+  if (res.statusCode === 404) return makeError('NOT_FOUND', '没有找到相关内容', 404);
+  return makeError('INTERNAL', '服务开小差了，稍后再试', res.statusCode);
+}
+
+function toast(message) {
+  if (!message) return;
+  wx.showToast({ title: message, icon: 'none', duration: 2200 });
+}
+
+function send(method, path, data, withAuth) {
+  return new Promise((resolve, reject) => {
+    const header = { 'content-type': 'application/json' };
+    if (withAuth && token) header.Authorization = 'Bearer ' + token;
+    wx.request({
+      url: config.baseURL + path,
+      method,
+      data: data === undefined ? {} : data,
+      header,
+      timeout: 15000,
+      success: resolve,
+      fail: (err) => reject(makeError('NETWORK', '网络不太好，连不上服务器', 0, err))
+    });
+  });
+}
+
+function wxCode() {
+  return new Promise((resolve, reject) => {
+    wx.login({
+      success: (res) => (res.code ? resolve(res.code) : reject(makeError('LOGIN', '微信登录失败'))),
+      fail: () => reject(makeError('LOGIN', '微信登录失败'))
+    });
+  });
+}
+
+// 拿 token：开发模式走 /api/auth/dev-login，否则 wx.login → /api/auth/login
+function login() {
+  if (loginTask) return loginTask;
+  const task = config.devLogin
+    ? send('POST', '/api/auth/dev-login', config.devUserId ? { userId: config.devUserId } : {}, false)
+    : wxCode().then((code) => send('POST', '/api/auth/login', { code }, false));
+  loginTask = task.then(
+    (res) => {
+      loginTask = null;
+      if (res.statusCode !== 200 || !res.data || !res.data.token) throw fromResponse(res);
+      setToken(res.data.token);
+      if (loginListener) loginListener(res.data);
+      return res.data;
+    },
+    (err) => {
+      loginTask = null;
+      throw err;
+    }
+  );
+  return loginTask;
+}
+
+function ensureLogin() {
+  return token ? Promise.resolve() : login();
+}
+
+function onLogin(fn) {
+  loginListener = fn;
+}
+
+/**
+ * opts.silent：失败时不 toast（轮询等场景）
+ */
+function request(method, path, data, opts) {
+  const options = opts || {};
+  return ensureLogin()
+    .then(() => send(method, path, data, true))
+    .then((res) => {
+      if (res.statusCode === 401 && !options.retried) {
+        setToken('');
+        return login().then(() => request(method, path, data, Object.assign({}, options, { retried: true, silent: true })));
+      }
+      if (res.statusCode >= 200 && res.statusCode < 300) return res.data;
+      throw fromResponse(res);
+    })
+    .catch((err) => {
+      const e = err && err.isApiError ? err : makeError('INTERNAL', '出了点问题，稍后再试');
+      if (!options.silent && !e.toasted) {
+        e.toasted = true;
+        toast(e.message);
+      }
+      throw e;
+    });
+}
+
+module.exports = {
+  request,
+  get: (path, data, opts) => request('GET', path, data, opts),
+  post: (path, data, opts) => request('POST', path, data, opts),
+  put: (path, data, opts) => request('PUT', path, data, opts),
+  // 注意：wx.request 文档未列出 PATCH，开发者工具可用；真机若不支持需后端另开 POST 别名
+  patch: (path, data, opts) => request('PATCH', path, data, opts),
+  del: (path, data, opts) => request('DELETE', path, data, opts),
+  login,
+  ensureLogin,
+  onLogin,
+  getToken,
+  setToken,
+  toast,
+  makeError
+};

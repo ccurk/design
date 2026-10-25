@@ -1,0 +1,86 @@
+.wrap {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.scroll {
+  flex: 1;
+  height: 0;
+}
+.inner {
+  padding: 16rpx 32rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+.count-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+  padding: 0 8rpx;
+}
+.no-comment {
+  padding: 8rpx 8rpx 24rpx;
+  font-size: 26rpx;
+  color: var(--text-2);
+}
+.comment {
+  display: flex;
+  gap: 20rpx;
+  padding: 0 8rpx;
+}
+.comment-av {
+  flex-shrink: 0;
+  margin-top: 12rpx;
+}
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-height: 88rpx;
+}
+.reply {
+  margin-left: auto;
+  min-height: 88rpx;
+  padding: 0 8rpx 0 24rpx;
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: var(--text-2);
+}
+.comment-text {
+  font-size: 30rpx;
+  line-height: 1.55;
+  word-break: break-all;
+}
+.end {
+  height: 2rpx;
+}
+.composer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border-top: 1px solid var(--hairline);
+}
+.composer-input {
+  flex: 1;
+  min-width: 0;
+  height: 88rpx;
+  padding: 0 32rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--outline);
+  font-size: 30rpx;
+}
+.send-btn {
+  flex-shrink: 0;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 999rpx;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

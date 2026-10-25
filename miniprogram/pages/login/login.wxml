@@ -1,0 +1,53 @@
+<view class="login">
+  <view class="hero">
+    <image class="hero-art" src="/assets/covers/hero.svg" mode="aspectFill" />
+  </view>
+
+  <view class="intro">
+    <view class="h1">不用开口，</view>
+    <view class="h1">也能找到搭子</view>
+    <view class="lead">说出想做的事，平台帮你凑人、满员自动成群。适合慢热的你。</view>
+  </view>
+
+  <view class="points">
+    <view class="point-row">
+      <view class="point-ico"><image class="ico-16" src="/assets/icons/people-primary.svg" /></view>
+      <text>不用发帖等人，平台主动帮你撮合</text>
+    </view>
+    <view class="point-row">
+      <view class="point-ico"><image class="ico-16" src="/assets/icons/sparkle-primary.svg" /></view>
+      <text>没有发起人，不用谁来张罗</text>
+    </view>
+    <view class="point-row">
+      <view class="point-ico"><image class="ico-16" src="/assets/icons/shield-check-primary.svg" /></view>
+      <text>信用 + 举报，只做干净的兴趣局</text>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button wx:if="{{agreed}}" class="native-btn" open-type="getPhoneNumber" hover-class="none" bindgetphonenumber="onPhone">
+      <view class="btn btn-primary" hover-class="pressed">
+        <image class="ico-18" src="/assets/icons/phone-white.svg" />
+        <text>{{busy ? '正在验证…' : '微信手机号一键登录'}}</text>
+      </view>
+    </button>
+    <view wx:else class="btn btn-primary" hover-class="pressed" bindtap="needAgree">
+      <image class="ico-18" src="/assets/icons/phone-white.svg" />
+      <text>微信手机号一键登录</text>
+    </view>
+
+    <view class="browse" hover-class="pressed" bindtap="browse">先随便看看</view>
+
+    <view class="agree">
+      <view class="check-hit" bindtap="toggleAgree" aria-role="checkbox" aria-checked="{{agreed}}">
+        <view class="check {{agreed ? 'on' : ''}}">
+          <image wx:if="{{agreed}}" class="ico-12" src="/assets/icons/check-white.svg" />
+        </view>
+        <text>我已阅读并同意</text>
+      </view>
+      <text class="agree-link" data-section="pact" bindtap="openRules">《社区公约》</text>
+      <text>和</text>
+      <text class="agree-link" data-section="privacy" bindtap="openRules">《隐私说明》</text>
+    </view>
+  </view>
+</view>

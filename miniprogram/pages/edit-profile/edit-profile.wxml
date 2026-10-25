@@ -1,0 +1,50 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<view wx:else class="page">
+  <view class="form">
+    <view class="box avatar-row">
+      <dz-avatar user="{{preview}}" size="64" />
+      <view class="flex1 col gap-2">
+        <text class="t-15 w7">头像</text>
+        <text class="t-12 lh-15 c-2">真实照片更容易被信任，插画也可以</text>
+      </view>
+      <view class="btn btn-xs btn-outline change" hover-class="pressed" bindtap="changeAvatar">更换</view>
+    </view>
+
+    <view class="box">
+      <text class="label">昵称</text>
+      <input class="field" type="nickname" value="{{nickname}}" placeholder="大家怎么称呼你" placeholder-class="ph" maxlength="12" bindinput="onNickname" bindblur="onNickname" />
+      <text class="label label-gap">一句话介绍</text>
+      <textarea class="area bio" value="{{bio}}" placeholder="比如：慢热，但很靠谱。" placeholder-class="ph" maxlength="60" bindinput="onBio" />
+    </view>
+
+    <view class="box">
+      <text class="label">兴趣（撮合会参考）</text>
+      <view class="chips">
+        <view wx:for="{{tags}}" wx:key="label" class="chip small {{item.on ? 'on' : ''}}" data-index="{{index}}" bindtap="toggleTag" aria-role="button" aria-checked="{{item.on}}">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="box">
+      <text class="label">社交节奏（只用来配人，不公开）</text>
+      <view class="chips">
+        <view wx:for="{{paces}}" wx:key="value" class="chip small {{pace === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickPace" aria-role="radio" aria-checked="{{pace === item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="box">
+      <view class="row between baseline gap-8">
+        <text class="label">性别</text>
+        <text class="t-12 c-2">只用于「同性局」匹配，不公开</text>
+      </view>
+      <view class="chips">
+        <view wx:for="{{genders}}" wx:key="value" class="chip small gender {{gender === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickGender" aria-role="radio" aria-checked="{{gender === item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="bar-space"></view>
+  <view class="bottom-bar">
+    <view class="btn btn-primary {{saving ? 'disabled' : ''}}" hover-class="pressed" bindtap="save">{{saving ? '保存中…' : '保存'}}</view>
+  </view>
+</view>

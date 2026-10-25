@@ -1,0 +1,52 @@
+<view class="page">
+  <view class="search">
+    <image class="ico-20" src="/assets/icons/search-gray.svg" />
+    <input class="search-input" value="{{q}}" placeholder="搜活动，比如：日出、读书" placeholder-class="ph" confirm-type="search" focus="{{autoFocus}}" maxlength="30" bindinput="onInput" bindconfirm="onConfirm" />
+    <view wx:if="{{q}}" class="clear" hover-class="pressed" bindtap="clear" aria-label="清空">
+      <image class="ico-18" src="/assets/icons/close-gray.svg" />
+    </view>
+  </view>
+
+  <view wx:if="{{!term}}" class="idle">
+    <view wx:if="{{hot.length}}" class="col gap-10">
+      <view class="label">大家在搜</view>
+      <view class="chips">
+        <view wx:for="{{hot}}" wx:key="*this" class="chip term" hover-class="pressed" data-term="{{item}}" bindtap="pickTerm">{{item}}</view>
+      </view>
+    </view>
+    <view class="col gap-10">
+      <view class="row between">
+        <text class="label">最近搜过</text>
+        <view class="clear-recent" hover-class="pressed" bindtap="clearRecent">{{recent.length ? '清除' : '已清除'}}</view>
+      </view>
+      <view wx:if="{{recent.length}}" class="chips">
+        <view wx:for="{{recent}}" wx:key="*this" class="chip term recent" hover-class="pressed" data-term="{{item}}" bindtap="pickTerm">{{item}}</view>
+      </view>
+      <view wx:else class="t-13 c-2">还没有搜过什么</view>
+    </view>
+    <view class="lazy" hover-class="pressed" bindtap="goHome">
+      <image class="ico-22" src="/assets/icons/sparkle-white.svg" />
+      <view class="flex1 col gap-2">
+        <text class="t-15 w7">懒得搜？</text>
+        <text class="t-13 on-dark">说出想做的事，平台帮你凑人</text>
+      </view>
+      <image class="ico-18" src="/assets/icons/chevron-right-white.svg" />
+    </view>
+  </view>
+
+  <view wx:else class="results">
+    <view class="count">{{searching ? '正在找…' : '找到 ' + results.length + ' 个局'}}</view>
+    <view wx:for="{{results}}" wx:key="id" class="result" hover-class="pressed" data-id="{{item.id}}" bindtap="openEvent">
+      <view class="result-cat">{{item.catLabel}}</view>
+      <view class="flex1 col gap-3">
+        <text class="t-15 w8 ellipsis">{{item.title}}</text>
+        <text class="t-12 c-2 ellipsis">{{item.meta}}</text>
+      </view>
+      <text class="t-13 c-body shrink0">{{item.memberCount}}/{{item.capacity}} 人</text>
+    </view>
+    <view wx:if="{{!searching && !results.length}}" class="no-result" hover-class="pressed" bindtap="goHome">
+      <text class="flex1 t-14 lh-16">没搜到相关的局。说出想做的事，让平台帮你撮合一个</text>
+      <image class="ico-18" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+  </view>
+</view>

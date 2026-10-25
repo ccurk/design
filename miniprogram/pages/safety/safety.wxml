@@ -1,0 +1,78 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="安全设置加载不出来" desc="{{error}}" icon="/assets/icons/shield-ink.svg">
+  <view class="btn btn-sm btn-primary" bindtap="load">再试一次</view>
+</dz-empty>
+
+<view wx:else class="page">
+  <view class="body">
+    <view class="section-label">参加局的时候</view>
+    <view class="switches">
+      <view class="sw-row">
+        <view class="flex1 col gap-2">
+          <text class="t-15 w5">只参加同性局</text>
+          <text class="t-12 c-2">撮合和广场都只给你看同性局</text>
+        </view>
+        <dz-switch checked="{{sameSexOnly}}" label="只参加同性局" data-key="sameSexOnly" bindchange="toggle" />
+      </view>
+      <view class="sw-row divider-top">
+        <view class="flex1 col gap-2">
+          <text class="t-15 w5">结束后提醒我报平安</text>
+          <text class="t-12 lh-15 c-2">结束 1 小时没回复，会通知你的紧急联系人</text>
+        </view>
+        <dz-switch checked="{{checkInReminder}}" label="结束后提醒我报平安" data-key="checkInReminder" bindchange="toggle" />
+      </view>
+      <view class="sw-row divider-top">
+        <view class="flex1 col gap-2">
+          <text class="t-15 w5">同局的人可以看我的主页</text>
+          <text class="t-12 c-2">关掉后只显示昵称和履约率</text>
+        </view>
+        <dz-switch checked="{{profileOpen}}" label="同局的人可以看我的主页" data-key="profileOpen" bindchange="toggle" />
+      </view>
+    </view>
+
+    <view class="section-label gap-top">紧急联系人</view>
+    <view class="contact">
+      <view class="row gap-12">
+        <view class="contact-av">{{contact ? contact.initial : '?'}}</view>
+        <view class="flex1 col gap-2">
+          <text class="t-15 w7">{{contact ? contact.name : '还没有设置'}}</text>
+          <text class="t-13 c-2">{{contact ? contact.phoneMasked : '开启报平安后，没回复时会联系 TA'}}</text>
+        </view>
+        <view class="btn btn-xs btn-outline contact-btn" hover-class="pressed" bindtap="toggleForm" aria-expanded="{{editing}}">{{editing ? '收起' : (contact ? '更换' : '添加')}}</view>
+      </view>
+      <view wx:if="{{editing}}" class="contact-form">
+        <text class="form-label">称呼</text>
+        <input class="field field-sm" value="{{draftName}}" placeholder="比如：妈妈" placeholder-class="ph" maxlength="10" bindinput="onName" />
+        <text class="form-label">手机号</text>
+        <input class="field field-sm" type="number" value="{{draftPhone}}" placeholder="11 位手机号" placeholder-class="ph" maxlength="11" bindinput="onPhone" />
+        <view class="btn btn-xs btn-primary save" hover-class="pressed" bindtap="saveContact">保存</view>
+        <view wx:if="{{contact}}" class="remove" hover-class="pressed" bindtap="removeContact">不设紧急联系人了</view>
+        <view class="t-12 lh-15 c-2">只在你开启「报平安」又没回复时联系 TA，不会给别人看。</view>
+      </view>
+    </view>
+
+    <view class="section-label gap-top">黑名单</view>
+    <view class="list-card">
+      <view class="list-row black-head" hover-class="pressed" bindtap="toggleBlocked" aria-expanded="{{showBlocked}}">
+        <image class="ico-20" src="/assets/icons/ban-ink.svg" />
+        <text class="flex1 t-15 w5">黑名单</text>
+        <text class="t-13 c-2">{{blocked.length}} 人</text>
+        <image class="ico-16 chev {{showBlocked ? 'turn' : ''}}" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <block wx:if="{{showBlocked}}">
+        <view wx:for="{{blocked}}" wx:key="id" class="list-row blocked divider-top">
+          <dz-avatar user="{{item}}" size="36" />
+          <text class="flex1 t-15 ellipsis">{{item.nickname}}</text>
+          <view class="btn btn-xs btn-outline unblock" hover-class="pressed" data-index="{{index}}" bindtap="unblock">移出</view>
+        </view>
+        <view wx:if="{{!blocked.length}}" class="black-empty">黑名单是空的</view>
+      </block>
+    </view>
+
+    <view class="sos" hover-class="pressed" bindtap="call110">
+      <image class="ico-18" src="/assets/icons/phone-danger.svg" />
+      <text>遇到危险？一键拨打 110</text>
+    </view>
+  </view>
+</view>

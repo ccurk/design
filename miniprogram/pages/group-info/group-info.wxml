@@ -1,0 +1,57 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="看不到局信息" desc="{{error}}" icon="/assets/icons/people-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goBack">返回</view>
+</dz-empty>
+
+<view wx:else class="page">
+  <view class="summary" hover-class="pressed" bindtap="openDetail">
+    <dz-cover variant="tile" size="52" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+    <view class="flex1 col gap-3">
+      <text class="t-16 w8 ellipsis">{{event.title}}</text>
+      <text class="t-13 c-2 ellipsis">{{when}}</text>
+    </view>
+    <text class="t-13 c-2">详情</text>
+    <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+  </view>
+
+  <view class="members-head">
+    <text class="w7">同行的人 · {{members.length}}</text>
+    <text>点一下看主页</text>
+  </view>
+  <view class="list-card mx-16">
+    <view wx:for="{{members}}" wx:key="id" class="list-row member" hover-class="{{item.isMe ? 'none' : 'pressed'}}" data-id="{{item.id}}" data-me="{{item.isMe}}" bindtap="openUser">
+      <dz-avatar user="{{item}}" size="36" />
+      <text class="flex1 t-15 w5 ellipsis">{{item.nickname}}{{item.isMe ? '（我）' : ''}}</text>
+      <text wx:if="{{item.role === 'host'}}" class="pill pill-pill">发起人</text>
+      <text class="t-12 c-2">履约 {{item.creditRate}}%</text>
+      <image wx:if="{{!item.isMe}}" class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+  </view>
+
+  <view class="list-card mx-16 mt-12">
+    <view class="list-row member" hover-class="pressed" bindtap="openAA">
+      <image class="ico-20" src="/assets/icons/wallet-ink.svg" />
+      <text class="flex1 t-15 w5">AA 记账</text>
+      <text class="t-12 c-2">{{aaText}}</text>
+      <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+    <view class="list-row member mute-row">
+      <image class="ico-20" src="/assets/icons/bell-ink.svg" />
+      <text class="flex1 t-15 w5">消息免打扰</text>
+      <dz-switch checked="{{muted}}" label="消息免打扰" bindchange="toggleMute" />
+    </view>
+  </view>
+
+  <view class="actions mx-16 mt-12">
+    <view class="btn btn-sm btn-outline flex1 t-14" hover-class="pressed" bindtap="report">
+      <image class="ico-16" src="/assets/icons/flag-ink.svg" />
+      <text>举报这个局</text>
+    </view>
+    <view wx:if="{{canLeave}}" class="btn btn-sm btn-danger-outline flex1 t-14" hover-class="pressed" bindtap="leave">
+      <image class="ico-16" src="/assets/icons/exit-danger.svg" />
+      <text>{{isHost ? '取消这个局' : '退出这个局'}}</text>
+    </view>
+  </view>
+  <view class="bottom-pad"></view>
+</view>

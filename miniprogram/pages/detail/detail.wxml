@@ -1,0 +1,112 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="看不到这个局" desc="{{error}}" icon="/assets/icons/compass-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goSquare">去广场看看</view>
+</dz-empty>
+
+<view wx:else class="detail">
+  <dz-cover variant="hero" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+
+  <view class="sheet">
+    <view class="col gap-10">
+      <view class="row gap-6 tags">
+        <text class="pill pill-accent">{{sourceLabel}}</text>
+        <text class="pill pill-outline">{{categoryLabel}}</text>
+        <text wx:if="{{event.requireApproval}}" class="pill pill-outline">需发起人同意</text>
+        <text wx:if="{{event.sameSexOnly}}" class="pill pill-outline">同性局</text>
+        <view class="report" hover-class="pressed" bindtap="report">
+          <image class="ico-14" src="/assets/icons/flag-gray.svg" />
+          <text>举报</text>
+        </view>
+      </view>
+      <view class="title">{{event.title}}</view>
+      <view class="row gap-8 t-13 c-2">
+        <block wx:if="{{event.source === 'user' && event.host}}">
+          <view hover-class="pressed" data-id="{{event.host.id}}" bindtap="openUser">
+            <dz-avatar user="{{event.host}}" size="22" />
+          </view>
+          <text>{{event.host.nickname}} 发起 · 履约 {{event.host.creditRate}}%</text>
+        </block>
+        <block wx:else>
+          <view class="host-badge"><image class="ico-12" src="/assets/icons/people-accent.svg" /></view>
+          <text>{{hostLine}}</text>
+        </block>
+      </view>
+    </view>
+
+    <view class="col gap-10">
+      <view class="info">
+        <view class="info-ico"><image class="ico-20" src="/assets/icons/clock-ink.svg" /></view>
+        <view class="col gap-2">
+          <text class="t-15 w7">{{dateFull}}</text>
+          <text wx:if="{{durationText}}" class="t-13 c-2">{{durationText}}</text>
+        </view>
+      </view>
+      <view class="info">
+        <view class="info-ico"><image class="ico-20" src="/assets/icons/pin-ink.svg" /></view>
+        <view class="col gap-2">
+          <text class="t-15 w7">{{event.place}}</text>
+          <text wx:if="{{event.meetingPoint}}" class="t-13 c-2">{{event.meetingPoint}}</text>
+        </view>
+      </view>
+      <view class="info">
+        <view class="info-ico"><image class="ico-20" src="/assets/icons/wallet-ink.svg" /></view>
+        <view class="col gap-2">
+          <text class="t-15 w7">{{feeTitle}}</text>
+          <text class="t-13 c-2">{{feeNote}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{event.description}}" class="desc">{{event.description}}</view>
+
+    <view class="col gap-10">
+      <view class="row between">
+        <text class="t-15 w7">同行的人</text>
+        <text class="t-13 c-2">{{event.memberCount}}/{{event.capacity}} · 点头像看主页</text>
+      </view>
+      <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="members-scroll">
+        <view class="members">
+          <view wx:for="{{members}}" wx:key="id" class="member" hover-class="pressed" data-id="{{item.id}}" bindtap="openUser">
+            <dz-avatar user="{{item}}" size="44" />
+            <text class="member-name">{{item.nickname}}</text>
+          </view>
+          <view wx:for="{{seats}}" wx:key="*this" class="member">
+            <view class="seat seat-44"><image class="ico-18" src="/assets/icons/plus-gray.svg" /></view>
+            <text class="member-name">{{index === 0 && canWait ? '等你' : '空位'}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view wx:if="{{applications.length}}" class="apps">
+      <view class="t-15 w7">报名申请 · {{applications.length}}</view>
+      <view wx:for="{{applications}}" wx:key="id" class="app-row">
+        <view data-id="{{item.id}}" bindtap="openUser"><dz-avatar user="{{item}}" size="36" /></view>
+        <view class="flex1 col">
+          <text class="t-15 w5 ellipsis">{{item.nickname}}</text>
+          <text class="t-12 c-2">履约 {{item.creditRate}}%</text>
+        </view>
+        <view class="btn btn-xs btn-outline" hover-class="pressed" data-id="{{item.id}}" bindtap="rejectApp">婉拒</view>
+        <view class="btn btn-xs btn-primary" hover-class="pressed" data-id="{{item.id}}" bindtap="approveApp">同意</view>
+      </view>
+    </view>
+
+    <view class="tip-box">
+      <image class="ico-18 tip-ico" src="/assets/icons/shield-check-body.svg" />
+      <text>活动前一天会提醒你轻确认出席。临时有事提前取消就好，不用跟谁解释。</text>
+    </view>
+
+    <view wx:if="{{canCancel}}" class="host-cancel" hover-class="pressed" bindtap="cancelEvent">取消这个局</view>
+
+    <view class="bar-space"></view>
+  </view>
+
+  <view class="bottom-bar bar">
+    <view class="flex1 col gap-6">
+      <text class="t-14 w7">{{slotText}}</text>
+      <view class="progress"><view class="progress-bar" style="width: {{fillPct}}%;"></view></view>
+    </view>
+    <view class="btn btn-md btn-primary cta {{cta.disabled ? 'disabled' : ''}}" hover-class="{{cta.disabled ? 'none' : 'pressed'}}" bindtap="onCta">{{cta.label}}</view>
+  </view>
+</view>

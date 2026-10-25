@@ -1,0 +1,81 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="没找到这个意向" desc="{{error}}" icon="/assets/icons/sparkle-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goHome">回首页</view>
+</dz-empty>
+
+<view wx:elif="{{closed}}" class="page">
+  <dz-empty title="{{closedTitle}}" desc="{{closedDesc}}" icon="/assets/icons/sparkle-primary.svg">
+    <view class="btn btn-sm btn-primary" bindtap="goHome">回首页再说一个</view>
+  </dz-empty>
+</view>
+
+<view wx:else class="page">
+  <view class="head card-lg">
+    <view class="row gap-12">
+      <dz-cover variant="tile" size="48" kind="intent" />
+      <view class="flex1 col gap-2">
+        <view class="t-18 w8">{{intent.title}}</view>
+        <view class="t-13 c-2">{{meta}}</view>
+      </view>
+    </view>
+    <view class="row gap-12">
+      <view class="stack shrink0">
+        <view wx:for="{{seats}}" wx:key="key" class="stack-item tight">
+          <view wx:if="{{item.filled}}" class="anon {{item.alt ? 'alt' : ''}}">
+            <image class="ico-16" src="/assets/icons/user-white.svg" />
+          </view>
+          <view wx:else class="seat seat-36">
+            <image class="ico-16" src="/assets/icons/plus-gray.svg" />
+          </view>
+        </view>
+      </view>
+      <view class="col gap-2">
+        <text class="t-14 w7">{{countText}}</text>
+        <text class="t-13 c-2 lh-15">{{needText}}</text>
+      </view>
+    </view>
+    <view class="progress">
+      <view class="progress-bar" style="width: {{progress}}%;"></view>
+    </view>
+  </view>
+
+  <view class="steps">
+    <view class="step">
+      <view class="step-dot done"><image class="ico-14" src="/assets/icons/check-white.svg" /></view>
+      <text class="flex1 t-14">已提交意向</text>
+      <text class="t-12 c-2">{{submitted}}</text>
+    </view>
+    <view class="step">
+      <view wx:if="{{stage > 1}}" class="step-dot done"><image class="ico-14" src="/assets/icons/check-white.svg" /></view>
+      <view wx:else class="step-dot now"><view class="step-core"></view></view>
+      <text class="flex1 t-14 {{stage === 1 ? 'w7' : ''}}">正在找同频的人</text>
+      <text wx:if="{{stage === 1}}" class="t-12 c-2">通常 24 小时内</text>
+    </view>
+    <view class="step">
+      <view wx:if="{{stage === 2}}" class="step-dot now"><view class="step-core"></view></view>
+      <view wx:else class="step-dot todo"></view>
+      <text class="flex1 t-14 {{stage === 2 ? 'w7' : 'c-2'}}">凑齐后自动成局、建群</text>
+      <text wx:if="{{stage === 2}}" class="t-12 c-2">正在确认</text>
+    </view>
+  </view>
+
+  <view class="notify">
+    <image class="ico-22" src="/assets/icons/bell-primary.svg" />
+    <view class="flex1 t-13 lh-15 c-body">有结果会用微信服务通知告诉你，不用一直盯着</view>
+    <view class="btn btn-xs {{notify ? 'btn-outline c-primary' : 'btn-primary'}}" hover-class="pressed" bindtap="toggleNotify">{{notify ? '已开启' : '开启提醒'}}</view>
+  </view>
+
+  <view class="relax">
+    <view class="label">放宽一点，成局更快</view>
+    <view class="chips">
+      <view class="chip relax-chip {{intent.relaxTime ? 'on' : ''}}" data-key="relaxTime" bindtap="toggleRelax" aria-role="button" aria-checked="{{intent.relaxTime}}">时间放宽到全天</view>
+      <view class="chip relax-chip {{intent.relaxSize ? 'on' : ''}}" data-key="relaxSize" bindtap="toggleRelax" aria-role="button" aria-checked="{{intent.relaxSize}}">2–6 人都可以</view>
+    </view>
+  </view>
+
+  <view class="footer">
+    <view class="btn btn-md btn-outline" hover-class="pressed" bindtap="goSquare">等的时候，先去广场逛逛</view>
+    <view class="btn btn-ghost" hover-class="pressed" bindtap="cancel">取消这个意向</view>
+  </view>
+</view>

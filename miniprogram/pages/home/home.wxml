@@ -1,0 +1,56 @@
+<view class="page">
+  <view class="loc">
+    <image class="ico-16" src="/assets/icons/pin-gray.svg" />
+    <text>大理 · 古城</text>
+  </view>
+
+  <view class="intro">
+    <view class="h1-lg">今天想做点什么？</view>
+    <view class="lead">说出来就好，搭子我们帮你找。</view>
+    <view class="lead lead-2">不用发帖，也不用先开口。</view>
+  </view>
+
+  <view class="form card-lg">
+    <view class="col gap-8">
+      <view class="label">想做的事</view>
+      <view class="chips">
+        <view wx:for="{{tasks}}" wx:key="*this" class="chip {{task === item ? 'on' : ''}}" data-value="{{item}}" bindtap="pickTask" aria-role="radio" aria-checked="{{task === item}}">{{item}}</view>
+      </view>
+    </view>
+    <view class="col gap-8">
+      <view class="label">什么时候</view>
+      <view class="chips">
+        <view wx:for="{{whens}}" wx:key="value" class="chip {{when === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickWhen" aria-role="radio" aria-checked="{{when === item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">
+      <text>帮我撮合 · {{whenLabel}}{{task}}</text>
+      <image class="ico-18" src="/assets/icons/sparkle-white.svg" />
+    </view>
+    <view class="row between">
+      <view class="row gap-6 t-13 c-2">
+        <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+        <text>意向只有你自己看得到</text>
+      </view>
+      <view class="link" hover-class="pressed" bindtap="goCreate">
+        <text>自己发起一个局</text>
+        <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{intents.length}}" class="mine">
+    <view class="section-label">正在为你撮合</view>
+    <view wx:for="{{intents}}" wx:key="id" class="intent" hover-class="pressed" data-index="{{index}}" bindtap="openIntent">
+      <dz-cover variant="tile" size="40" kind="intent" />
+      <view class="flex1 col gap-2">
+        <text class="t-15 w7 ellipsis">{{item.title}}</text>
+        <text class="t-13 c-2 ellipsis">{{item.sub}}</text>
+      </view>
+      <text class="pill {{item.pillClass}}">{{item.pill}}</text>
+      <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+  </view>
+
+  <view class="tab-space"></view>
+</view>

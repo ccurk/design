@@ -1,0 +1,36 @@
+<view class="post">
+  <view class="post-head">
+    <view class="post-author" hover-class="pressed" bindtap="openUser">
+      <dz-avatar user="{{post.author}}" size="40" />
+      <view class="post-who">
+        <text class="post-name">{{post.author.nickname}}</text>
+        <text class="post-meta">{{post.time}} · 履约 {{post.author.creditRate}}%</text>
+      </view>
+    </view>
+    <text wx:if="{{post.pending}}" class="pill pill-pill">审核中</text>
+    <view class="icon-btn" hover-class="pressed" catchtap="more" aria-label="更多操作">
+      <image class="ico-20" src="/assets/icons/more-gray.svg" />
+    </view>
+  </view>
+
+  <view wx:if="{{post.text}}" class="post-text" bindtap="open">{{post.text}}</view>
+
+  <view wx:if="{{post.images.length}}" class="imgs imgs-{{post.grid}} {{detail ? 'imgs-detail' : ''}}">
+    <image wx:for="{{post.images}}" wx:key="*this" class="img" src="{{item}}" mode="aspectFill" lazy-load data-index="{{index}}" catchtap="preview" />
+  </view>
+
+  <view class="post-foot">
+    <view wx:if="{{post.event}}" class="from" hover-class="pressed" catchtap="openEvent">
+      <text class="from-text">来自局：{{post.eventTitle}}</text>
+      <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+    </view>
+    <view class="act act-first" hover-class="pressed" catchtap="like" aria-role="button" aria-checked="{{post.liked}}" aria-label="喜欢 {{post.likeCount}}">
+      <image class="ico-20" src="{{post.liked ? '/assets/icons/heart-fill-ink.svg' : '/assets/icons/heart-ink.svg'}}" />
+      <text>{{post.likeCount}}</text>
+    </view>
+    <view wx:if="{{!detail}}" class="act" hover-class="pressed" catchtap="open" aria-label="评论 {{post.commentCount}}">
+      <image class="ico-20" src="/assets/icons/chat-ink.svg" />
+      <text>{{post.commentCount}}</text>
+    </view>
+  </view>
+</view>

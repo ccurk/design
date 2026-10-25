@@ -1,0 +1,24 @@
+:host {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.av {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 999rpx;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.av-ring {
+  border: 4rpx solid #FFFFFF;
+}
+.av-img {
+  width: 100%;
+  height: 100%;
+}
+.av-text {
+  line-height: 1;
+}

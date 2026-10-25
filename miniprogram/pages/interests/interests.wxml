@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="step">第 2 步，共 2 步</view>
+
+  <view class="intro">
+    <view class="h1">你平时喜欢做什么？</view>
+    <view class="lead">选 3 个以上，撮合会更准。之后随时能改。</view>
+  </view>
+
+  <view class="chips tags">
+    <view wx:for="{{tags}}" wx:key="label" class="chip tag-chip {{item.on ? 'on' : ''}}" data-index="{{index}}" bindtap="toggleTag" aria-role="button" aria-checked="{{item.on}}">{{item.label}}</view>
+  </view>
+
+  <view class="pace">
+    <view class="pace-title">在人群里，你通常是？</view>
+    <view wx:for="{{paces}}" wx:key="value" class="pace-opt {{pace === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickPace" aria-role="radio" aria-checked="{{pace === item.value}}">
+      <text>{{item.label}}</text>
+      <view class="radio {{pace === item.value ? 'on' : ''}}"></view>
+    </view>
+    <view class="t-12 c-2">只用来帮你配节奏相近的人，不会展示给别人。</view>
+  </view>
+
+  <view class="bar-space"></view>
+  <view class="bottom-bar">
+    <view class="btn btn-primary {{busy ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">开始找搭子 · 已选 {{count}} 个</view>
+  </view>
+</view>

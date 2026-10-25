@@ -1,0 +1,32 @@
+.summary {
+  margin: 24rpx 32rpx 0;
+  padding: 28rpx 24rpx 28rpx 28rpx;
+  border-radius: 48rpx;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+.gap-3 {
+  gap: 6rpx;
+}
+.members-head {
+  margin: 36rpx 40rpx 16rpx;
+  display: flex;
+  justify-content: space-between;
+  font-size: 26rpx;
+  color: var(--text-2);
+}
+.member {
+  min-height: 104rpx;
+}
+.mute-row {
+  padding-right: 16rpx;
+}
+.actions {
+  display: flex;
+  gap: 20rpx;
+}
+.bottom-pad {
+  height: calc(60rpx + env(safe-area-inset-bottom));
+}

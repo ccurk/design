@@ -1,0 +1,61 @@
+<view wx:if="{{!done}}" class="page">
+  <view class="form">
+    <view class="tip">
+      <image class="ico-16" src="/assets/icons/shield-check-body.svg" />
+      <text>只有平台能看到你的举报，对方不会知道是谁。</text>
+    </view>
+
+    <view class="col gap-10">
+      <view class="row between baseline">
+        <text class="t-15 w8">举报原因</text>
+        <text class="t-12 w7 {{warn ? 'c-danger' : 'c-2'}}">{{warn ? '先选一个原因' : (reason ? '已选 1 项' : '选一个')}}</text>
+      </view>
+      <view class="chips">
+        <view wx:for="{{reasons}}" wx:key="*this" class="chip reason {{reason === item ? 'on' : ''}}" data-value="{{item}}" bindtap="pickReason" aria-role="radio" aria-checked="{{reason === item}}">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="col gap-8">
+      <text class="t-15 w8">补充说明（选填）</text>
+      <textarea class="area detail-area" value="{{detail}}" placeholder="发生了什么？说得越具体，处理越快" placeholder-class="ph" maxlength="500" bindinput="onDetail" />
+    </view>
+
+    <view class="col gap-8">
+      <text class="t-15 w8">截图证据（选填，最多 3 张）</text>
+      <view class="shots">
+        <view wx:for="{{images}}" wx:key="url" class="shot">
+          <image class="shot-img" src="{{item.path}}" mode="aspectFill" />
+          <view class="shot-remove" data-index="{{index}}" catchtap="removeImage" aria-label="移除这张截图">
+            <view class="shot-x"><image class="ico-12" src="/assets/icons/x-bold-ink.svg" /></view>
+          </view>
+        </view>
+        <view wx:if="{{images.length < 3}}" class="shot-add" hover-class="pressed" bindtap="addImage" aria-label="添加截图">
+          <image class="ico-22" src="/assets/icons/plus-gray.svg" />
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{showBlock}}" class="also" bindtap="toggleBlock" aria-role="checkbox" aria-checked="{{alsoBlock}}">
+      <view class="check {{alsoBlock ? 'on' : ''}}">
+        <image wx:if="{{alsoBlock}}" class="ico-12" src="/assets/icons/check-white.svg" />
+      </view>
+      <text>同时拉黑对方，以后不会再撮合到一起</text>
+    </view>
+  </view>
+
+  <view class="bar-space"></view>
+  <view class="bottom-bar">
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">提交举报</view>
+  </view>
+</view>
+
+<view wx:else class="page">
+  <view class="done">
+    <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
+    <view class="done-title">举报已收到</view>
+    <view class="done-text">我们会在 24 小时内处理，结果会用微信服务通知告诉你。谢谢你让这里更干净。</view>
+  </view>
+  <view class="bottom-bar">
+    <view class="btn btn-primary" hover-class="pressed" bindtap="goBack">返回</view>
+  </view>
+</view>

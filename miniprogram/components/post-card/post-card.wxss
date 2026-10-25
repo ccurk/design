@@ -1,0 +1,127 @@
+:host {
+  display: block;
+}
+.post {
+  padding: 24rpx 16rpx 24rpx 32rpx;
+  border-radius: 52rpx;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.post-head {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.post-author {
+  flex: 1;
+  min-width: 0;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.post-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  min-width: 0;
+}
+.post-name {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.post-meta {
+  font-size: 24rpx;
+  color: #5B5F68;
+}
+.icon-btn {
+  flex-shrink: 0;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.post-text {
+  padding-right: 16rpx;
+  font-size: 30rpx;
+  line-height: 1.6;
+  color: #15171C;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.imgs {
+  margin-right: 16rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.img {
+  display: block;
+  background: #E3E8EC;
+}
+.imgs-one .img {
+  width: 100%;
+  height: 300rpx;
+  border-radius: 32rpx;
+}
+.imgs-two .img {
+  width: calc((100% - 12rpx) / 2);
+  height: 300rpx;
+  border-radius: 32rpx 12rpx 12rpx 32rpx;
+}
+.imgs-two .img:nth-child(2) {
+  border-radius: 12rpx 32rpx 32rpx 12rpx;
+}
+.imgs-four .img {
+  width: calc((100% - 12rpx) / 2);
+  height: 220rpx;
+  border-radius: 20rpx;
+}
+.imgs-many .img {
+  width: calc((100% - 24rpx) / 3);
+  height: 200rpx;
+  border-radius: 20rpx;
+}
+.imgs-detail.imgs-one .img,
+.imgs-detail.imgs-two .img {
+  height: 240rpx;
+}
+.post-foot {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+.from {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: #F1F4F6;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.from-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.act {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  min-height: 88rpx;
+  padding: 0 16rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+.act-first {
+  margin-left: auto;
+}

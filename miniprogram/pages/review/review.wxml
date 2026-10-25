@@ -1,0 +1,60 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="现在评价不了" desc="{{error}}" icon="/assets/icons/people-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="backToMine">回到我的局</view>
+</dz-empty>
+
+<view wx:elif="{{!done}}" class="page">
+  <view class="form">
+    <view class="event">
+      <dz-cover variant="tile" size="52" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+      <view class="flex1 col gap-3">
+        <text class="t-16 w8 ellipsis">{{event.title}}</text>
+        <text class="t-12 c-2 ellipsis">{{eventSub}}</text>
+      </view>
+    </view>
+
+    <view class="tip">
+      <image class="ico-16" src="/assets/icons/shield-check-body.svg" />
+      <text>评价是匿名的，只用来算信用，不会公开具体内容。</text>
+    </view>
+
+    <view class="people">
+      <view class="people-head">
+        <text class="w7">他们到了吗？</text>
+        <text>默认都是准时</text>
+      </view>
+      <view wx:for="{{people}}" wx:for-item="p" wx:for-index="pi" wx:key="id" class="person">
+        <dz-avatar user="{{p}}" size="36" />
+        <text class="flex1 t-15 w5 ellipsis">{{p.nickname}}</text>
+        <view class="opts">
+          <view wx:for="{{options}}" wx:for-item="o" wx:key="value" class="opt {{p.att === o.value ? o.cls : ''}}" data-pi="{{pi}}" data-value="{{o.value}}" bindtap="pickAtt" aria-role="radio" aria-checked="{{p.att === o.value}}">{{o.label}}</view>
+        </view>
+      </view>
+      <view wx:if="{{!people.length}}" class="t-13 c-2 nobody">这个局只有你一个人到场记录，直接提交就好。</view>
+    </view>
+
+    <view class="box">
+      <view class="label">这个局整体感觉？（选填，可多选）</view>
+      <view class="chips">
+        <view wx:for="{{feels}}" wx:key="label" class="chip feel {{item.on ? 'on' : ''}}" data-index="{{index}}" bindtap="toggleFeel" aria-role="button" aria-checked="{{item.on}}">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="bar-space"></view>
+  <view class="bottom-bar">
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">提交评价</view>
+  </view>
+</view>
+
+<view wx:else class="page">
+  <view class="done">
+    <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
+    <view class="done-title">谢谢你的评价</view>
+    <view class="done-text">{{doneText}}</view>
+    <view class="done-actions">
+      <view class="btn btn-primary" hover-class="pressed" bindtap="backToMine">回到我的局</view>
+    </view>
+  </view>
+</view>

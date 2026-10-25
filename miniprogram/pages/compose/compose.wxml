@@ -1,0 +1,61 @@
+<view wx:if="{{!done}}" class="page">
+  <view class="form">
+    <view class="box">
+      <text class="label">想说点什么</text>
+      <textarea class="text" value="{{text}}" placeholder="说说这个局的感受，不用写很多" placeholder-class="ph" maxlength="500" bindinput="onText" />
+      <view class="count">{{text.length}}/500</view>
+      <view class="photos">
+        <view wx:for="{{images}}" wx:key="url" class="photo">
+          <image class="photo-img" src="{{item.path}}" mode="aspectFill" />
+          <view class="photo-remove" data-index="{{index}}" catchtap="removeImage" aria-label="移除这张照片">
+            <view class="photo-x"><image class="ico-12" src="/assets/icons/x-bold-ink.svg" /></view>
+          </view>
+        </view>
+        <view wx:if="{{images.length < 6}}" class="photo-add" hover-class="pressed" bindtap="addImages" aria-label="添加照片">
+          <image class="ico-24" src="/assets/icons/plus-gray.svg" />
+        </view>
+      </view>
+    </view>
+
+    <view class="box">
+      <text class="label">关联一个局（选填，再点一下取消）</text>
+      <view wx:for="{{events}}" wx:key="id" class="ev-opt" data-id="{{item.id}}" bindtap="pickEvent" aria-role="radio" aria-checked="{{eventId === item.id}}">
+        <view class="flex1 col gap-2">
+          <text class="t-15 w5 ellipsis">{{item.title}}</text>
+          <text class="t-12 c-2">{{item.sub}}</text>
+        </view>
+        <view class="radio {{eventId === item.id ? 'on' : ''}}"></view>
+      </view>
+      <view wx:if="{{!events.length}}" class="t-13 c-2">还没有参加过的局，不关联也可以发。</view>
+    </view>
+
+    <view class="box">
+      <text class="label">谁能看到</text>
+      <view class="chips">
+        <view class="chip scope {{visibility === 'public' ? 'on' : ''}}" data-value="public" bindtap="pickScope" aria-role="radio" aria-checked="{{visibility === 'public'}}">所有人</view>
+        <view class="chip scope {{visibility === 'event' ? 'on' : ''}}" data-value="event" bindtap="pickScope" aria-role="radio" aria-checked="{{visibility === 'event'}}">只给同局的人</view>
+      </view>
+    </view>
+
+    <view class="note">
+      <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+      <text>发布前会审核：联系方式、广告、约会擦边的内容会被拦截。</text>
+    </view>
+  </view>
+
+  <view class="bar-space"></view>
+  <view class="bottom-bar">
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">{{submitting ? '发布中…' : '发布'}}</view>
+  </view>
+</view>
+
+<view wx:else class="page">
+  <view class="done">
+    <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
+    <view class="done-title">{{pending ? '已发布，正在审核' : '已发布'}}</view>
+    <view class="done-text">{{pending ? '审核通过后会出现在动态里，一般几分钟。' : '已经出现在动态里了。'}}</view>
+    <view class="done-actions">
+      <view class="btn btn-primary" hover-class="pressed" bindtap="goFeed">回到动态</view>
+    </view>
+  </view>
+</view>

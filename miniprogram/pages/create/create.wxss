@@ -1,0 +1,91 @@
+.form {
+  padding: 16rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 28rpx;
+  border-radius: 32rpx;
+  background: var(--pill);
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+.box {
+  padding: 32rpx;
+  border-radius: 48rpx;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 36rpx;
+}
+.gap-2 {
+  gap: 4rpx;
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  min-height: 104rpx;
+  padding: 0 28rpx;
+  border-radius: 28rpx;
+  border: 1px solid var(--outline);
+  background: #FFFFFF;
+}
+.pick-text {
+  min-height: 100rpx;
+  display: flex;
+  align-items: center;
+  font-size: 30rpx;
+  line-height: 100rpx;
+}
+.pick-time {
+  padding: 0 8rpx 0 16rpx;
+}
+.step-btn {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--outline);
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-btn.off {
+  opacity: 0.4;
+}
+.step-num {
+  min-width: 72rpx;
+  text-align: center;
+  font-size: 36rpx;
+  font-weight: 800;
+}
+.per {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16rpx;
+  padding-top: 4rpx;
+}
+.per-input {
+  width: 192rpx;
+  height: 88rpx;
+  border-radius: 24rpx;
+}
+.switches {
+  padding: 8rpx 16rpx 8rpx 32rpx;
+  gap: 0;
+}
+.sw-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  min-height: 128rpx;
+}
+.desc {
+  height: 176rpx;
+}

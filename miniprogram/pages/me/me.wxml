@@ -1,0 +1,92 @@
+<view class="page">
+  <view wx:if="{{!me}}" class="loading">{{error || '加载中…'}}</view>
+
+  <block wx:else>
+    <view class="head">
+      <view class="row between">
+        <dz-avatar user="{{me}}" size="72" />
+        <view class="btn btn-xs btn-outline edit" hover-class="pressed" bindtap="edit">编辑资料</view>
+      </view>
+      <view class="col gap-6">
+        <view class="name">{{me.nickname}}</view>
+        <view wx:if="{{me.bio}}" class="bio">{{me.bio}}</view>
+      </view>
+      <view wx:if="{{me.interests.length}}" class="row wrap gap-6">
+        <text wx:for="{{me.interests}}" wx:key="*this" class="tag">{{item}}</text>
+      </view>
+    </view>
+
+    <view class="stats">
+      <view class="stats-grid">
+        <view class="stat">
+          <text class="stat-num">{{me.credit.rate}}%</text>
+          <text class="stat-label">履约率</text>
+        </view>
+        <view class="stat">
+          <text class="stat-num">{{me.credit.eventsCount}}</text>
+          <text class="stat-label">参加的局</text>
+        </view>
+        <view class="stat">
+          <text class="stat-num">{{me.credit.noShow}}</text>
+          <text class="stat-label">放鸽子</text>
+        </view>
+      </view>
+      <view class="stats-line"></view>
+      <view class="credit-row" hover-class="pressed" bindtap="openCreditRules">
+        <image class="ico-16" src="/assets/icons/shield-check-body.svg" />
+        <text class="flex1">{{creditText}}</text>
+        <text class="c-2">怎么算</text>
+        <image class="ico-14" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <view wx:if="{{records.length}}" class="credit-row" hover-class="pressed" bindtap="toggleRecords">
+        <image class="ico-16" src="/assets/icons/doc-ink.svg" />
+        <text class="flex1">信用记录 · {{records.length}} 条{{appealable ? ' · 可申诉' : ''}}</text>
+        <image class="ico-14 {{showRecords ? 'turn' : ''}}" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <view wx:if="{{showRecords}}" class="records">
+        <view wx:for="{{records}}" wx:key="id" class="record">
+          <view class="flex1 col gap-2">
+            <text class="t-14 w7">{{item.typeLabel}}{{item.eventTitle ? ' · ' + item.eventTitle : ''}}</text>
+            <text class="t-12 c-2">{{item.date}}{{item.note ? ' · ' + item.note : ''}}</text>
+          </view>
+          <view wx:if="{{item.canAppeal}}" class="btn btn-xs btn-outline appeal-btn" hover-class="pressed" data-index="{{index}}" bindtap="appeal">申诉</view>
+          <text wx:elif="{{item.state}}" class="pill pill-pill">{{item.state}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="menu">
+      <view class="menu-row" hover-class="pressed" bindtap="openMyEvents">
+        <view class="menu-ico"><image class="ico-18" src="/assets/icons/people-ink.svg" /></view>
+        <text class="flex1 t-15 w5">我的局</text>
+        <text wx:if="{{me.ongoingCount}}" class="pill pill-accent">{{me.ongoingCount}} 个进行中</text>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <view class="menu-row tall" hover-class="pressed" bindtap="openSafety">
+        <view class="menu-ico"><image class="ico-18" src="/assets/icons/shield-ink.svg" /></view>
+        <view class="flex1 col gap-2">
+          <text class="t-15 w5">安全设置</text>
+          <text class="t-12 c-2">只参加同性局 · 紧急联系人 · 报平安</text>
+        </view>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <view class="menu-row" hover-class="pressed" bindtap="openRules">
+        <view class="menu-ico"><image class="ico-18" src="/assets/icons/doc-ink.svg" /></view>
+        <text class="flex1 t-15 w5">社区公约与信用规则</text>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <button class="native-btn contact" open-type="contact" hover-class="none">
+        <view class="menu-row tall" hover-class="pressed">
+          <view class="menu-ico"><image class="ico-18" src="/assets/icons/headset-ink.svg" /></view>
+          <view class="flex1 col gap-2 tl">
+            <text class="t-15 w5">联系客服 · 意见反馈</text>
+            <text class="t-12 c-2">打开微信客服对话</text>
+          </view>
+          <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+        </view>
+      </button>
+    </view>
+  </block>
+
+  <view class="tab-space"></view>
+</view>

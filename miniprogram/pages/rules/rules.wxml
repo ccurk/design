@@ -1,0 +1,52 @@
+<view class="page">
+  <view class="toc">
+    <view class="toc-item" hover-class="pressed" data-id="pact" bindtap="jump">社区公约</view>
+    <view class="toc-item" hover-class="pressed" data-id="credit" bindtap="jump">信用怎么算</view>
+    <view class="toc-item" hover-class="pressed" data-id="privacy" bindtap="jump">隐私与安全</view>
+  </view>
+
+  <view id="pact" class="section">
+    <view class="h2">社区公约</view>
+    <view class="p">这里是让慢热的人也能轻松出门的地方。为了让每个局都干净、舒服：</view>
+    <view class="ol">
+      <view class="li"><text class="num">1.</text><view class="flex1"><text class="w7">只组兴趣局。</text>这里不是交友或约会软件。</view></view>
+      <view class="li"><text class="num">2.</text><view class="flex1"><text class="w7">不擦边、不推销、不拉人头、不借钱。</text></view></view>
+      <view class="li"><text class="num">3.</text><view class="flex1"><text class="w7">不在局外私下要联系方式。</text>聊天只在局里。</view></view>
+      <view class="li"><text class="num">4.</text><view class="flex1"><text class="w7">AA 只记账。</text>钱在微信里直接转，平台不经手。</view></view>
+      <view class="li"><text class="num">5.</text><view class="flex1"><text class="w7">有事提前说。</text>临时不去，比不说强。</view></view>
+      <view class="li"><text class="num">6.</text><view class="flex1"><text class="w7">尊重每个人的节奏。</text>不勉强别人说话。</view></view>
+    </view>
+    <view class="callout">违反公约：轻则提醒，重则限制使用或封号。</view>
+  </view>
+
+  <view id="credit" class="section">
+    <view class="h2">信用怎么算</view>
+    <view class="p">信用只看你守不守约，不看你话多不多。</view>
+    <view class="table">
+      <view class="tr"><text class="flex1">准时到场</text><text class="pill pill-accent">履约 +1</text></view>
+      <view class="tr"><text class="flex1">提前 24 小时以上说去不了</text><text class="pill pill-stone">不扣分</text></view>
+      <view class="tr"><text class="flex1">开场前 24 小时内退出</text><text class="pill pill-stone">记一次「临时鸽」</text></view>
+      <view class="tr"><text class="flex1">没来也没说</text><text class="pill pill-danger">记一次「放鸽子」</text></view>
+      <view class="tr tr-last"><text class="flex1">一个月内放鸽子 2 次</text><text class="pill pill-danger">暂停撮合 7 天</text></view>
+    </view>
+    <view class="sub-title">信用等级</view>
+    <view class="levels">
+      <view class="level"><view class="level-dot good"></view><view><text class="w7">良好</text> · 可以参加所有局</view></view>
+      <view class="level"><view class="level-dot fair"></view><view><text class="w7">一般</text> · 大一点的局需要发起人同意</view></view>
+      <view class="level"><view class="level-dot bad"></view><view><text class="w7">受限</text> · 只能看，暂时不能报名</view></view>
+    </view>
+  </view>
+
+  <view id="privacy" class="section">
+    <view class="h2">隐私与安全</view>
+    <view class="ul">
+      <view class="li"><text class="bullet">•</text><text class="flex1">你的意向只有自己看得到。</text></view>
+      <view class="li"><text class="bullet">•</text><text class="flex1">成局前，别人看不到你被推荐给了谁。</text></view>
+      <view class="li"><text class="bullet">•</text><text class="flex1">只能在同一个局里聊天，不提供私聊。</text></view>
+      <view class="li"><text class="bullet">•</text><text class="flex1">举报和评价都是匿名的。</text></view>
+      <view class="li"><text class="bullet">•</text><text class="flex1">手机号只用于登录和紧急联系，不会给别人看。</text></view>
+    </view>
+  </view>
+
+  <view class="bottom-pad"></view>
+</view>

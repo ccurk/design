@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="seg">
+    <view wx:for="{{tabs}}" wx:key="value" class="seg-item {{tab === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickTab" aria-role="tab" aria-selected="{{tab === item.value}}">{{item.label}} {{counts[item.value]}}</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+
+  <view wx:elif="{{lists[tab].length}}" class="list">
+    <view wx:for="{{lists[tab]}}" wx:key="key" class="card-row" hover-class="pressed" data-index="{{index}}" bindtap="open">
+      <dz-cover wx:if="{{item.isIntent}}" variant="tile" size="56" kind="intent" />
+      <dz-cover wx:else variant="tile" size="56" category="{{item.category}}" task="{{item.task}}" title="{{item.title}}" />
+      <view class="flex1 col gap-4">
+        <text class="t-15 w8 ellipsis">{{item.title}}</text>
+        <text class="t-12 c-2 ellipsis">{{item.sub}}</text>
+        <text wx:if="{{item.pill}}" class="pill row-pill {{item.pillClass}}">{{item.pill}}</text>
+      </view>
+      <view wx:if="{{item.reviewBtn}}" class="btn btn-xs btn-primary review-btn" hover-class="pressed" data-index="{{index}}" catchtap="review">去评价</view>
+      <text wx:elif="{{item.tag}}" class="pill pill-stone">{{item.tag}}</text>
+      <image wx:else class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+  </view>
+
+  <dz-empty wx:elif="{{tab === 'created'}}" title="还没自己发起过局" desc="不发起也完全没关系。哪天想组了，在这里发起。" icon="/assets/icons/plus-primary.svg">
+    <view class="btn btn-md btn-primary" bindtap="goCreate">发起一个局</view>
+  </dz-empty>
+  <dz-empty wx:elif="{{tab === 'ended'}}" title="还没有结束的局" desc="参加过的局结束后会出现在这里，记得给同行的人评价。" icon="/assets/icons/people-primary.svg">
+    <view class="btn btn-md btn-primary" bindtap="goSquare">去广场看看</view>
+  </dz-empty>
+  <dz-empty wx:else title="眼下没有进行中的局" desc="说出想做的事，平台帮你凑人。" icon="/assets/icons/sparkle-primary.svg">
+    <view class="btn btn-md btn-primary" bindtap="goHome">去撮合</view>
+  </dz-empty>
+</view>

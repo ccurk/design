@@ -1,0 +1,86 @@
+.form {
+  padding: 16rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+.box {
+  padding: 32rpx;
+  border-radius: 48rpx;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.text {
+  width: 100%;
+  height: 200rpx;
+  font-size: 32rpx;
+  line-height: 1.6;
+}
+.count {
+  text-align: right;
+  font-size: 24rpx;
+  color: var(--text-2);
+}
+.photos {
+  padding-top: 8rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.photo,
+.photo-add {
+  position: relative;
+  width: 184rpx;
+  height: 184rpx;
+  border-radius: 32rpx;
+}
+.photo {
+  overflow: hidden;
+  background: var(--stone);
+}
+.photo-img {
+  width: 100%;
+  height: 100%;
+}
+.photo-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 88rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+.photo-x {
+  margin: 12rpx;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 999rpx;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.photo-add {
+  border: 1px dashed var(--faint);
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ev-opt {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  min-height: 104rpx;
+  padding: 0 8rpx;
+}
+.gap-2 {
+  gap: 4rpx;
+}
+.scope {
+  font-size: 28rpx;
+}

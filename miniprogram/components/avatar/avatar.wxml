@@ -1,0 +1,4 @@
+<view class="av {{ring ? 'av-ring' : ''}}" style="width: {{px}}rpx; height: {{px}}rpx; background: {{bg}}; color: {{fg}}; font-size: {{fs}}rpx; font-weight: {{weight}};">
+  <image wx:if="{{url}}" class="av-img" src="{{url}}" mode="aspectFill" lazy-load binderror="onError" />
+  <text wx:else class="av-text">{{text}}</text>
+</view>

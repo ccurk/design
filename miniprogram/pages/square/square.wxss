@@ -1,0 +1,44 @@
+.head {
+  padding: 8rpx 32rpx 0 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.create {
+  font-size: 28rpx;
+  gap: 8rpx;
+}
+.icon-btn {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sub {
+  margin: 8rpx 40rpx 0;
+  font-size: 28rpx;
+  color: var(--text-2);
+}
+.cats {
+  margin-top: 28rpx;
+  width: 100%;
+  white-space: nowrap;
+}
+.cats-inner {
+  display: inline-flex;
+  gap: 16rpx;
+  padding: 0 40rpx;
+}
+.cat {
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+.list {
+  padding: 32rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}

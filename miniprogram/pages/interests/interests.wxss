@@ -1,0 +1,46 @@
+.step {
+  padding: 8rpx 40rpx 0;
+  font-size: 26rpx;
+  color: var(--text-2);
+}
+.intro {
+  padding: 16rpx 40rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.intro .h1 {
+  font-size: 52rpx;
+}
+.tags {
+  padding: 36rpx 40rpx 0;
+}
+.tag-chip {
+  padding: 0 28rpx;
+}
+.pace {
+  padding: 48rpx 40rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.pace-title {
+  font-size: 30rpx;
+  font-weight: 800;
+}
+.pace-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  min-height: 104rpx;
+  padding: 0 32rpx;
+  border-radius: 32rpx;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 30rpx;
+  font-weight: 500;
+}
+.pace-opt.on {
+  border: 4rpx solid var(--primary);
+}

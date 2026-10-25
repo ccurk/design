@@ -1,0 +1,5 @@
+<view class="sw {{disabled ? 'sw-disabled' : ''}}" bindtap="toggle" aria-role="switch" aria-checked="{{checked}}" aria-label="{{label}}">
+  <view class="sw-track {{checked ? 'on' : ''}}">
+    <view class="sw-knob"></view>
+  </view>
+</view>

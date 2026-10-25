@@ -1,0 +1,83 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="看不到这个撮合结果" desc="{{error}}" icon="/assets/icons/sparkle-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goHome">回首页</view>
+</dz-empty>
+
+<view wx:else class="page">
+  <view class="intro">
+    <view class="pill pill-accent badge">
+      <image class="ico-14" src="/assets/icons/check-ink.svg" />
+      <text>撮合成功</text>
+    </view>
+    <view class="h1">配到了！</view>
+    <view class="h1">{{headline}}</view>
+    <view class="lead">{{lead}}</view>
+  </view>
+
+  <view class="body card-lg">
+    <dz-cover variant="match" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+    <view class="col gap-10">
+      <view class="t-18 w8">{{event.title}}</view>
+      <view class="facts">
+        <view class="fact">
+          <image class="ico-16" src="/assets/icons/clock-gray.svg" />
+          <text>{{timeText}}</text>
+        </view>
+        <view class="fact">
+          <image class="ico-16" src="/assets/icons/pin-gray.svg" />
+          <text>{{placeText}}</text>
+        </view>
+        <view class="fact">
+          <image class="ico-16" src="/assets/icons/wallet-gray.svg" />
+          <text>{{feeText}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="row gap-12">
+      <view class="stack shrink0">
+        <view wx:for="{{others}}" wx:key="id" class="stack-item tight">
+          <dz-avatar user="{{item}}" size="34" ring="{{true}}" />
+        </view>
+        <view wx:if="{{myStatus !== 'joined'}}" class="stack-item tight">
+          <view class="seat seat-34">你</view>
+        </view>
+      </view>
+      <view class="t-13 lh-15 c-2">
+        <view>{{readyText}}</view>
+        <view>{{fullText}}</view>
+      </view>
+    </view>
+    <view wx:if="{{commonPoints.length}}" class="row wrap gap-6">
+      <text class="points-label">共同点</text>
+      <text wx:for="{{commonPoints}}" wx:key="*this" class="point">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="actions">
+    <block wx:if="{{myStatus === 'invited'}}">
+      <view class="btn btn-primary {{busy ? 'disabled' : ''}}" hover-class="pressed" bindtap="accept">加入这个局</view>
+      <view class="row gap-10">
+        <view class="btn btn-sm btn-outline flex1" hover-class="pressed" bindtap="openDetail">看看详情</view>
+        <view class="btn btn-sm btn-outline flex1" hover-class="pressed" bindtap="decline">
+          <image class="ico-16" src="/assets/icons/refresh-ink.svg" />
+          <text>换一批</text>
+        </view>
+      </view>
+      <view wx:if="{{deadlineText}}" class="t-12 c-2 tc">{{deadlineText}}</view>
+    </block>
+    <block wx:elif="{{myStatus === 'joined'}}">
+      <view wx:if="{{event.chatOpen}}" class="btn btn-primary" hover-class="pressed" bindtap="openGroup">进入群聊</view>
+      <view wx:else class="btn btn-primary disabled">已加入 · 等大家确认</view>
+      <view class="btn btn-sm btn-outline" hover-class="pressed" bindtap="openDetail">看看详情</view>
+    </block>
+    <block wx:else>
+      <view class="state">{{stateText}}</view>
+      <view class="btn btn-sm btn-outline" hover-class="pressed" bindtap="goHome">回首页</view>
+    </block>
+    <view class="foot">
+      <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+      <text>只有被配到的人能看到这个局</text>
+    </view>
+  </view>
+</view>

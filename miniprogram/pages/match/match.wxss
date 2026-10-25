@@ -1,0 +1,72 @@
+.page {
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
+.intro {
+  padding: 12rpx 40rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.badge {
+  margin-bottom: 20rpx;
+  padding: 10rpx 24rpx 10rpx 20rpx;
+  font-size: 26rpx;
+}
+.intro .h1 {
+  font-size: 52rpx;
+}
+.intro .lead {
+  margin-top: 20rpx;
+}
+.body {
+  margin: 36rpx 32rpx 0;
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  font-size: 28rpx;
+  color: var(--body);
+}
+.fact {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.seat-34 {
+  width: 68rpx;
+  height: 68rpx;
+  font-size: 24rpx;
+}
+.points-label {
+  margin-right: 4rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.actions {
+  padding: 32rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.state {
+  padding: 8rpx 16rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--body);
+  text-align: center;
+}
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding-top: 8rpx;
+  font-size: 26rpx;
+  color: var(--text-2);
+}

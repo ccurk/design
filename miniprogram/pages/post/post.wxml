@@ -1,0 +1,42 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="这条动态看不到了" desc="{{error}}" icon="/assets/icons/image-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goFeed">回到动态</view>
+</dz-empty>
+
+<view wx:else class="wrap">
+  <scroll-view scroll-y enhanced class="scroll" scroll-into-view="{{intoView}}" refresher-enabled="{{false}}">
+    <view class="inner">
+      <dz-post-card post="{{post}}" detail="{{true}}" bindlike="onLike" bindmore="onMore" />
+
+      <view class="count-head">
+        <text class="t-15 w8">评论</text>
+        <text class="t-13 c-2">{{comments.length}}</text>
+      </view>
+
+      <view wx:if="{{!comments.length}}" class="no-comment">还没有评论，说一句吧</view>
+
+      <view wx:for="{{comments}}" wx:key="id" id="c{{item.id}}" class="comment" data-index="{{index}}" bindlongpress="onCommentLong">
+        <view class="comment-av" data-id="{{item.author.id}}" catchtap="openUser">
+          <dz-avatar user="{{item.author}}" size="32" />
+        </view>
+        <view class="flex1 col">
+          <view class="comment-head">
+            <text class="t-13 w7">{{item.author.nickname}}</text>
+            <text class="t-12 c-2">{{item.time}}</text>
+            <view wx:if="{{!item.mine}}" class="reply" hover-class="pressed" data-index="{{index}}" catchtap="reply">回复</view>
+          </view>
+          <view class="comment-text">{{item.display}}</view>
+        </view>
+      </view>
+      <view id="end" class="end"></view>
+    </view>
+  </scroll-view>
+
+  <view class="composer" style="{{composerStyle}}">
+    <input class="composer-input" value="{{draft}}" placeholder="{{replyTo ? '回复 ' + replyTo.nickname + '：' : '说点什么…'}}" placeholder-class="ph" confirm-type="send" adjust-position="{{false}}" focus="{{focus}}" maxlength="300" bindinput="onInput" bindconfirm="send" bindfocus="onFocus" bindblur="onBlur" bindkeyboardheightchange="onKeyboard" />
+    <view class="send-btn" hover-class="pressed" bindtap="send" aria-label="发送">
+      <image class="ico-18" src="/assets/icons/send-white.svg" />
+    </view>
+  </view>
+</view>

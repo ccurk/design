@@ -1,0 +1,80 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/square/square",
+    "pages/feed/feed",
+    "pages/inbox/inbox",
+    "pages/me/me",
+    "pages/login/login",
+    "pages/interests/interests",
+    "pages/waiting/waiting",
+    "pages/match/match",
+    "pages/detail/detail",
+    "pages/group/group",
+    "pages/group-info/group-info",
+    "pages/aa/aa",
+    "pages/user/user",
+    "pages/report/report",
+    "pages/search/search",
+    "pages/create/create",
+    "pages/post/post",
+    "pages/compose/compose",
+    "pages/my-events/my-events",
+    "pages/review/review",
+    "pages/edit-profile/edit-profile",
+    "pages/safety/safety",
+    "pages/rules/rules"
+  ],
+  "window": {
+    "navigationBarTitleText": "活动搭子",
+    "navigationBarBackgroundColor": "#F1F4F6",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F1F4F6",
+    "backgroundColorTop": "#F1F4F6",
+    "backgroundColorBottom": "#F1F4F6",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#6B6F78",
+    "selectedColor": "#15171C",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "撮合"
+      },
+      {
+        "pagePath": "pages/square/square",
+        "text": "广场"
+      },
+      {
+        "pagePath": "pages/feed/feed",
+        "text": "动态"
+      },
+      {
+        "pagePath": "pages/inbox/inbox",
+        "text": "消息"
+      },
+      {
+        "pagePath": "pages/me/me",
+        "text": "我的"
+      }
+    ]
+  },
+  "usingComponents": {
+    "dz-avatar": "/components/avatar/avatar",
+    "dz-cover": "/components/cover/cover",
+    "dz-empty": "/components/empty/empty",
+    "dz-switch": "/components/switch/switch",
+    "dz-event-card": "/components/event-card/event-card",
+    "dz-post-card": "/components/post-card/post-card"
+  },
+  "requiredPrivateInfos": [
+    "chooseLocation"
+  ],
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

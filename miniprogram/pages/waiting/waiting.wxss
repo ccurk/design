@@ -1,0 +1,96 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.head {
+  margin: 24rpx 32rpx 0;
+  padding: 36rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+}
+.gap-2 {
+  gap: 4rpx;
+}
+.anon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  border: 4rpx solid #FFFFFF;
+  background: var(--primary-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.anon.alt {
+  background: var(--primary);
+}
+.seat-36 {
+  width: 72rpx;
+  height: 72rpx;
+}
+.steps {
+  margin: 24rpx 32rpx 0;
+  padding: 24rpx 32rpx;
+  border-radius: 48rpx;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  min-height: 80rpx;
+}
+.step-dot {
+  flex-shrink: 0;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-dot.done {
+  background: var(--primary);
+}
+.step-dot.now {
+  background: var(--accent);
+}
+.step-core {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 999rpx;
+  background: var(--ink);
+}
+.step-dot.todo {
+  border: 4rpx solid var(--faint);
+}
+.notify {
+  margin: 24rpx 32rpx 0;
+  padding: 28rpx 28rpx 28rpx 32rpx;
+  border-radius: 48rpx;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+.relax {
+  margin: 32rpx 40rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.relax-chip {
+  font-size: 28rpx;
+}
+.footer {
+  margin-top: auto;
+  padding: 48rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}

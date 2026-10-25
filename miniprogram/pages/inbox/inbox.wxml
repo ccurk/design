@@ -1,0 +1,81 @@
+<view class="page">
+  <view class="head">
+    <view class="big-title">消息</view>
+  </view>
+
+  <view wx:if="{{loading && !loaded}}" class="loading">加载中…</view>
+
+  <dz-empty wx:elif="{{error && !loaded}}" title="暂时加载不出来" desc="{{error}}" icon="/assets/icons/chat-primary.svg">
+    <view class="btn btn-sm btn-primary" bindtap="load">再试一次</view>
+  </dz-empty>
+
+  <view wx:else class="body">
+    <block wx:if="{{actions.length}}">
+      <view class="section-label">需要你处理</view>
+      <block wx:for="{{actions}}" wx:key="key">
+        <view wx:if="{{item.type === 'attendance'}}" class="action">
+          <view class="row gap-12">
+            <view class="act-ico act-accent"><image class="ico-20" src="/assets/icons/clock-ink.svg" /></view>
+            <view class="flex1 col gap-2">
+              <text class="t-15 w7">{{item.title}}</text>
+              <text class="t-13 c-2">还去吗？提前说不算鸽，确认一下大家心里有数</text>
+            </view>
+          </view>
+          <view wx:if="{{!item.answer}}" class="row gap-8">
+            <view class="btn btn-xs btn-primary flex1 act-btn" hover-class="pressed" data-index="{{index}}" bindtap="attendYes">确认出席</view>
+            <view class="btn btn-xs btn-outline flex1 act-btn" hover-class="pressed" data-index="{{index}}" bindtap="attendNo">去不了了</view>
+          </view>
+          <view wx:elif="{{item.answer === 'yes'}}" class="answered answered-yes">
+            <image class="ico-16" src="/assets/icons/check-primary.svg" />
+            <text>已确认出席，{{item.dayWord}}见</text>
+          </view>
+          <view wx:else class="answered">{{item.noText}}</view>
+        </view>
+
+        <view wx:else class="action action-link" hover-class="pressed" data-index="{{index}}" bindtap="openAction">
+          <view wx:if="{{item.type === 'review'}}" class="act-ico act-dark"><image class="ico-20" src="/assets/icons/star-accent.svg" /></view>
+          <view wx:elif="{{item.type === 'match'}}" class="act-ico act-accent"><image class="ico-20" src="/assets/icons/sparkle-primary.svg" /></view>
+          <view wx:else class="act-ico act-stone"><image class="ico-20" src="/assets/icons/bell-ink.svg" /></view>
+          <view class="flex1 col gap-2">
+            <text class="t-15 w7">{{item.title}}</text>
+            <text class="t-13 c-2">{{item.sub}}</text>
+          </view>
+          <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+        </view>
+      </block>
+    </block>
+
+    <view class="section-label">局聊</view>
+    <view wx:if="{{chats.length}}" class="list-card">
+      <view wx:for="{{chats}}" wx:key="eventId" class="chat-row" hover-class="pressed" data-id="{{item.eventId}}" bindtap="openChat">
+        <dz-cover variant="tile" size="44" category="{{item.category}}" title="{{item.title}}" />
+        <view class="flex1 col gap-3">
+          <text class="t-15 w7 ellipsis">{{item.title}}</text>
+          <text class="t-13 c-2 ellipsis">{{item.preview}}</text>
+        </view>
+        <view class="chat-side">
+          <text class="t-12 c-2">{{item.time}}</text>
+          <text wx:if="{{item.unread}}" class="badge">{{item.unreadText}}</text>
+        </view>
+      </view>
+    </view>
+    <view wx:else class="empty-card">还没有局聊。成局后，群会自动出现在这里。</view>
+
+    <block wx:if="{{notices.length}}">
+      <view class="section-label">通知</view>
+      <view class="list-card">
+        <view wx:for="{{notices}}" wx:key="id" class="notice-row" hover-class="pressed" data-index="{{index}}" bindtap="openNotice">
+          <image class="ico-20" src="{{item.icon}}" />
+          <view class="flex1 col gap-2">
+            <text class="t-14 {{item.read ? '' : 'w7'}}">{{item.text}}</text>
+            <text class="t-12 c-2">{{item.time}}</text>
+          </view>
+          <view wx:if="{{!item.read}}" class="dot"></view>
+          <image wx:if="{{item.link}}" class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="tab-space"></view>
+</view>

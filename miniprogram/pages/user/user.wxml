@@ -1,0 +1,90 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="看不到这个人的主页" desc="{{error}}" icon="/assets/icons/user-ink.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goBack">返回</view>
+</dz-empty>
+
+<view wx:else class="page">
+  <view class="head">
+    <view class="row gap-16">
+      <dz-avatar user="{{user}}" size="72" />
+      <view class="col gap-8">
+        <view class="name">{{user.nickname}}</view>
+        <view wx:if="{{!hidden && (user.idVerified || user.phoneVerified)}}" class="row wrap gap-6">
+          <view wx:if="{{user.idVerified}}" class="pill pill-white c-primary">
+            <image class="ico-12" src="/assets/icons/check-primary.svg" />
+            <text>已实名</text>
+          </view>
+          <view wx:if="{{user.phoneVerified}}" class="pill pill-white c-primary">
+            <image class="ico-12" src="/assets/icons/check-primary.svg" />
+            <text>手机已验证</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!hidden && user.bio}}" class="bio">{{user.bio}}</view>
+    <view wx:if="{{!hidden && user.interests.length}}" class="row wrap gap-6">
+      <text wx:for="{{user.interests}}" wx:key="*this" class="tag">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="stats">
+    <view class="stats-grid">
+      <view class="stat">
+        <text class="stat-num">{{credit.rate}}%</text>
+        <text class="stat-label">履约率</text>
+      </view>
+      <view class="stat">
+        <text class="stat-num">{{hidden ? '–' : credit.eventsCount}}</text>
+        <text class="stat-label">参加的局</text>
+      </view>
+      <view class="stat">
+        <text class="stat-num">{{hidden ? '–' : credit.cancelLate}}</text>
+        <text class="stat-label">临时取消</text>
+      </view>
+    </view>
+    <view class="stats-line"></view>
+    <view class="stats-note">{{creditNote}}</view>
+  </view>
+
+  <block wx:if="{{!hidden}}">
+    <view wx:if="{{commonPoints.length}}" class="points">
+      <text class="points-label">你们的共同点</text>
+      <text wx:for="{{commonPoints}}" wx:key="*this" class="point point-white">{{item}}</text>
+    </view>
+
+    <block wx:if="{{recent.length}}">
+      <view class="section-label recent-label">最近的局</view>
+      <view class="list-card mx-16">
+        <view wx:for="{{recent}}" wx:key="id" class="recent" hover-class="{{item.link ? 'pressed' : 'none'}}" data-index="{{index}}" bindtap="openEvent">
+          <dz-cover variant="tile" size="36" title="{{item.title}}" />
+          <view class="flex1 col gap-2">
+            <text class="t-15 {{item.sharedWithMe ? 'w7' : 'w5'}} ellipsis">{{item.title}}</text>
+            <text class="t-12 c-2">{{item.sub}}</text>
+          </view>
+          <image wx:if="{{item.link}}" class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+        </view>
+      </view>
+    </block>
+  </block>
+
+  <view class="foot-note">
+    <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+    <text>{{hidden ? 'TA 只给同局的人看主页 · 这里不能私聊' : '这里不能私聊，只在同一个局里聊天，防骚扰'}}</text>
+  </view>
+
+  <block wx:if="{{!isMe}}">
+    <view class="bar-space"></view>
+    <view class="bottom-bar bar">
+      <view class="btn btn-md btn-outline flex1" hover-class="pressed" bindtap="report">
+        <image class="ico-16" src="/assets/icons/flag-ink.svg" />
+        <text>举报</text>
+      </view>
+      <view class="btn btn-md flex1 {{blocked ? 'blocked' : 'btn-danger-outline'}}" hover-class="pressed" bindtap="toggleBlock" aria-role="button" aria-checked="{{blocked}}">
+        <image wx:if="{{blocked}}" class="ico-16" src="/assets/icons/ban-body.svg" />
+        <image wx:else class="ico-16" src="/assets/icons/ban-danger.svg" />
+        <text>{{blocked ? '已拉黑 · 点击撤销' : '拉黑'}}</text>
+      </view>
+    </view>
+  </block>
+</view>

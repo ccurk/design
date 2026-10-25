@@ -1,0 +1,88 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<view wx:elif="{{closed}}" class="closed">
+  <dz-empty title="{{closedTitle}}" desc="{{closedDesc}}" icon="/assets/icons/chat-primary.svg">
+    <view class="btn btn-sm btn-primary" bindtap="openDetail">看看局详情</view>
+  </dz-empty>
+</view>
+
+<view wx:else class="chat">
+  <view class="subhead" hover-class="pressed" bindtap="openInfo">
+    <text class="flex1 t-12 c-2 ellipsis">{{subtitle}}</text>
+    <text class="t-13 c-2">局信息</text>
+    <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+  </view>
+
+  <view wx:if="{{task.show}}" class="task">
+    <view class="flex1 col gap-2">
+      <text class="task-label">{{task.label}}</text>
+      <text class="task-text">{{task.text}}</text>
+    </view>
+    <view class="task-btn {{task.done ? 'done' : ''}}" hover-class="{{task.done ? 'none' : 'pressed'}}" bindtap="onTask" aria-role="button" aria-checked="{{task.done}}">{{task.button}}</view>
+  </view>
+
+  <scroll-view scroll-y enhanced class="msgs" scroll-into-view="{{intoView}}" bindtap="closePanels">
+    <view class="msgs-inner">
+      <view wx:if="{{headSystem}}" class="sys">{{headSystem.text}}</view>
+
+      <view wx:if="{{icebreaker && !hideIce}}" class="ice">
+        <view class="row between">
+          <text class="pill pill-accent">破冰话题 {{icebreaker.index + 1}}/{{icebreaker.total}}</text>
+          <view class="ice-next" hover-class="pressed" catchtap="nextIce">
+            <image class="ico-15" src="/assets/icons/refresh-body.svg" />
+            <text>换一个</text>
+          </view>
+        </view>
+        <view class="ice-q">{{icebreaker.question}}</view>
+        <view class="t-13 c-2">想说再说，不想说也可以先听听大家的。</view>
+        <view class="row gap-8 ice-actions">
+          <view class="chip ice-chip" hover-class="pressed" catchtap="listen">我先听听</view>
+          <view class="chip ice-chip dark-on w7" hover-class="pressed" catchtap="speak">我来说一个</view>
+        </view>
+      </view>
+
+      <block wx:for="{{list}}" wx:key="id">
+        <view wx:if="{{item.kind === 'system'}}" id="m{{item.id}}" class="sys">{{item.text}}</view>
+        <view wx:elif="{{item.mine}}" id="m{{item.id}}" class="msg msg-mine">
+          <view class="bubble bubble-mine" data-index="{{index}}" bindlongpress="onMsgLong">{{item.text}}</view>
+        </view>
+        <view wx:else id="m{{item.id}}" class="msg">
+          <view class="msg-av" data-id="{{item.user.id}}" catchtap="openUser">
+            <dz-avatar user="{{item.user}}" size="32" />
+          </view>
+          <view class="msg-body">
+            <text class="t-12 c-2">{{item.user.nickname}}</text>
+            <view class="bubble" data-index="{{index}}" bindlongpress="onMsgLong">{{item.text}}</view>
+          </view>
+        </view>
+      </block>
+
+      <view id="bottom" class="msgs-end"></view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{showPlus}}" class="plus">
+    <view class="plus-item" hover-class="pressed" bindtap="openAA">
+      <view class="plus-ico"><image class="ico-24" src="/assets/icons/wallet-ink.svg" /></view>
+      <text>AA 记账</text>
+    </view>
+    <view class="plus-item" hover-class="pressed" bindtap="sharePhoto">
+      <view class="plus-ico"><image class="ico-24" src="/assets/icons/image-ink.svg" /></view>
+      <text>照片</text>
+    </view>
+    <view class="plus-item" hover-class="pressed" bindtap="sendLocation">
+      <view class="plus-ico"><image class="ico-24" src="/assets/icons/pin-ink.svg" /></view>
+      <text>位置</text>
+    </view>
+  </view>
+
+  <view class="composer" style="{{composerStyle}}">
+    <view class="round-btn" hover-class="pressed" bindtap="togglePlus" aria-label="更多功能">
+      <image class="ico-20" src="/assets/icons/plus-ink.svg" />
+    </view>
+    <input class="composer-input" value="{{draft}}" placeholder="说点什么…" placeholder-class="ph" confirm-type="send" confirm-hold adjust-position="{{false}}" focus="{{focus}}" maxlength="500" bindinput="onInput" bindconfirm="send" bindfocus="onFocus" bindblur="onBlur" bindkeyboardheightchange="onKeyboard" />
+    <view class="send-btn" hover-class="pressed" bindtap="send" aria-label="发送">
+      <image class="ico-18" src="/assets/icons/send-white.svg" />
+    </view>
+  </view>
+</view>
