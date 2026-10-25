@@ -65,12 +65,19 @@ Page({
         this.applyEvent(ev);
         if (!ev.chatOpen) {
           const joined = ev.myStatus === 'joined';
-          this.setData({
-            loading: false,
-            closed: true,
-            closedTitle: joined ? '人齐了群聊会自动打开' : '加入这个局后才能看到群聊',
-            closedDesc: joined ? '先等其他人确认，满员后会通知你。' : '只在同一个局里聊天，防骚扰。'
-          });
+          let closedTitle = '加入这个局后才能看到群聊';
+          let closedDesc = '只在同一个局里聊天，防骚扰。';
+          if (ev.status === 'cancelled') {
+            closedTitle = '这个局已经取消了';
+            closedDesc = '换个时间再约，或者去广场看看别的局。';
+          } else if (joined && ev.source === 'matched') {
+            closedTitle = '人齐了群聊会自动打开';
+            closedDesc = '先等其他人确认，满员后会通知你。';
+          } else if (joined) {
+            closedTitle = '再有人加入，群聊就开了';
+            closedDesc = '有人加入时会通知你。';
+          }
+          this.setData({ loading: false, closed: true, closedTitle, closedDesc });
           return null;
         }
         return this.fetch(true).then(() => {

@@ -17,7 +17,7 @@
     <view class="col gap-10">
       <view class="row between">
         <text class="label">最近搜过</text>
-        <view class="clear-recent" hover-class="pressed" bindtap="clearRecent">{{recent.length ? '清除' : '已清除'}}</view>
+        <view wx:if="{{recent.length || cleared}}" class="clear-recent" hover-class="pressed" bindtap="clearRecent">{{recent.length ? '清除' : '已清除'}}</view>
       </view>
       <view wx:if="{{recent.length}}" class="chips">
         <view wx:for="{{recent}}" wx:key="*this" class="chip term recent" hover-class="pressed" data-term="{{item}}" bindtap="pickTerm">{{item}}</view>

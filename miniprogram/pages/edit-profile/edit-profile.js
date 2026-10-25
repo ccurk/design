@@ -4,6 +4,7 @@ const session = require('../../utils/session');
 const upload = require('../../utils/upload');
 
 const TAGS = ['看日出', '爬山', '骑行', '咖啡', '读书', '拍照', '吃饭', '桌游', '电影', '瑜伽', '拼车', '随便走走'];
+const MAX_PICK = 12; // 服务端上限
 const PACES = [
   { value: 'slow', label: '比较慢热' },
   { value: 'warm', label: '熟了就话多' },
@@ -68,7 +69,12 @@ Page({
 
   toggleTag(e) {
     const i = e.currentTarget.dataset.index;
-    this.setData({ ['tags[' + i + '].on']: !this.data.tags[i].on });
+    const on = !this.data.tags[i].on;
+    if (on && this.data.tags.filter((t) => t.on).length >= MAX_PICK) {
+      wx.showToast({ title: '最多选 ' + MAX_PICK + ' 个', icon: 'none' });
+      return;
+    }
+    this.setData({ ['tags[' + i + '].on']: on });
   },
 
   pickPace(e) {

@@ -79,7 +79,7 @@ Page({
       .then(([ev, me]) => {
         this.loaded = true;
         const myId = me ? me.id : session.myId();
-        const isHost = !!(ev.host && ev.host.id === myId);
+        const isHost = typeof ev.isHost === 'boolean' ? ev.isHost : !!(ev.host && ev.host.id === myId);
         const members = ev.members || [];
         const free = Math.max(0, (ev.capacity || 0) - (ev.memberCount || members.length));
         const seats = [];

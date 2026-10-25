@@ -19,9 +19,9 @@ function mapCard(c, tab, i) {
       key: 'i' + c.intentId,
       isIntent: true,
       title: c.title,
-      sub: [c.dateLabel, c.place].filter(Boolean).join(' · ') || '正在找同频的人',
-      pill: c.myStatus === 'invited' ? '撮合成功 · 去确认' : '撮合中',
-      pillClass: c.myStatus === 'invited' ? 'pill-accent' : 'pill-pill',
+      sub: [c.dateLabel, c.place ? c.place + '附近出发' : ''].filter(Boolean).join(' · ') || '正在找同频的人',
+      pill: c.needMore > 0 ? '撮合中 · 还差 ' + c.needMore + ' 人' : '撮合中',
+      pillClass: 'pill-pill',
       url: '/pages/waiting/waiting?id=' + c.intentId
     };
   }
@@ -62,11 +62,14 @@ function mapCard(c, tab, i) {
     card.pill = '已成局 · ' + count + ' · 去群聊';
     card.pillClass = 'pill-accent';
     card.url = '/pages/group/group?id=' + c.id;
-  } else if (c.myStatus === 'joined' && c.source !== 'matched') {
-    // 用户局 / 平台局：第一个人加入后群聊就开了
+  } else if (c.myStatus === 'joined' && c.source !== 'matched' && c.memberCount >= 2) {
+    // 用户局 / 平台局：有第二个人加入后群聊就开了
     card.pill = '等人中 · ' + count + ' · 去群聊';
     card.pillClass = 'pill-accent';
     card.url = '/pages/group/group?id=' + c.id;
+  } else if (c.myStatus === 'joined' && c.source !== 'matched') {
+    card.pill = '等人中 · ' + count;
+    card.pillClass = 'pill-pill';
   } else if (c.myStatus === 'joined') {
     card.pill = '等大家确认 · ' + count;
     card.pillClass = 'pill-pill';

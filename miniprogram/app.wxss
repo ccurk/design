@@ -331,7 +331,7 @@ page button.native-btn::after {
 }
 
 /* 完成态（发布成功、举报已收到…） */
-.done {
+.done-wrap {
   padding: 200rpx 64rpx 0;
   display: flex;
   flex-direction: column;

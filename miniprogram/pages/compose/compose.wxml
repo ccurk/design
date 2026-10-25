@@ -50,7 +50,7 @@
 </view>
 
 <view wx:else class="page">
-  <view class="done">
+  <view class="done-wrap">
     <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
     <view class="done-title">{{pending ? '已发布，正在审核' : '已发布'}}</view>
     <view class="done-text">{{pending ? '审核通过后会出现在动态里，一般几分钟。' : '已经出现在动态里了。'}}</view>

@@ -87,7 +87,7 @@ Page({
       wx.showToast({ title: '写个称呼，比如：妈妈', icon: 'none' });
       return;
     }
-    if (!/^1\d{10}$/.test(phone)) {
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
       wx.showToast({ title: '手机号填 11 位数字', icon: 'none' });
       return;
     }

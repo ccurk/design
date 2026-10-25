@@ -33,6 +33,13 @@ Page({
       .review(this.id)
       .then((res) => {
         const ev = res.event || {};
+        if (res.canSubmit === false && !res.submitted) {
+          this.setData({
+            loading: false,
+            error: ev.phase === 'ended' ? '评价已经截止了（局结束后 7 天内可以评价）。' : '局结束后才能评价，到时候会提醒你。'
+          });
+          return;
+        }
         this.setData({
           loading: false,
           event: ev,

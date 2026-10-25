@@ -9,7 +9,7 @@ const CATEGORY = { outdoor: '户外', food: '吃饭', coffee: '咖啡', game: '�
 const SLOT = { morning: '上午', afternoon: '下午', evening: '晚上', allday: '全天' };
 const PACE = { slow: '比较慢热', warm: '熟了就话多', open: '随时都能聊' };
 const GENDER = { female: '女', male: '男', unknown: '不填' };
-const FEE_NOTE = { aa: '平台不经手钱，钱在微信里直接转', free: '不用花钱', host: '发起人请客', split: '各付各的' };
+const FEE_NOTE = { aa: '平台不经手钱，钱在微信里直接转', free: '不用花钱，人到就行', host: '不用 AA，人到就行', split: '各自付自己的，平台不经手钱' };
 
 function pad(n) {
   return n < 10 ? '0' + n : String(n);

@@ -45,7 +45,7 @@ Page({
   render(res, me) {
     const ev = res.event || {};
     const myId = me ? me.id : session.myId();
-    const others = (res.members || ev.members || []).filter((u) => u.id !== myId);
+    const others = (res.members || ev.members || []).filter((u) => !u.isMe && u.id !== myId);
     const myStatus = res.myStatus || ev.myStatus || '';
     const joined = res.joinedCount || 0;
     const left = Math.max(0, (ev.capacity || 0) - joined);

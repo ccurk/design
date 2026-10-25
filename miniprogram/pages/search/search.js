@@ -13,6 +13,7 @@ Page({
     recent: [],
     results: [],
     searching: false,
+    cleared: false,
     autoFocus: true
   },
 
@@ -99,7 +100,7 @@ Page({
   },
 
   clearRecent() {
-    this.setData({ recent: [] });
+    this.setData({ recent: [], cleared: true });
     try {
       wx.removeStorageSync(RECENT_KEY);
     } catch (e) {

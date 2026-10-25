@@ -50,7 +50,7 @@
 </view>
 
 <view wx:else class="page">
-  <view class="done">
+  <view class="done-wrap">
     <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
     <view class="done-title">举报已收到</view>
     <view class="done-text">我们会在 24 小时内处理，结果会用微信服务通知告诉你。谢谢你让这里更干净。</view>

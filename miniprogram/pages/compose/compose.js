@@ -72,8 +72,8 @@ Page({
   submit() {
     if (this.data.submitting) return;
     const text = this.data.text.trim();
-    if (!text && !this.data.images.length) {
-      wx.showToast({ title: '写点什么，或者加张照片', icon: 'none' });
+    if (!text) {
+      wx.showToast({ title: '写一句感受吧，照片可以配在后面', icon: 'none' });
       return;
     }
     const body = { text, images: this.data.images.map((i) => i.url), visibility: this.data.visibility };

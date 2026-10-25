@@ -49,7 +49,7 @@
 </view>
 
 <view wx:else class="page">
-  <view class="done">
+  <view class="done-wrap">
     <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
     <view class="done-title">谢谢你的评价</view>
     <view class="done-text">{{doneText}}</view>
