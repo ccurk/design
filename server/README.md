@@ -54,6 +54,7 @@ curl -s localhost:3000/api/inbox -H "Authorization: Bearer <token>"
 | `ADMIN_DIR` | `../admin` | 后台前端目录，挂在 `/admin/*`，找不到文件时回退到 `index.html` |
 | `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` / `silent` |
 | `JOBS` | 开 | `JOBS=off` 时不启动定时任务 |
+| `TRUST_PROXY` | 不信任 | 放在 Nginx 等反向代理后面时填（同机代理填 `loopback`，或填代理层数），后台登录限流才能按用户真实 IP 计 |
 
 ## 目录结构
 
@@ -148,7 +149,7 @@ server/
 4. **订阅消息**（可选，后续接入）：在「功能 → 订阅消息」申请模板（撮合成功、出席确认、评价提醒等），再在 `src/wechat.js` 的 `sendSubscribeMessage` 里调用 `cgi-bin/message/subscribe/send`。目前只记日志。
 5. **内容安全**（可选，后续接入）：`src/wechat.js` 里留了 `msgSecCheck` 钩子，可以在 `moderation.js` 的规则之外再调用微信内容安全接口。
 
-生产部署清单：`NODE_ENV=production`、`ADMIN_PASSWORD`（足够长的随机串）、`WX_APPID` / `WX_SECRET`、`PUBLIC_BASE_URL`，前面用 Nginx 之类做 HTTPS 反向代理；定期备份 `data/dazi.db`（WAL 模式，备份时连同 `-wal` 文件一起，或用 `sqlite3 .backup`）。
+生产部署清单：`NODE_ENV=production`、`ADMIN_PASSWORD`（足够长的随机串；同一 IP 15 分钟内输错 10 次会被锁到这 15 分钟结束）、`WX_APPID` / `WX_SECRET`、`PUBLIC_BASE_URL`，前面用 Nginx 之类做 HTTPS 反向代理并设 `TRUST_PROXY=loopback`；定期备份 `data/dazi.db`（WAL 模式，备份时连同 `-wal` 文件一起，或用 `sqlite3 .backup`）。
 
 ## 测试
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
+import { clock } from '../src/clock.js';
 import { ADMIN_PASSWORD, makeIntent, makeUser, startServer } from './helpers.js';
 
 describe('鉴权', () => {
@@ -125,5 +126,40 @@ describe('后台管理', () => {
     assert.ok(Array.isArray(detail.creditEvents));
     assert.ok(Array.isArray(detail.reportsAgainst));
     assert.ok(Array.isArray(detail.events));
+  });
+});
+
+describe('后台登录防暴力猜密码', () => {
+  let s;
+  before(async () => {
+    s = await startServer();
+  });
+  after(() => s.close());
+
+  test('同一 IP 输错 10 次后锁 15 分钟，到点自动解锁', async () => {
+    for (let i = 0; i < 10; i++) {
+      const bad = await s.api('POST', '/api/admin/login', { body: { password: `wrong-${i}` } });
+      assert.equal(bad.status, 401);
+    }
+    const locked = await s.api('POST', '/api/admin/login', { body: { password: ADMIN_PASSWORD } });
+    assert.equal(locked.status, 429);
+    assert.equal(locked.body.error.code, 'TOO_MANY_REQUESTS');
+    assert.match(locked.body.error.message, /15 分钟后再试/);
+
+    clock.advance(15 * 60 * 1000 + 1000);
+    const good = await s.ok('POST', '/api/admin/login', { body: { password: ADMIN_PASSWORD } });
+    assert.match(good.token, /^a_/);
+  });
+
+  test('登录成功会清掉输错次数', async () => {
+    for (let i = 0; i < 9; i++) await s.api('POST', '/api/admin/login', { body: { password: 'nope' } });
+    await s.ok('POST', '/api/admin/login', { body: { password: ADMIN_PASSWORD } });
+    for (let i = 0; i < 9; i++) await s.api('POST', '/api/admin/login', { body: { password: 'nope' } });
+    assert.equal((await s.api('POST', '/api/admin/login', { body: { password: ADMIN_PASSWORD } })).status, 200);
+  });
+
+  test('所有响应都带 X-Content-Type-Options: nosniff', async () => {
+    const res = await fetch(`${s.base}/api/health`);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
   });
 });

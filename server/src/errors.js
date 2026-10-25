@@ -7,6 +7,7 @@ const STATUS = {
   CONFLICT: 409,
   CONTENT_BLOCKED: 422,
   RESTRICTED: 403,
+  TOO_MANY_REQUESTS: 429,
   INTERNAL: 500,
 };
 
@@ -26,6 +27,7 @@ export const invalid = (msg = '参数不正确') => new AppError('VALIDATION', m
 export const conflict = (msg = '操作冲突，请刷新后再试') => new AppError('CONFLICT', msg);
 export const blocked = (msg, reasons) => new AppError('CONTENT_BLOCKED', msg, { reasons });
 export const restricted = (msg = '账号受限中，暂时不能报名或撮合') => new AppError('RESTRICTED', msg);
+export const tooMany = (msg = '操作太频繁，请稍后再试') => new AppError('TOO_MANY_REQUESTS', msg);
 export const internal = (msg = '服务器开小差了，请稍后再试') => new AppError('INTERNAL', msg);
 
 export function errorBody(err) {

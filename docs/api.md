@@ -16,7 +16,7 @@
 | 后台鉴权 | 同样是 Bearer，token 来自 `/api/admin/login`。用户 token 不能调后台接口，反之亦然 |
 | 成功 | HTTP 200，直接返回对象；列表统一 `{ "items": [...], "nextCursor": 123 \| null }` |
 | 失败 | HTTP 4xx/5xx，`{ "error": { "code": "...", "message": "中文说明" } }` |
-| 错误码 | `UNAUTHORIZED` 401 · `FORBIDDEN` 403 · `NOT_FOUND` 404 · `VALIDATION` 400 · `CONFLICT` 409 · `CONTENT_BLOCKED` 422（内容审核不通过）· `RESTRICTED` 403（账号受限）· `INTERNAL` 500 |
+| 错误码 | `UNAUTHORIZED` 401 · `FORBIDDEN` 403 · `NOT_FOUND` 404 · `VALIDATION` 400 · `CONFLICT` 409 · `CONTENT_BLOCKED` 422（内容审核不通过）· `RESTRICTED` 403（账号受限）· `TOO_MANY_REQUESTS` 429（后台密码输错太多次，同一 IP 15 分钟内 10 次）· `INTERNAL` 500 |
 | 时间 | 时间点一律 ISO-8601 UTC 字符串，如 `2026-10-30T21:50:00.000Z`（= 北京时间 10-31 05:50）。业务时区固定 **Asia/Shanghai**：「今天」「周六」「上午」都按北京时间算。只有日期的字段用 `YYYY-MM-DD`（北京日期） |
 | ID | 整数 |
 | 分页 | `?limit=20&cursor=<上一页返回的 nextCursor>`；聊天用 `?after=<消息id>` 轮询 |

@@ -1,7 +1,8 @@
 // 后台接口 /api/admin/*（后台 token，用户 token 不能调用）。
 import { Router } from 'express';
 import { checkPassword, createAdminSession, requireAdmin } from '../auth.js';
-import { invalid, unauthorized } from '../errors.js';
+import { clock, MINUTE } from '../clock.js';
+import { invalid, tooMany, unauthorized } from '../errors.js';
 import { bool, int, str } from '../validate.js';
 import {
   adjustCredit,
@@ -34,11 +35,43 @@ import { body, pid } from './util.js';
 const statusQuery = (req, fallback) => (req.query.status ? String(req.query.status) : fallback);
 const note = (req) => str(body(req).note, '备注', { max: 200, optional: true });
 
+const LOGIN_WINDOW = 15 * MINUTE;
+const LOGIN_MAX_FAILS = 10;
+
+/** 后台登录防暴力猜密码：同一个 IP 在 15 分钟内输错 10 次，就锁到这 15 分钟结束 */
+function loginGuard() {
+  const fails = new Map(); // ip -> { count, until }
+  return {
+    lockedMinutes(ip) {
+      const f = fails.get(ip);
+      const now = clock.now().getTime();
+      return f && f.until > now && f.count >= LOGIN_MAX_FAILS ? Math.ceil((f.until - now) / MINUTE) : 0;
+    },
+    fail(ip) {
+      const now = clock.now().getTime();
+      const f = fails.get(ip);
+      if (f && f.until > now) f.count += 1;
+      else fails.set(ip, { count: 1, until: now + LOGIN_WINDOW });
+      if (fails.size > 1000) for (const [k, v] of fails) if (v.until <= now) fails.delete(k);
+    },
+    clear(ip) {
+      fails.delete(ip);
+    },
+  };
+}
+
 export function adminRoutes({ db, config }) {
   const r = Router();
+  const guard = loginGuard();
 
   r.post('/login', (req, res) => {
-    if (!checkPassword(body(req).password, config.adminPassword)) throw unauthorized('密码不对');
+    const locked = guard.lockedMinutes(req.ip);
+    if (locked) throw tooMany(`密码输错太多次了，请 ${locked} 分钟后再试`);
+    if (!checkPassword(body(req).password, config.adminPassword)) {
+      guard.fail(req.ip);
+      throw unauthorized('密码不对');
+    }
+    guard.clear(req.ip);
     res.json({ token: createAdminSession(db) });
   });
 

@@ -79,6 +79,13 @@ export function createApp({ db, config = loadConfig(), logger, wechat } = {}) {
 
   const app = express();
   app.disable('x-powered-by');
+  // 放在 nginx 等反向代理后面时设置，req.ip 才是用户的真实 IP（后台登录限流按 IP 计）
+  if (config.trustProxy !== undefined) app.set('trust proxy', config.trustProxy);
+  // 上传的文件只按扩展名给类型，禁止浏览器把内容“猜”成网页
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    next();
+  });
   app.use(cors);
   app.use(express.json({ limit: '1mb' }));
 

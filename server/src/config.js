@@ -21,6 +21,14 @@ export function loadEnvFile(file = path.join(SERVER_DIR, '.env'), env = process.
   return true;
 }
 
+/** TRUST_PROXY：不填 = 不信任代理；数字 = 代理层数；true / loopback / 具体 IP 等按 Express 的规则 */
+function parseTrustProxy(value) {
+  if (value === undefined || value === '') return undefined;
+  if (/^\d+$/.test(value)) return Number(value);
+  if (value === 'true' || value === 'false') return value === 'true';
+  return value;
+}
+
 export function loadConfig(env = process.env) {
   const nodeEnv = env.NODE_ENV || 'development';
   const isProd = nodeEnv === 'production';
@@ -42,6 +50,7 @@ export function loadConfig(env = process.env) {
     publicBaseUrl: (env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, ''),
     uploadDir: resolve(env.UPLOAD_DIR || 'uploads'),
     adminDir: resolve(env.ADMIN_DIR || '../admin'),
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
     logLevel: env.LOG_LEVEL || (nodeEnv === 'test' ? 'silent' : 'info'),
     // 开发辅助接口（dev-login、时间穿越）只在非生产环境开放
     devTools: !isProd,
