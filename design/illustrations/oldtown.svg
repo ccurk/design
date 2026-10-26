@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400">
+  <rect width="600" height="400" fill="#E6F3F8"/>
+  <path d="M0 196 L80 146 L150 170 L236 118 L316 166 L392 134 L470 170 L544 136 L600 156 V260 H0 Z" fill="#A9C6D3"/>
+  <path d="M236 118 L218 134 L231 132 L240 144 L249 131 L258 134 Z" fill="#FFFFFF"/>
+  <rect x="0" y="236" width="600" height="104" fill="#B7A58C"/>
+  <g fill="#B7A58C">
+    <rect x="0" y="222" width="34" height="16"/><rect x="54" y="222" width="34" height="16"/><rect x="108" y="222" width="34" height="16"/>
+    <rect x="458" y="222" width="34" height="16"/><rect x="512" y="222" width="34" height="16"/><rect x="566" y="222" width="34" height="16"/>
+  </g>
+  <g stroke="#A39276" stroke-width="3">
+    <line x1="0" y1="268" x2="190" y2="268"/><line x1="410" y1="268" x2="600" y2="268"/>
+    <line x1="0" y1="300" x2="190" y2="300"/><line x1="410" y1="300" x2="600" y2="300"/>
+  </g>
+  <rect x="190" y="196" width="220" height="144" fill="#A39276"/>
+  <path d="M256 340 V286 Q256 248 300 248 Q344 248 344 286 V340 Z" fill="#193543"/>
+  <rect x="214" y="150" width="172" height="48" fill="#B4513A"/>
+  <g fill="#8E3D2B"><rect x="226" y="150" width="10" height="48"/><rect x="364" y="150" width="10" height="48"/><rect x="295" y="150" width="10" height="48"/></g>
+  <path d="M170 156 Q200 146 214 134 H386 Q400 146 430 156 Q300 146 170 156 Z" fill="#2E4A5C"/>
+  <rect x="236" y="104" width="128" height="32" fill="#B4513A"/>
+  <path d="M206 110 Q230 102 240 88 H360 Q370 102 394 110 Q300 100 206 110 Z" fill="#2E4A5C"/>
+  <rect x="270" y="160" width="60" height="22" rx="4" fill="#FFD27A"/>
+  <g>
+    <line x1="232" y1="198" x2="232" y2="212" stroke="#2E4A5C" stroke-width="3"/>
+    <ellipse cx="232" cy="224" rx="12" ry="14" fill="#EE6A4D"/>
+    <line x1="368" y1="198" x2="368" y2="212" stroke="#2E4A5C" stroke-width="3"/>
+    <ellipse cx="368" cy="224" rx="12" ry="14" fill="#EE6A4D"/>
+  </g>
+  <rect x="0" y="338" width="600" height="62" fill="#E8DCC6"/>
+  <g>
+    <circle cx="120" cy="330" r="8" fill="#15171C"/><rect x="111" y="339" width="18" height="30" rx="9" fill="#7CCAE3"/>
+    <circle cx="146" cy="332" r="7" fill="#15171C"/><rect x="138" y="340" width="16" height="28" rx="8" fill="#EE8A68"/>
+    <circle cx="470" cy="330" r="8" fill="#15171C"/><rect x="461" y="339" width="18" height="30" rx="9" fill="#193543"/>
+  </g>
+</svg>
