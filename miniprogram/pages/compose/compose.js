@@ -1,12 +1,12 @@
-// 发动态：文字 + 照片（最多 6 张）+ 关联局 + 可见范围
+// 发动态：文字 + 照片（最多 9 张，逐张显示上传进度，可删、可重传、可看大图）+ 关联局 + 可见范围
 const api = require('../../utils/api');
 const session = require('../../utils/session');
-const upload = require('../../utils/upload');
 
 Page({
   data: {
     text: '',
     images: [],
+    uploading: false,
     events: [],
     eventId: null,
     visibility: 'public',
@@ -37,17 +37,8 @@ Page({
     this.setData({ text: e.detail.value });
   },
 
-  addImages() {
-    const left = 6 - this.data.images.length;
-    if (left <= 0) return;
-    upload.pickAndUpload(left).then((list) => {
-      if (list.length) this.setData({ images: this.data.images.concat(list).slice(0, 6) });
-    });
-  },
-
-  removeImage(e) {
-    const i = e.currentTarget.dataset.index;
-    this.setData({ images: this.data.images.filter((_, j) => j !== i) });
+  onImages(e) {
+    this.setData({ images: e.detail.urls, uploading: e.detail.uploading });
   },
 
   pickEvent(e) {
@@ -76,7 +67,11 @@ Page({
       wx.showToast({ title: '写一句感受吧，照片可以配在后面', icon: 'none' });
       return;
     }
-    const body = { text, images: this.data.images.map((i) => i.url), visibility: this.data.visibility };
+    if (this.data.uploading) {
+      wx.showToast({ title: '照片还在上传，稍等一下', icon: 'none' });
+      return;
+    }
+    const body = { text, images: this.data.images, visibility: this.data.visibility };
     if (this.data.eventId) body.eventId = this.data.eventId;
     this.setData({ submitting: true });
     api

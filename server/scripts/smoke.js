@@ -1,5 +1,5 @@
 // npm run smoke：内存数据库 + 演示数据，随机端口启动服务，用 HTTP 走一遍主流程，最后打印 PASS / FAIL。
-// 登录 → 提交意向 → 后台撮合 → 确认建议 → 成员加入 → 群聊 → AA → 时间穿越到局结束后 → 互评 → 信用更新
+// 登录 → 首页 → 提交意向 → 后台撮合 → 确认建议 → 成员加入 → 群聊 → AA → 时间穿越到局结束后 → 互评 → 信用更新
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -55,7 +55,7 @@ async function main() {
     PORT: '0',
   });
   const db = openDb(':memory:');
-  seed(db);
+  seed(db, { uploadDir });
   const app = createApp({ db, config });
   const server = await new Promise((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
@@ -78,6 +78,15 @@ async function main() {
       ctx.attendedBefore = data.user.credit.attended;
       check(data.user.nickname === '栗子', `登录成了 ${data.user.nickname}`);
       return `履约 ${data.user.credit.rate}% · 参加 ${data.user.credit.eventsCount} 个局`;
+    });
+
+    await step('首页：轮播图、热门标签、动态配图可以访问', async () => {
+      const { data } = await api('GET', '/api/home', { token: ctx.lizi });
+      check(data.banners.length === 3, `轮播图 ${data.banners.length} 张`);
+      check(data.hotTags.length >= 5, '热门标签太少');
+      const img = await fetch(data.highlights[0].image.replace(config.publicBaseUrl, base));
+      check(img.ok, '动态配图访问不到');
+      return `轮播 ${data.banners.length} · 热门标签 ${data.hotTags.map((t) => t.name).slice(0, 5).join('/')} · 精选局 ${data.featuredEvents.length} 个 · 本周 ${data.stats.weekPeople} 人`;
     });
 
     await step('提交意向：明天下午喝咖啡（提交即撮合）', async () => {
@@ -138,19 +147,25 @@ async function main() {
       return `破冰 ${ice.index + 1}/${ice.total}：${ice.question}`;
     });
 
-    await step('AA 记账：记两笔、算转账、我已转账 / 确认收到', async () => {
+    await step('AA：栗子一次记下总花费，大家平摊、我已转账 / 确认收到', async () => {
       const others = Object.entries(ctx.members).filter(([id]) => Number(id) !== ctx.liziId);
-      await api('POST', `/api/events/${ctx.eventId}/aa/items`, { token: ctx.lizi, body: { name: '咖啡', amount: 105 } });
+      const n = Object.keys(ctx.members).length;
+      const aa = (await api('POST', `/api/events/${ctx.eventId}/aa`, { token: ctx.lizi, body: { amount: 45 * n, note: '咖啡 + 甜点' } })).data;
+      check(aa.bill.mine && aa.total === 45 * n && aa.each === 45, `总额 ${aa.total} 每人 ${aa.each}`);
+      check(aa.transfers.length === others.length && aa.transfers.every((t) => t.to.id === ctx.liziId), '转账应该都转给栗子');
       const [, second] = others[0];
-      const aa = (await api('POST', `/api/events/${ctx.eventId}/aa/items`, { token: second.token, body: { name: '甜点', amount: 30 } })).data;
-      check(aa.total === 135 && aa.each === 45, `总额 ${aa.total} 每人 ${aa.each}`);
-      const toMe = aa.transfers.filter((t) => t.to.id === ctx.liziId);
-      check(toMe.length === 2, `应有 2 笔转给栗子，实际 ${toMe.length}`);
-      const payer = toMe[0].from;
+      const dup = await fetch(`${base}/api/events/${ctx.eventId}/aa`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${second.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ amount: 30 }),
+      });
+      check(dup.status === 409, `第二笔应该被拒绝，实际 ${dup.status}`);
+      const payer = aa.transfers[0].from;
       await api('POST', `/api/events/${ctx.eventId}/aa/paid`, { token: ctx.members[payer.id].token, body: { toUserId: ctx.liziId } });
       const after = (await api('POST', `/api/events/${ctx.eventId}/aa/confirm`, { token: ctx.lizi, body: { fromUserId: payer.id } })).data;
       check(after.transfers.find((t) => t.from.id === payer.id).status === 'confirmed', '没有确认收到');
-      return aa.transfers.map((t) => `${t.from.nickname}→${t.to.nickname} ¥${t.amount}`).join('，');
+      check(after.bill.editable === false, '有人转账后账单应该锁定');
+      return `共 ¥${aa.total}（${aa.bill.note}），每人 ¥${aa.each}：` + aa.transfers.map((t) => `${t.from.nickname}→${t.to.nickname} ¥${t.amount}`).join('，');
     });
 
     await step('上传图片', async () => {

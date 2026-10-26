@@ -1,0 +1,21 @@
+<view class="up">
+  <view wx:for="{{items}}" wx:key="key" class="up-cell" style="width: {{size}}rpx; height: {{size}}rpx;">
+    <image class="up-img" src="{{item.path}}" mode="aspectFill" data-key="{{item.key}}" bindtap="preview" />
+    <text wx:if="{{cover && index === 0 && item.status === 'done'}}" class="up-cover">封面</text>
+    <view wx:if="{{item.status === 'uploading'}}" class="up-mask">
+      <text class="up-progress">{{item.progress}}%</text>
+      <view class="up-bar"><view class="up-bar-in" style="width: {{item.progress}}%;"></view></view>
+    </view>
+    <view wx:elif="{{item.status === 'error'}}" class="up-mask up-error" data-key="{{item.key}}" catchtap="retry" aria-role="button" aria-label="重新上传">
+      <image class="ico-20" src="/assets/icons/refresh-white.svg" />
+      <text class="up-retry">点一下重传</text>
+    </view>
+    <view class="up-remove" data-key="{{item.key}}" catchtap="remove" aria-role="button" aria-label="删除这张">
+      <view class="up-x"><image class="ico-12" src="/assets/icons/x-bold-ink.svg" /></view>
+    </view>
+  </view>
+  <view wx:if="{{items.length < max}}" class="up-cell up-add" style="width: {{size}}rpx; height: {{size}}rpx;" hover-class="pressed" bindtap="add" aria-role="button" aria-label="添加图片">
+    <image class="ico-24" src="/assets/icons/plus-gray.svg" />
+    <text class="up-count">{{addText || (items.length + '/' + max)}}</text>
+  </view>
+</view>

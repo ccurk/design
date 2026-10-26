@@ -1,0 +1,61 @@
+:host {
+  display: block;
+}
+.js {
+  padding: 0 40rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.js-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.js-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 24rpx 28rpx;
+  border-radius: 28rpx;
+  background: #F1F4F6;
+}
+.js-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: #3D4048;
+}
+.js-row .ico-18 {
+  margin-top: 4rpx;
+}
+.js-terms {
+  font-size: 24rpx;
+  line-height: 1.65;
+  color: #5B5F68;
+}
+.js-link {
+  color: #193543;
+  font-weight: 700;
+}
+.js-done {
+  padding: 56rpx 48rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+  text-align: center;
+}
+.js-foot {
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 40rpx 24rpx;
+}
+.js-btn {
+  flex: 1;
+}
+.js-main {
+  flex: 1.4;
+}

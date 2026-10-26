@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { requireUser } from '../auth.js';
 import { invalid } from '../errors.js';
 import { bool, int } from '../validate.js';
-import { addItem, aaView, confirmReceived, deleteItem, markPaid } from '../services/aa.js';
+import { aaView, confirmReceived, declareBill, deleteBill, markPaid, updateBill } from '../services/aa.js';
 import { eventInfo, listMessages, nextIcebreaker, postMessage, setMuted } from '../services/chat.js';
 import {
   approveApplication,
@@ -38,7 +38,8 @@ export function eventRoutes({ db }) {
   // 广场与搜索（未登录也能看）
   r.get('/events', maybeAuth, (req, res) => {
     const category = req.query.category && req.query.category !== 'all' ? String(req.query.category) : null;
-    res.json(squareList(db, req.user, { category, ...page(req) }));
+    const tag = req.query.tag ? String(req.query.tag) : null; // 按标签筛（规范化后比较）
+    res.json(squareList(db, req.user, { category, tag, ...page(req) }));
   });
   r.get('/search', maybeAuth, (req, res) => res.json(searchEvents(db, req.user, req.query.q)));
   r.get('/search/hot', (req, res) => res.json(hotTerms(db)));
@@ -90,12 +91,11 @@ export function eventRoutes({ db }) {
     res.json(setMuted(db, req.user, pid(req), bool(body(req).muted, '免打扰'))),
   );
 
-  // AA 记账
+  // AA 记账：每个局一笔，一次声明
   r.get('/events/:id/aa', auth, (req, res) => res.json(aaView(db, req.user, pid(req))));
-  r.post('/events/:id/aa/items', auth, (req, res) => res.json(addItem(db, req.user, pid(req), body(req))));
-  r.delete('/events/:id/aa/items/:itemId', auth, (req, res) =>
-    res.json(deleteItem(db, req.user, pid(req), pid(req, 'itemId'))),
-  );
+  r.post('/events/:id/aa', auth, (req, res) => res.json(declareBill(db, req.user, pid(req), body(req))));
+  r.put('/events/:id/aa', auth, (req, res) => res.json(updateBill(db, req.user, pid(req), body(req))));
+  r.delete('/events/:id/aa', auth, (req, res) => res.json(deleteBill(db, req.user, pid(req))));
   r.post('/events/:id/aa/paid', auth, (req, res) =>
     res.json(markPaid(db, req.user, pid(req), int(body(req).toUserId, '收款人', { min: 1 }))),
   );

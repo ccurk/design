@@ -1,105 +1,139 @@
-.sum {
+.blank {
   margin: 24rpx 32rpx 0;
-  padding: 36rpx 40rpx;
+  padding: 48rpx 40rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+  text-align: center;
+}
+.blank-mark {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 999rpx;
+  background: var(--ground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.blank-title {
+  font-size: 36rpx;
+  font-weight: 800;
+}
+.blank-text {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--text-2);
+  padding-bottom: 12rpx;
+}
+.blank-note {
+  font-size: 26rpx;
+  color: var(--text-2);
+}
+.bill {
+  margin: 24rpx 32rpx 0;
+  padding: 32rpx 36rpx 36rpx;
   border-radius: 48rpx;
   background: var(--primary);
   color: #FFFFFF;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
-}
-.sum-title {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: var(--accent);
-}
-.sum-row {
-  display: flex;
-  align-items: baseline;
-  gap: 20rpx;
-}
-.sum-total {
-  font-size: 68rpx;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-.sum-each {
-  font-size: 28rpx;
-  color: var(--on-dark);
-}
-.items {
-  margin: 24rpx 32rpx 0;
-  padding: 8rpx 32rpx 24rpx;
-  border-radius: 48rpx;
-  background: #FFFFFF;
-  display: flex;
-  flex-direction: column;
-}
-.item {
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  min-height: 112rpx;
-  border-bottom: 1px solid var(--divider);
-}
-.gap-2 {
-  gap: 4rpx;
-}
-.items-empty {
-  padding: 32rpx 0 8rpx;
-  font-size: 26rpx;
-  color: var(--text-2);
-}
-.form {
-  padding-top: 24rpx;
-  display: flex;
-  flex-direction: column;
   gap: 16rpx;
 }
-.form-label {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: var(--text-2);
+.bill-top {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
 }
-.save-btn {
+.bill-who {
   font-size: 30rpx;
-}
-.cancel-add {
-  align-self: center;
-  min-height: 72rpx;
-  display: flex;
-  align-items: center;
-  font-size: 26rpx;
-  color: var(--text-2);
-}
-.add {
-  margin-top: 20rpx;
-  min-height: 88rpx;
-  border-radius: 999rpx;
-  border: 1px dashed var(--faint);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
-  font-size: 28rpx;
   font-weight: 700;
+}
+.bill-time {
+  font-size: 24rpx;
+  color: var(--on-dark);
+}
+.bill-manage {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  min-height: 72rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: #FFFFFF;
+  color: var(--ink);
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.bill-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
+  padding-top: 8rpx;
+}
+.bill-total {
+  font-size: 72rpx;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.bill-each {
+  font-size: 28rpx;
+  color: var(--accent);
+  font-weight: 700;
+}
+.bill-note {
+  font-size: 28rpx;
+  color: var(--on-dark);
+  line-height: 1.5;
+}
+.bill-lock {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 12rpx 20rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 24rpx;
+  color: var(--on-dark);
+}
+.todo {
+  margin: 20rpx 32rpx 0;
+  padding: 24rpx 28rpx;
+  border-radius: 32rpx;
+  background: #FFFFFF;
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
 }
 .settle-label {
-  margin: 32rpx 40rpx 16rpx;
+  margin: 36rpx 40rpx 16rpx;
   padding: 0;
 }
 .transfer {
   display: flex;
   align-items: center;
   gap: 20rpx;
-  min-height: 112rpx;
-  padding: 0 24rpx 0 32rpx;
+  min-height: 120rpx;
+  padding: 12rpx 24rpx 12rpx 32rpx;
 }
 .settle-note {
   margin: 20rpx 40rpx 0;
   font-size: 24rpx;
   line-height: 1.6;
   color: var(--text-2);
+}
+.settle-done {
+  margin: 24rpx 40rpx 0;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--primary);
 }
 .bottom-pad {
   height: calc(60rpx + env(safe-area-inset-bottom));

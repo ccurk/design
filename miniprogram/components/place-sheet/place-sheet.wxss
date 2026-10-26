@@ -1,0 +1,57 @@
+:host {
+  display: block;
+}
+.pl {
+  padding: 0 40rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.pl-field {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  height: 104rpx;
+  padding: 0 28rpx;
+  border-radius: 28rpx;
+  border: 2rpx solid #193543;
+  background: #FFFFFF;
+}
+.pl-input {
+  flex: 1;
+  min-width: 0;
+  height: 100rpx;
+  font-size: 30rpx;
+}
+.pl-addr {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #3D4048;
+}
+.pl-clear {
+  flex-shrink: 0;
+  padding: 16rpx 0 16rpx 16rpx;
+  color: #5B5F68;
+}
+.pl-label {
+  padding-top: 8rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #5B5F68;
+}
+.pl-spot {
+  font-size: 28rpx;
+  padding: 0 28rpx;
+}
+.pl-map {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  min-height: 112rpx;
+  padding: 0 24rpx 0 28rpx;
+  border-radius: 28rpx;
+  background: #F1F4F6;
+}

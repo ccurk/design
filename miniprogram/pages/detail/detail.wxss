@@ -5,6 +5,31 @@ page {
   min-height: 100vh;
   background: #FFFFFF;
 }
+/* 照片轮播 */
+.gallery {
+  position: relative;
+  height: 600rpx;
+  background: var(--stone);
+}
+.gallery-swiper {
+  height: 600rpx;
+}
+.gallery-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.gallery-count {
+  position: absolute;
+  right: 32rpx;
+  bottom: 88rpx;
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(21, 23, 28, 0.55);
+  color: #FFFFFF;
+  font-size: 24rpx;
+  font-weight: 700;
+}
 .sheet {
   position: relative;
   margin-top: -56rpx;
@@ -46,10 +71,29 @@ page {
 .gap-2 {
   gap: 4rpx;
 }
+.infos {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
 .info {
   display: flex;
   align-items: center;
   gap: 24rpx;
+  min-height: 88rpx;
+}
+.map-link {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  min-height: 72rpx;
+  padding: 0 20rpx;
+  border-radius: 999rpx;
+  background: var(--ground);
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--primary);
 }
 .info-ico {
   flex-shrink: 0;
@@ -125,6 +169,32 @@ page {
 .tip-ico {
   margin-top: 4rpx;
 }
+.leave {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+.leave-btn {
+  min-height: 88rpx;
+  padding: 0 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--danger);
+}
+.leave-btn.off {
+  color: var(--faint);
+}
+.leave-reason {
+  padding: 0 32rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--text-2);
+  text-align: center;
+}
 .host-cancel {
   align-self: center;
   min-height: 88rpx;
@@ -141,6 +211,10 @@ page {
   gap: 32rpx;
 }
 .cta {
-  padding: 0 72rpx;
+  padding: 0 64rpx;
   font-size: 32rpx;
+}
+.bar .native-btn .cta {
+  padding: 0 40rpx;
+  font-size: 30rpx;
 }

@@ -4,17 +4,8 @@
       <text class="label">想说点什么</text>
       <textarea class="text" value="{{text}}" placeholder="说说这个局的感受，不用写很多" placeholder-class="ph" maxlength="500" bindinput="onText" />
       <view class="count">{{text.length}}/500</view>
-      <view class="photos">
-        <view wx:for="{{images}}" wx:key="url" class="photo">
-          <image class="photo-img" src="{{item.path}}" mode="aspectFill" />
-          <view class="photo-remove" data-index="{{index}}" catchtap="removeImage" aria-label="移除这张照片">
-            <view class="photo-x"><image class="ico-12" src="/assets/icons/x-bold-ink.svg" /></view>
-          </view>
-        </view>
-        <view wx:if="{{images.length < 6}}" class="photo-add" hover-class="pressed" bindtap="addImages" aria-label="添加照片">
-          <image class="ico-24" src="/assets/icons/plus-gray.svg" />
-        </view>
-      </view>
+      <dz-uploader max="{{9}}" size="{{196}}" cover="{{true}}" bindchange="onImages" />
+      <view class="t-12 c-2">最多 9 张，第一张会作为动态列表里的封面</view>
     </view>
 
     <view class="box">
@@ -45,7 +36,7 @@
 
   <view class="bar-space"></view>
   <view class="bottom-bar">
-    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">{{submitting ? '发布中…' : '发布'}}</view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="{{submitting ? 'none' : 'pressed'}}" bindtap="submit">{{submitting ? '发布中…' : (uploading ? '照片上传中…' : '发布')}}</view>
   </view>
 </view>
 

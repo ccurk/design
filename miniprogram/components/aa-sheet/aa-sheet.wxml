@@ -1,0 +1,19 @@
+<dz-sheet show="{{show}}" title="{{editing ? '修改这笔 AA' : '记一笔 AA'}}" confirm-text="{{busy ? '保存中…' : (editing ? '保存修改' : '记下这笔')}}" confirm-disabled="{{busy}}" bindclose="onClose" bindconfirm="onConfirm">
+  <view class="aa">
+    <view class="aa-label">一共花了多少（元）</view>
+    <view class="aa-amount {{error ? 'bad' : ''}}">
+      <text class="aa-yen">¥</text>
+      <input class="aa-input" type="digit" value="{{amountText}}" placeholder="0" placeholder-class="ph" focus="{{show && !editing}}" bindinput="onAmount" />
+    </view>
+    <view class="aa-each {{error ? 'c-danger' : ''}}">{{error || (each ? memberCount + ' 人平摊，每人 ¥' + each + '，大家转给你' : '大家按人数平摊，转给你')}}</view>
+    <view class="aa-label">包含什么（选填）</view>
+    <input class="field" value="{{noteText}}" placeholder="比如：车费 + 早餐" placeholder-class="ph" maxlength="40" bindinput="onNote" />
+    <view class="chips">
+      <view wx:for="{{quick}}" wx:key="*this" class="chip aa-quick" data-word="{{item}}" bindtap="addQuick">+ {{item}}</view>
+    </view>
+    <view class="aa-note">
+      <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+      <text>每个局只记一次，记下就定了。有人点「我已转账」之前，你还能改或撤回。平台不经手钱。</text>
+    </view>
+  </view>
+</dz-sheet>

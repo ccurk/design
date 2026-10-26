@@ -27,9 +27,24 @@ import {
   rejectProposal,
   runMatching,
 } from '../services/matching.js';
+import {
+  adminCreateBanner,
+  adminDeleteBanner,
+  adminListBanners,
+  adminOrderBanners,
+  adminUpdateBanner,
+} from '../services/banners.js';
 import { adminListPosts, moderatePost } from '../services/posts.js';
 import { adminListReports, resolveReport } from '../services/reports.js';
 import { allSettings, setSetting } from '../services/settings.js';
+import {
+  adminCreateTag,
+  adminDeleteTag,
+  adminListTags,
+  adminSetHotTags,
+  adminUpdateTag,
+} from '../services/tags.js';
+import { uploadResult, uploader } from './social.js';
 import { body, pid } from './util.js';
 
 const statusQuery = (req, fallback) => (req.query.status ? String(req.query.status) : fallback);
@@ -140,6 +155,31 @@ export function adminRoutes({ db, config }) {
   r.post('/appeals/:id/resolve', (req, res) =>
     res.json(resolveAppeal(db, pid(req), { approve: body(req).approve, note: note(req) })),
   );
+
+  // 标签（/tags/hot 要写在 /tags/:id 前面）
+  r.get('/tags', (req, res) =>
+    res.json(
+      adminListTags(db, {
+        scope: req.query.scope ? String(req.query.scope) : 'all',
+        days: req.query.days === undefined ? 30 : String(req.query.days),
+      }),
+    ),
+  );
+  r.post('/tags', (req, res) => res.json(adminCreateTag(db, body(req))));
+  r.put('/tags/hot', (req, res) => res.json(adminSetHotTags(db, body(req).ids)));
+  r.put('/tags/:id', (req, res) => res.json(adminUpdateTag(db, pid(req), body(req))));
+  r.delete('/tags/:id', (req, res) => res.json(adminDeleteTag(db, pid(req))));
+
+  // 首页轮播图（/banners/order 要写在 /banners/:id 前面）
+  r.get('/banners', (req, res) => res.json(adminListBanners(db)));
+  r.post('/banners', (req, res) => res.json(adminCreateBanner(db, body(req))));
+  r.put('/banners/order', (req, res) => res.json(adminOrderBanners(db, body(req).ids)));
+  r.put('/banners/:id', (req, res) => res.json(adminUpdateBanner(db, pid(req), body(req))));
+  r.delete('/banners/:id', (req, res) => res.json(adminDeleteBanner(db, pid(req))));
+
+  // 上传图片（轮播图、平台局配图）：multipart 字段 file，只收图片 ≤ 5MB
+  const upload = uploader(config.uploadDir);
+  r.post('/upload', upload.single('file'), (req, res) => res.json(uploadResult(req, config)));
 
   // 用户
   r.get('/users', (req, res) =>

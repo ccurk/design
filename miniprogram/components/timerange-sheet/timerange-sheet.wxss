@@ -1,0 +1,66 @@
+:host {
+  display: block;
+}
+.pk {
+  padding: 0 32rpx 8rpx;
+}
+.pk-summary {
+  padding: 8rpx 0 20rpx;
+  text-align: center;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #193543;
+}
+.pk-span {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #5B5F68;
+}
+.pk-head {
+  display: flex;
+  padding-bottom: 8rpx;
+  font-size: 24rpx;
+  color: #5B5F68;
+  text-align: center;
+}
+.pk-half {
+  flex: 2;
+}
+.pk-gap {
+  flex: 0.8;
+}
+.pk-view {
+  height: 440rpx;
+}
+.pk-item {
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: 30rpx;
+  color: #15171C;
+}
+.pk-sep-col {
+  flex: 0.8;
+}
+.pk-sep {
+  color: #5B5F68;
+  font-size: 28rpx;
+}
+.pk-indicator {
+  border-radius: 24rpx;
+  background: rgba(124, 202, 227, 0.18);
+}
+.pk-error {
+  min-height: 44rpx;
+  padding-top: 8rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #B42318;
+}
+.pk-note {
+  padding: 4rpx 8rpx 8rpx;
+  text-align: center;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #5B5F68;
+}

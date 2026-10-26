@@ -1,0 +1,23 @@
+<view class="nc" hover-class="pressed" bindtap="open" bindlongpress="more">
+  <view wx:if="{{post.images.length}}" class="nc-media {{loaded ? '' : 'nc-wait'}}">
+    <image wx:if="{{!broken}}" class="nc-img" src="{{post.images[0]}}" mode="widthFix" lazy-load bindload="onLoad" binderror="onError" />
+    <view wx:else class="nc-broken"><image class="ico-24" src="/assets/icons/image-ink.svg" /></view>
+    <text wx:if="{{post.images.length > 1}}" class="nc-count">{{post.images.length}} 图</text>
+  </view>
+  <view wx:else class="nc-textcard {{tone}}">
+    <text class="nc-quote">{{post.text}}</text>
+  </view>
+  <view class="nc-body">
+    <text wx:if="{{post.images.length && post.text}}" class="nc-title">{{post.text}}</text>
+    <view wx:if="{{post.pending}}" class="nc-pending">审核中</view>
+    <view wx:if="{{post.eventTitle}}" class="nc-event"># {{post.eventTitle}}</view>
+    <view class="nc-foot">
+      <dz-avatar user="{{post.author}}" size="20" />
+      <text class="nc-name">{{post.author.nickname}}</text>
+      <view class="nc-like" catchtap="like" aria-role="button" aria-checked="{{post.liked}}" aria-label="喜欢 {{post.likeCount}}">
+        <image class="ico-16" src="{{post.liked ? '/assets/icons/heart-fill-danger.svg' : '/assets/icons/heart-gray.svg'}}" />
+        <text>{{post.likeCount}}</text>
+      </view>
+    </view>
+  </view>
+</view>

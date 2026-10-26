@@ -13,6 +13,7 @@ module.exports = {
   // 订阅消息模板 id（在小程序后台「订阅消息」里申请后填入）。留空时点「开启提醒」只提示已开启。
   subscribeTemplates: {
     match: '', // 撮合结果通知
+    formed: '', // 成群通知（加入后人齐了提醒）
     reminder: '', // 活动开始提醒 / 轻确认出席
     report: '' // 举报处理结果
   }

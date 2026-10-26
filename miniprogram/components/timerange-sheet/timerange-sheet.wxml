@@ -1,0 +1,29 @@
+<dz-sheet show="{{show}}" title="{{title}}" confirm-disabled="{{!!error}}" z-index="{{zIndex}}" bindclose="onClose" bindconfirm="onConfirm">
+  <view class="pk">
+    <view class="pk-summary">{{fromText}} – {{toText}}<text wx:if="{{span}}" class="pk-span"> · 共 {{span}}</text></view>
+    <view class="pk-head">
+      <text class="pk-half">开始</text>
+      <text class="pk-gap"></text>
+      <text class="pk-half">结束</text>
+    </view>
+    <picker-view wx:if="{{alive}}" class="pk-view" indicator-style="height: 88rpx;" indicator-class="pk-indicator" value="{{pick}}" bindchange="onChange">
+      <picker-view-column>
+        <view wx:for="{{hours}}" wx:key="*this" class="pk-item">{{item}} 时</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view wx:for="{{minutes}}" wx:key="*this" class="pk-item">{{item}} 分</view>
+      </picker-view-column>
+      <picker-view-column class="pk-sep-col">
+        <view wx:for="{{sep}}" wx:key="*this" class="pk-item pk-sep">{{item}}</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view wx:for="{{hours}}" wx:key="*this" class="pk-item">{{item}} 时</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view wx:for="{{minutes}}" wx:key="*this" class="pk-item">{{item}} 分</view>
+      </picker-view-column>
+    </picker-view>
+    <view class="pk-error">{{error}}</view>
+    <view class="pk-note">只要大家在这段时间里能凑出 1 小时，就会帮你配到一起。</view>
+  </view>
+</dz-sheet>

@@ -1,4 +1,5 @@
-// 局管理：搜索 + 状态 / 来源筛选，表格，详情（成员、群聊、AA、举报），取消局，审核用户发起的局，发起平台局。
+// 局管理：搜索 + 状态 / 来源筛选，表格，详情（照片、标签、谁可以报名、最晚退出时间、地点、成员、群聊、AA、举报），
+// 取消局，审核用户发起的局，发起平台局（标签、谁可以报名、最晚退出时间、照片、地址）。
 import { computed, onBeforeUnmount, onMounted, reactive, watch } from '../vue.js';
 import { api } from '../api.js';
 import { route } from '../router.js';
@@ -28,18 +29,27 @@ const REVIEW_REJECT = ['像交友或约会', '有安全风险', '广告推销', 
 function emptyForm() {
   return {
     title: '',
-    category: 'outdoor',
+    tag: '', // 选中的热门标签
+    tagCustom: '', // 自己写的标签（写了就用它）
     date: fmt.addDays(fmt.todayStr(), 1),
     time: '',
     durationMin: 120,
     place: '',
+    address: '',
     meetingPoint: '',
     capacity: 6,
     feeType: 'aa',
     feeEstimate: '',
+    genderLimit: 'any',
+    exitBefore: 24, // 最晚退出时间 = 开始前几小时
+    images: [],
     description: '',
   };
 }
+
+const HOUR = 60 * 60 * 1000;
+/** AA 转账的状态 */
+const TRANSFER_STATE = { pending: ['还没转', 'tag--warn'], paid: ['说已转，等确认', 'tag--tint'], confirmed: ['已确认收到', ''] };
 
 export default {
   name: 'EventsPage',
@@ -59,6 +69,8 @@ export default {
       creating: false,
       nf: emptyForm(),
       nfErr: '',
+      hotTags: [],
+      uploading: false,
       busy: false,
       cancelling: false,
       cancelWhy: '',
@@ -104,6 +116,14 @@ export default {
     }
     onBeforeUnmount(() => clearTimeout(searchTimer));
     watch(() => [s.fs, s.fsrc], load);
+    // 表单一改，上一次提交的错误提示就不对了，先收起来
+    watch(
+      () => s.nf,
+      () => {
+        s.nfErr = '';
+      },
+      { deep: true },
+    );
 
     onMounted(() => {
       load();
@@ -202,9 +222,39 @@ export default {
       const n = s.detail ? s.detail.messages.length : 0;
       return n >= 50 ? '50+' : String(n);
     });
-    const aaText = computed(() => {
-      const aa = s.detail && s.detail.aa;
-      return aa && aa.itemCount ? `${aa.itemCount} 笔 ¥${aa.total}` : '还没记账';
+    /** AA：一个成员一次记下总花费，其他人平摊转给 TA（docs/changes-v0.3.md D） */
+    const aa = computed(() => {
+      const a = s.detail && s.detail.aa;
+      if (!a) return null;
+      const bill = a.bill !== undefined ? a.bill : a.payer ? { payer: a.payer, amount: a.amount ?? a.total, note: a.note, createdAt: a.createdAt } : null;
+      return {
+        bill,
+        total: a.total,
+        each: a.each,
+        memberCount: a.memberCount ?? joinedN.value,
+        transfers: Array.isArray(a.transfers) ? a.transfers : null, // 接口没给转账明细时为 null
+      };
+    });
+    const transferState = (t) => TRANSFER_STATE[t.status] || [t.status, ''];
+    const yuan = (n) => `¥${Number(n || 0).toFixed(2).replace(/\.?0+$/, '')}`;
+    /** 最晚退出时间：「10月30日 05:50 · 已过，不能再退出」 */
+    const exitText = computed(() => {
+      const e = ev.value;
+      if (!e || !e.exitDeadline) return '—';
+      const label = e.exitDeadlineLabel || fmt.dateTime(e.exitDeadline);
+      const passed = Date.parse(e.exitDeadline) <= Date.now();
+      return `${label} · ${passed ? '已过，不能再退出' : '之前可以退出'}`;
+    });
+    const exitPassed = computed(() => !!(ev.value && ev.value.exitDeadline && Date.parse(ev.value.exitDeadline) <= Date.now()));
+    const placeText = computed(() => {
+      const e = ev.value;
+      if (!e) return '';
+      const loc = e.location;
+      const name = (loc && loc.name) || e.place;
+      const parts = [name];
+      if (loc && loc.address && loc.address !== name) parts.push(loc.address);
+      if (e.meetingPoint) parts.push(`集合：${e.meetingPoint}`);
+      return parts.join(' · ');
     });
     const cancelHint = computed(() =>
       ev.value && ev.value.source === 'matched'
@@ -318,14 +368,47 @@ export default {
 
     // ---- 发起平台局 ----
 
+    async function loadHotTags() {
+      try {
+        const res = await api('/admin/tags', { query: { scope: 'hot' } });
+        s.hotTags = (res.items || []).filter((t) => t.hot).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+      } catch {
+        s.hotTags = []; // 拿不到热门标签时，自己写也能发
+      }
+    }
+
     function toggleCreate() {
       s.creating = !s.creating;
       s.nfErr = '';
-      if (s.creating) focusSoon('#n-title');
+      if (s.creating) {
+        if (!s.hotTags.length) loadHotTags();
+        focusSoon('#n-title');
+      }
     }
 
+    function pickTag(name) {
+      s.nf.tag = s.nf.tag === name && !s.nf.tagCustom ? '' : name;
+      s.nf.tagCustom = '';
+    }
+    const nfTag = computed(() => fmt.normalizeTag(s.nf.tagCustom) || s.nf.tag);
+
+    /** 选了日期和时间后，开始时间（ISO）；没填好是 null */
+    const nfStart = computed(() => fmt.bjToISO(s.nf.date, s.nf.time));
+    /** 每个「开始前 N 小时」对应的时刻，已经过了的不能选 */
+    const exitOptions = computed(() =>
+      fmt.EXIT_BEFORE_HOURS.map((h) => {
+        const at = nfStart.value ? Date.parse(nfStart.value) - h * HOUR : null;
+        return { h, at, past: at !== null && at <= Date.now() };
+      }),
+    );
+    const exitAtText = computed(() => {
+      const o = exitOptions.value.find((x) => x.h === s.nf.exitBefore);
+      if (!o || o.at === null) return '填好日期和开始时间后，这里显示具体时刻';
+      return o.past ? `开始前 ${o.h} 小时（${fmt.when(new Date(o.at).toISOString())}）已经过了，选短一点的` : `最晚 ${fmt.when(new Date(o.at).toISOString())} 前可以退出；过了这个时间还没满员，人够 2 个就成群，不够就取消`;
+    });
+
     async function publish() {
-      if (s.busy) return;
+      if (s.busy || s.uploading) return;
       const f = s.nf;
       const title = f.title.trim();
       const place = f.place.trim();
@@ -337,6 +420,15 @@ export default {
         s.nfErr = '标题至少 2 个字';
         return;
       }
+      const tag = nfTag.value;
+      if (!tag) {
+        s.nfErr = '选一个标签，或者自己写一个';
+        return;
+      }
+      if (fmt.tagLength(tag) > fmt.TAG_MAX) {
+        s.nfErr = `标签最多 ${fmt.TAG_MAX} 个字`;
+        return;
+      }
       const startAt = fmt.bjToISO(f.date, f.time);
       if (!startAt) {
         s.nfErr = '日期或开始时间的格式不对';
@@ -346,17 +438,27 @@ export default {
         s.nfErr = '开始时间至少要在 30 分钟以后';
         return;
       }
+      const exitAt = Date.parse(startAt) - f.exitBefore * HOUR;
+      if (exitAt <= Date.now()) {
+        s.nfErr = `最晚退出时间（开始前 ${f.exitBefore} 小时）已经过了，选短一点的`;
+        return;
+      }
+      const address = f.address.trim();
       const body = {
         title,
-        category: f.category,
+        tag,
         startAt,
         durationMin: Number(f.durationMin),
         place,
         meetingPoint: f.meetingPoint.trim(),
         capacity: f.capacity,
         feeType: f.feeType,
+        genderLimit: f.genderLimit,
+        exitDeadline: new Date(exitAt).toISOString(),
+        images: f.images,
         description: f.description.trim(),
       };
+      if (address) body.location = { name: place, address };
       if (f.feeType !== 'free' && f.feeEstimate !== '' && f.feeEstimate !== null) body.feeEstimate = Number(f.feeEstimate);
       s.busy = true;
       s.nfErr = '';
@@ -399,7 +501,12 @@ export default {
       byLong,
       memberState,
       msgCount,
-      aaText,
+      aa,
+      transferState,
+      yuan,
+      exitText,
+      exitPassed,
+      placeText,
       cancelHint,
       openCancel,
       closeCancel,
@@ -408,12 +515,16 @@ export default {
       review,
       remind,
       toggleCreate,
+      pickTag,
+      nfTag,
+      exitOptions,
+      exitAtText,
       publish,
+      GENDER_LIMITS: fmt.GENDER_LIMITS,
       STATUS_FILTERS,
       SOURCE_FILTERS,
       CANCEL_REASONS,
       REVIEW_REJECT,
-      CATEGORY: fmt.CATEGORY,
       DURATIONS: fmt.DURATIONS,
       today: fmt.todayStr(),
     };
@@ -443,10 +554,15 @@ export default {
         <input id="n-title" v-model="s.nf.title" type="text" class="input" maxlength="30" placeholder="比如：周六上午 · 喜洲骑行" autocomplete="off">
       </div>
       <div class="field">
-        <span id="n-cat" class="field__label">分类</span>
-        <div class="chips" role="group" aria-labelledby="n-cat">
-          <button v-for="(label, key) in CATEGORY" :key="key" type="button" class="chip" :aria-pressed="s.nf.category === key ? 'true' : 'false'" @click="s.nf.category = key">{{ label }}</button>
+        <span id="n-tag" class="field__label">标签<span class="field__hint">分类按标签自动定</span></span>
+        <div v-if="s.hotTags.length" class="chips" role="group" aria-labelledby="n-tag">
+          <button v-for="t in s.hotTags" :key="t.id" type="button" class="chip chip--sm" :aria-pressed="!s.nf.tagCustom && s.nf.tag === t.name ? 'true' : 'false'" @click="pickTag(t.name)">{{ t.name }}</button>
         </div>
+        <div class="tag-custom">
+          <label for="n-tag-custom" class="tag-custom__label">{{ s.hotTags.length ? '或者自己写' : '写一个标签' }}</label>
+          <input id="n-tag-custom" v-model="s.nf.tagCustom" type="text" class="input input--sm" placeholder="1–8 个字，比如：洱海边露营" autocomplete="off">
+        </div>
+        <p class="small muted" aria-live="polite">{{ nfTag ? '这个局的标签：' + nfTag : '还没选标签' }}</p>
       </div>
       <div class="form-grid">
         <div class="field field--date">
@@ -465,7 +581,11 @@ export default {
         </div>
         <div class="field field--wide">
           <label for="n-place" class="field__label">地点</label>
-          <input id="n-place" v-model="s.nf.place" type="text" class="input" maxlength="40" autocomplete="off">
+          <input id="n-place" v-model="s.nf.place" type="text" class="input" maxlength="40" placeholder="比如：才村码头" autocomplete="off">
+        </div>
+        <div class="field field--wide">
+          <label for="n-addr" class="field__label">详细地址<span class="field__hint">选填</span></label>
+          <input id="n-addr" v-model="s.nf.address" type="text" class="input" maxlength="80" placeholder="比如：大理市才村" autocomplete="off">
         </div>
         <div class="field field--wide">
           <label for="n-meet" class="field__label">集合点<span class="field__hint">选填</span></label>
@@ -480,12 +600,29 @@ export default {
         <FeePicker v-model:feeType="s.nf.feeType" v-model:estimate="s.nf.feeEstimate" id-prefix="n" />
       </div>
       <div class="field">
+        <span id="n-gender" class="field__label">谁可以报名</span>
+        <div class="chips" role="group" aria-labelledby="n-gender">
+          <button v-for="g in GENDER_LIMITS" :key="g.key" type="button" class="chip chip--sm" :aria-pressed="s.nf.genderLimit === g.key ? 'true' : 'false'" @click="s.nf.genderLimit = g.key">{{ g.label }}</button>
+        </div>
+      </div>
+      <div class="field">
+        <span id="n-exit" class="field__label">最晚退出时间</span>
+        <div class="chips" role="group" aria-labelledby="n-exit" aria-describedby="n-exit-hint">
+          <button v-for="o in exitOptions" :key="o.h" type="button" class="chip chip--sm" :class="{ 'chip--past': o.past }" :aria-pressed="s.nf.exitBefore === o.h ? 'true' : 'false'" @click="s.nf.exitBefore = o.h">开始前 {{ o.h }} 小时</button>
+        </div>
+        <p id="n-exit-hint" class="small" :class="exitOptions.find((o) => o.h === s.nf.exitBefore).past ? 'text-danger' : 'muted'">{{ exitAtText }}</p>
+      </div>
+      <div class="field">
+        <span class="field__label">照片<span class="field__hint">选填，第一张当封面；不传就用标签的插画</span></span>
+        <ImageUploader v-model="s.nf.images" :max="9" label="局的照片" @busy="s.uploading = $event" />
+      </div>
+      <div class="field">
         <label for="n-desc" class="field__label">介绍（选填）</label>
         <textarea id="n-desc" v-model="s.nf.description" class="input textarea" maxlength="500"></textarea>
       </div>
       <p v-if="s.nfErr" class="form-error" role="alert">{{ s.nfErr }}</p>
       <div class="actions">
-        <button type="submit" class="btn btn--primary btn--lg" :disabled="s.busy">{{ s.busy ? '正在发布…' : '发布到广场' }}</button>
+        <button type="submit" class="btn btn--primary btn--lg" :disabled="s.busy || s.uploading">{{ s.busy ? '正在发布…' : s.uploading ? '照片还在上传…' : '发布到广场' }}</button>
         <button type="button" class="btn btn--outline btn--lg" @click="toggleCreate">取消</button>
       </div>
     </form>
@@ -519,9 +656,12 @@ export default {
         <template v-if="!s.error">
           <tr v-for="e in s.rows" :key="e.id" :class="{ 'is-selected': s.sel === e.id }">
             <td>
-              <div class="cell-title">
-                <span class="cell-title__main">{{ e.title }}</span>
-                <span class="cell-title__sub">{{ fmt.categoryLabel(e.category) }} · {{ byShort(e) }}</span>
+              <div class="cell-event">
+                <Cover :image="e.cover || ''" :cover-key="e.coverKey || ''" :width="54" />
+                <div class="cell-title">
+                  <span class="cell-title__main">{{ e.title }}</span>
+                  <span class="cell-title__sub">{{ e.tag || fmt.categoryLabel(e.category) }} · {{ byShort(e) }}<template v-if="e.genderLabel"> · {{ e.genderLabel }}</template></span>
+                </div>
               </div>
             </td>
             <td>{{ fmt.dateTime(e.startAt) }}</td>
@@ -545,16 +685,20 @@ export default {
             <h2 id="ev-detail-title" class="detail-title" tabindex="-1">{{ ev.title }}</h2>
             <StatusPill :status="fmt.displayStatus(ev)" />
           </div>
-          <span class="small muted">{{ fmt.categoryLabel(ev.category) }} · {{ byLong(ev) }}</span>
+          <span class="small muted">{{ ev.tag ? '标签「' + ev.tag + '」 · ' : '' }}{{ fmt.categoryLabel(ev.category) }} · {{ byLong(ev) }}</span>
         </div>
         <button type="button" class="icon-btn" aria-label="收起详情" @click="closeDetail"><Icon name="close" :size="18" :weight="2" /></button>
       </div>
 
+      <Thumbs v-if="ev.images && ev.images.length" :images="ev.images" :label="'「' + ev.title + '」的照片'" />
+
       <div class="info-tiles">
         <div class="info-tile"><span class="info-tile__label">时间</span><span class="info-tile__value">{{ fmt.dateTime(ev.startAt) }} · {{ fmt.duration(ev.durationMin) }}{{ ev.phase === 'ongoing' ? ' · 进行中' : '' }}</span></div>
-        <div class="info-tile"><span class="info-tile__label">地点 · 集合点</span><span class="info-tile__value">{{ ev.place }}{{ ev.meetingPoint ? ' · ' + ev.meetingPoint : '' }}</span></div>
+        <div class="info-tile"><span class="info-tile__label">地点</span><span class="info-tile__value">{{ placeText }}</span></div>
         <div class="info-tile"><span class="info-tile__label">费用</span><span class="info-tile__value">{{ ev.feeLabel || '—' }}</span></div>
-        <div class="info-tile"><span class="info-tile__label">群里</span><span class="info-tile__value">{{ msgCount }} 条消息 · AA {{ aaText }} · 被举报 {{ ev.reportCount }} 次</span></div>
+        <div class="info-tile"><span class="info-tile__label">谁可以报名</span><span class="info-tile__value">{{ ev.genderLabel || '不限' }}</span></div>
+        <div class="info-tile"><span class="info-tile__label">最晚退出</span><span class="info-tile__value" :class="{ 'text-danger': exitPassed && isLive(ev) }">{{ exitText }}</span></div>
+        <div class="info-tile"><span class="info-tile__label">群里</span><span class="info-tile__value">{{ ev.chatOpen === false ? '还没成群 · ' : '' }}{{ msgCount }} 条消息 · 被举报 {{ ev.reportCount }} 次</span></div>
       </div>
 
       <div v-if="ev.inviteDeadline" class="invite-box">
@@ -570,7 +714,7 @@ export default {
       </div>
 
       <div class="stack-10">
-        <span class="label">成员 {{ joinedN }}/{{ ev.capacity }}</span>
+        <span class="label">成员 {{ joinedN }}/{{ ev.capacity }}<template v-if="isLive(ev) && ev.status !== 'formed' && ev.remaining > 0"> · 还差 {{ ev.remaining }} 人满员</template></span>
         <ul v-if="shownMembers.length" class="member-grid member-grid--fixed" aria-label="成员">
           <li v-for="m in shownMembers" :key="m.id" class="member member--sm">
             <Avatar :user="m" :size="32" />
@@ -588,6 +732,26 @@ export default {
         <div class="chat-box">
           <p v-for="m in recentMessages" :key="m.id" class="chat-line"><span class="strong">{{ m.user ? m.user.nickname : '系统' }}：</span>{{ m.text }}</p>
         </div>
+      </div>
+
+      <div v-if="aa" class="stack-8">
+        <span class="label">AA</span>
+        <div v-if="aa.bill" class="aa-box">
+          <div class="aa-box__head">
+            <Avatar :user="aa.bill.payer" :size="32" />
+            <span class="aa-box__title"><span class="strong">{{ aa.bill.payer ? aa.bill.payer.nickname : '有人' }}</span> 记的 AA：共 {{ yuan(aa.bill.amount ?? aa.total) }}<template v-if="aa.bill.note">（{{ aa.bill.note }}）</template></span>
+          </div>
+          <span class="small muted">{{ aa.memberCount }} 人平摊，每人 {{ yuan(aa.each) }}，转给 {{ aa.bill.payer ? aa.bill.payer.nickname : '记账的人' }}<template v-if="aa.bill.createdAt"> · {{ fmt.ago(aa.bill.createdAt) }}记的</template></span>
+          <ul v-if="aa.transfers && aa.transfers.length" class="aa-list" aria-label="转账">
+            <li v-for="(t, i) in aa.transfers" :key="i" class="aa-list__row">
+              <span class="aa-list__who">{{ t.from ? t.from.nickname : '—' }} → {{ t.to ? t.to.nickname : '—' }}</span>
+              <span class="aa-list__amount">{{ yuan(t.amount) }}</span>
+              <span class="tag" :class="transferState(t)[1]">{{ transferState(t)[0] }}</span>
+            </li>
+          </ul>
+          <p v-else-if="aa.transfers" class="small muted">没有需要转账的人。</p>
+        </div>
+        <p v-else class="small muted">还没人记 AA。</p>
       </div>
 
       <div v-if="ev.status === 'pending_review'" class="decide">

@@ -1,14 +1,27 @@
 // 撮合意向：提交（立刻触发一次撮合）、查看、放宽条件、取消。
 import { clock } from '../clock.js';
-import { DEFAULT_AREA, categoryOfTask, defaultSlotForTask } from '../constants.js';
+import { DEFAULT_AREA, defaultSlotForTask } from '../constants.js';
 import { conflict, invalid, notFound, restricted } from '../errors.js';
-import { SLOTS, addDays, bjDate, dateLabel, resolveWhen } from '../time.js';
+import {
+  EARLIEST_MINUTE,
+  LATEST_MINUTE,
+  SLOTS,
+  addDays,
+  bjDate,
+  dateLabel,
+  fmtHHMM,
+  parseHHMM,
+  resolveWhen,
+  slotOfMinute,
+} from '../time.js';
 import { bool, int, oneOf, str } from '../validate.js';
 import { creditOf, effectiveStatus } from './credit.js';
 import { intentView } from './intentFormat.js';
 import { declineInvite } from './invites.js';
-import { enrichIntent, isIntentExpired, pairCompatible, sizeBounds } from './matchRules.js';
+import { MIN_TOGETHER, enrichIntent, intentWindow, isIntentExpired, pairCompatible, sizeBounds } from './matchRules.js';
 import { removeIntentFromProposal, runMatching } from './matching.js';
+import { overlapLabel, windowGap } from './overlap.js';
+import { parseTag, tagKey, useTag } from './tags.js';
 import { allBlockPairs } from './users.js';
 
 const ACTIVE_STATUSES = ['open', 'proposed', 'invited'];
@@ -19,17 +32,47 @@ function assertCanMatch(db, user) {
   }
 }
 
+const given = (v) => v !== undefined && v !== null && v !== '';
+
+/**
+ * 时间：slot（morning / afternoon / evening / allday）和 timeFrom + timeTo（"HH:MM"，北京时间）二选一；
+ * 都不给按任务给默认时间段。自定义时间段要在 05:00–23:59 之间、至少 60 分钟。
+ */
+function parseIntentTime(body, task) {
+  const hasSlot = given(body.slot);
+  const hasTime = given(body.timeFrom) || given(body.timeTo);
+  if (hasSlot && hasTime) throw invalid('时间段和具体时间只能选一个');
+  if (!hasTime) {
+    return { slot: oneOf(body.slot, '时间段', SLOTS, { optional: true }) ?? defaultSlotForTask(task), timeFrom: null, timeTo: null };
+  }
+  if (!given(body.timeFrom) || !given(body.timeTo)) throw invalid('请同时填写开始和结束时间');
+  const from = parseHHMM(body.timeFrom);
+  const to = parseHHMM(body.timeTo);
+  if (from === null || to === null) throw invalid('时间格式不正确，请用 HH:MM（如 14:00）');
+  if (from < EARLIEST_MINUTE || to > LATEST_MINUTE) throw invalid('时间要在 05:00–23:59 之间');
+  if (from >= to) throw invalid('结束时间要晚于开始时间');
+  if (to - from < MIN_TOGETHER) throw invalid('时间段至少要 1 个小时');
+  // slot 只作参考（按开始时间推），时间窗以 timeFrom / timeTo 为准
+  return { slot: slotOfMinute(from), timeFrom: fmtHHMM(from), timeTo: fmtHHMM(to) };
+}
+
+function datesBetween(from, to) {
+  const dates = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
+  return dates;
+}
+
 export function createIntent(db, user, body) {
   assertCanMatch(db, user);
   const now = clock.now();
-  const task = str(body.task, '想做的事', { min: 1, max: 10 });
+  const task = parseTag(body.task, '想做的事');
   if (body.when === undefined || body.when === null || body.when === '') throw invalid('请选择什么时候');
   const range = resolveWhen(String(body.when), now);
   if (!range) throw invalid('时间格式不正确，可以是 today / tomorrow / weekend / YYYY-MM-DD');
   const today = bjDate(now);
   if (range.dateFrom < today) throw invalid('不能选已经过去的日子');
   if (range.dateTo > addDays(today, 30)) throw invalid('只能选 30 天以内的日子');
-  const slot = oneOf(body.slot, '时间段', SLOTS, { optional: true }) ?? defaultSlotForTask(task);
+  const { slot, timeFrom, timeTo } = parseIntentTime(body, task);
   const area = str(body.area, '地区', { max: 20, optional: true }) ?? DEFAULT_AREA;
   const sizeMin = int(body.sizeMin, '最少人数', { min: 2, max: 20, optional: true }) ?? 3;
   const sizeMax = int(body.sizeMax, '最多人数', { min: 2, max: 20, optional: true }) ?? Math.max(5, sizeMin);
@@ -37,34 +80,46 @@ export function createIntent(db, user, body) {
   const relaxTime = bool(body.relaxTime, '时间放宽', { optional: true }) ?? false;
   const relaxSize = bool(body.relaxSize, '人数放宽', { optional: true }) ?? false;
   const label = str(body.label, '描述', { max: 20, optional: true });
-  if (isIntentExpired({ date_to: range.dateTo, slot, relax_time: relaxTime }, now)) {
-    throw invalid('这个时间段已经过去了，换个时间吧');
-  }
-  const duplicate = db.get(
-    `SELECT id FROM intents WHERE user_id = ? AND task = ? AND status IN ('open', 'proposed', 'invited')
-     AND date_from <= ? AND date_to >= ?`,
-    user.id,
-    task,
-    range.dateTo,
-    range.dateFrom,
-  );
+  const shape = { date_to: range.dateTo, slot, relax_time: relaxTime, time_from: timeFrom, time_to: timeTo };
+  if (isIntentExpired(shape, now)) throw invalid('这个时间段已经过去了，换个时间吧');
+
+  // 同一个标签（按规范化的 key 比较）、日期有重叠的意向只能有一个在撮合中
+  const key = tagKey(task);
+  const duplicate = db
+    .all(
+      `SELECT task FROM intents WHERE user_id = ? AND status IN ('open', 'proposed', 'invited')
+       AND date_from <= ? AND date_to >= ?`,
+      user.id,
+      range.dateTo,
+      range.dateFrom,
+    )
+    .some((row) => tagKey(row.task) === key);
   if (duplicate) throw conflict('你已经有一个相同的意向在撮合中了');
 
-  const id = db.insert('intents', {
-    user_id: user.id,
-    task,
-    category: categoryOfTask(task),
-    label,
-    date_from: range.dateFrom,
-    date_to: range.dateTo,
-    slot,
-    area,
-    size_min: sizeMin,
-    size_max: sizeMax,
-    relax_time: relaxTime,
-    relax_size: relaxSize,
-    status: 'open',
-    created_at: now.toISOString(),
+  // 时间窗里已经没有连续 60 分钟的空档（都被已加入的局占了）
+  const gap = windowGap(db, user.id, datesBetween(range.dateFrom, range.dateTo), intentWindow(shape), MIN_TOGETHER);
+  if (!gap.free) throw conflict(`这个时间你已经有局了：${gap.blockers.slice(0, 2).map(overlapLabel).join('、')}`);
+
+  const id = db.tx(() => {
+    const tag = useTag(db, task);
+    return db.insert('intents', {
+      user_id: user.id,
+      task: tag.name,
+      category: tag.category,
+      label,
+      date_from: range.dateFrom,
+      date_to: range.dateTo,
+      slot,
+      time_from: timeFrom,
+      time_to: timeTo,
+      area,
+      size_min: sizeMin,
+      size_max: sizeMax,
+      relax_time: relaxTime,
+      relax_size: relaxSize,
+      status: 'open',
+      created_at: now.toISOString(),
+    });
   });
   runMatching(db); // 提交后立刻撮合一次
   return intentView(db.get('SELECT * FROM intents WHERE id = ?', id));
@@ -91,13 +146,13 @@ export function similarCount(db, intent) {
   const blocks = allBlockPairs(db);
   const users = new Set();
   const rows = db.all(
-    "SELECT * FROM intents WHERE status = 'open' AND task = ? AND area = ? AND id != ? AND user_id != ?",
-    intent.task,
+    "SELECT * FROM intents WHERE status = 'open' AND area = ? AND id != ? AND user_id != ?",
     intent.area,
     intent.id,
     intent.user_id,
   );
   for (const row of rows) {
+    if (tagKey(row.task) !== me.taskKey) continue;
     if (isIntentExpired(row, now)) continue;
     const other = enrichIntent(db, row, now);
     if (other.userStatus !== 'active' || other.creditLevel === 'restricted') continue;

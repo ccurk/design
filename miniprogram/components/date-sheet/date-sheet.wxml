@@ -1,0 +1,17 @@
+<dz-sheet show="{{show}}" title="{{title}}" confirm-disabled="{{!selected}}" z-index="1100" bindclose="onClose" bindconfirm="onConfirm">
+  <view class="cal">
+    <view class="cal-top">
+      <text class="cal-month">{{monthLabel}}</text>
+      <text class="cal-picked">{{label || '点一下选日期'}}</text>
+    </view>
+    <view class="cal-head">
+      <text wx:for="{{head}}" wx:key="*this" class="cal-cell">{{item}}</text>
+    </view>
+    <view class="cal-grid">
+      <view wx:for="{{cells}}" wx:key="date" class="cal-cell" data-date="{{item.date}}" data-disabled="{{item.disabled}}" bindtap="pick" aria-role="button" aria-disabled="{{item.disabled}}" aria-selected="{{selected === item.date}}">
+        <view class="cal-day {{item.disabled ? 'off' : ''}} {{selected === item.date ? 'on' : ''}} {{item.today ? 'today' : ''}} {{item.monthStart ? 'month' : ''}}">{{item.day}}</view>
+      </view>
+    </view>
+    <view class="cal-note">只能选 30 天以内的日子</view>
+  </view>
+</dz-sheet>

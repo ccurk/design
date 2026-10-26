@@ -73,10 +73,21 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     const proposal = await setupProposal();
     const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
     let r = await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[0] });
-    assert.deepEqual(r, { myStatus: 'joined', eventStatus: 'inviting' });
+    assert.deepEqual(r, {
+      myStatus: 'joined',
+      eventStatus: 'inviting',
+      formed: false,
+      remaining: 2,
+      memberCount: 1,
+      capacity: 3,
+      exitDeadline: '2026-10-29T21:50:00.000Z', // 开场前 24 小时
+    });
     await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[1] });
     r = await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[2] });
-    assert.deepEqual(r, { myStatus: 'joined', eventStatus: 'formed' });
+    assert.equal(r.eventStatus, 'formed');
+    assert.equal(r.formed, true);
+    assert.equal(r.remaining, 0);
+    assert.equal(r.memberCount, 3);
 
     const msgs = await s.ok('GET', `/api/events/${eventId}/messages`, { token: tokens[0] });
     assert.equal(msgs.items[0].kind, 'system');
@@ -210,7 +221,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     const u = makeUser(s.db);
     const t = await s.login(u);
     const intent = await s.ok('POST', '/api/intents', { token: t, body: { task: '爬山', when: 'weekend', slot: 'morning' } });
-    assert.equal(intent.title, '本周末 · 爬山');
+    assert.equal(intent.title, '本周末上午 · 爬山');
     assert.equal(intent.dateFrom, '2026-10-31');
     assert.equal(intent.dateTo, '2026-11-01');
     const { items } = await s.ok('GET', '/api/events/mine?tab=ongoing', { token: t });

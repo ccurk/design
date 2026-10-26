@@ -1,0 +1,81 @@
+:host {
+  display: block;
+}
+.sheet-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+.sheet-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(21, 23, 28, 0.45);
+  opacity: 0;
+  transition: opacity 0.22s ease-out;
+}
+.sheet-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 48rpx 48rpx 0 0;
+  background: #FFFFFF;
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.in .sheet-mask {
+  opacity: 1;
+}
+.in .sheet-panel {
+  transform: translateY(0);
+}
+.sheet-head {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 112rpx;
+  padding: 0 112rpx;
+}
+.sheet-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #15171C;
+  text-align: center;
+}
+.sheet-close {
+  position: absolute;
+  right: 16rpx;
+  top: 12rpx;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.sheet-foot {
+  flex-shrink: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 40rpx 24rpx;
+  border-top: 1px solid #E8ECEF;
+}
+.sheet-btn {
+  flex: 1;
+}

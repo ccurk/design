@@ -2,6 +2,7 @@
 import { clock } from '../clock.js';
 import { json } from '../db.js';
 import { notFound } from '../errors.js';
+import { absUrl } from '../urls.js';
 import { creditOf, effectiveStatus } from './credit.js';
 
 // avatarColor 按 id % 4 固定分配（与设计稿一致：1 栗子=accent，2 小满=ink，3 阿野=stone，4 七七=slate）
@@ -42,7 +43,7 @@ export function userBrief(db, userOrId, now = clock.now()) {
   return {
     id: user.id,
     nickname: user.nickname,
-    avatarUrl: user.avatar_url || null,
+    avatarUrl: absUrl(db, user.avatar_url),
     avatarText: avatarText(user.nickname),
     avatarColor: AVATAR_COLORS[user.id % 4],
     creditRate: credit.rate,

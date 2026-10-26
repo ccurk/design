@@ -1,14 +1,40 @@
 // 撮合局的邀请流程：后台确认 → inviting；接受 / 换一批；补邀；邀请到期；成局或取消（docs/api.md 3.2）。
 import { clock, HOUR } from '../clock.js';
-import { FEE_TYPES, SYSTEM_MESSAGES, categoryOfTask, defaultDurationForTask } from '../constants.js';
+import { FEE_TYPES, defaultDurationForTask } from '../constants.js';
 import { json } from '../db.js';
 import { conflict, invalid, notFound, restricted } from '../errors.js';
-import { bjDate, bjDateTime, dateLabel, defaultStartTime } from '../time.js';
+import { bjDate, bjMinuteOfDay, dateLabel } from '../time.js';
+import { parseImages } from '../urls.js';
 import { int, isoTime, num, oneOf, str } from '../validate.js';
 import { creditOf, effectiveStatus } from './credit.js';
-import { addSystemMessage, eventDetail, getEvent, joinedMembers, memberRow, requireEvent, shortTitle } from './events.js';
-import { enrichIntent, groupBounds, isFlexible, pairCompatible, sizeBounds, taskPhrase } from './matchRules.js';
+import {
+  announceFormed,
+  defaultExitDeadline,
+  eventDetail,
+  exitDeadlineMessage,
+  exitDeadlinePassed,
+  genderLimitOf,
+  getEvent,
+  joinResult,
+  joinedMembers,
+  memberRow,
+  parseLocation,
+  requireEvent,
+  shortTitle,
+} from './events.js';
+import {
+  MIN_TOGETHER,
+  enrichIntent,
+  groupBounds,
+  intentWindow,
+  pairCompatible,
+  proposalPlan,
+  sizeBounds,
+  taskPhrase,
+} from './matchRules.js';
 import { notify } from './notices.js';
+import { assertNoOverlap, firstOverlap, overlapLabel } from './overlap.js';
+import { tagCategory, tagKey } from './tags.js';
 import { allBlockPairs, getUser, isNewUser, userBrief, userSettings } from './users.js';
 
 const INVITE_TTL = 24 * HOUR; // 邀请 24 小时内有效
@@ -63,24 +89,38 @@ export function confirmProposal(db, proposalId, overrides = {}) {
     }
 
     const now = clock.now();
-    const [h, m] = defaultStartTime(p.task, p.slot);
-    const startAt = isoTime(overrides.startAt, '集合时间', { optional: true }) ?? bjDateTime(p.date, h, m);
+    // 默认集合时刻：没人用自定义时间段时按任务 / 时间段；有人用了取大家时间窗交集的开始（见 proposalPlan）
+    const startAt = isoTime(overrides.startAt, '集合时间', { optional: true }) ?? proposalPlan(p, intents).startAt;
     if (startAt.getTime() <= now.getTime()) throw invalid('集合时间已经过了，请修改时间');
+    const durationMin =
+      int(overrides.durationMin, '时长', { min: 30, max: 24 * 60, optional: true }) ?? defaultDurationForTask(p.task);
     const capacity = int(overrides.capacity, '人数上限', { min: 2, max: 20, optional: true }) ?? intents.length;
     if (capacity < intents.length) throw invalid('人数上限不能少于已配到的人数');
     if (capacity > maxSize) throw invalid(`人数上限不能超过 ${maxSize} 人：组里有人只想要 ${maxSize} 人以内的局`);
+    const exitDeadline =
+      isoTime(overrides.exitDeadline, '最晚退出时间', { optional: true }) ?? defaultExitDeadline(startAt, now);
+    if (exitDeadline.getTime() <= now.getTime() || exitDeadline.getTime() > startAt.getTime()) {
+      throw invalid('最晚退出时间要在现在和开始时间之间');
+    }
+    const location = parseLocation(overrides.location);
+    const images = parseImages(overrides.images, { max: 9 });
     const users = intents.map((i) => getUser(db, i.user_id));
+    // 成员在这个时间已经有别的局：写明是谁
+    const clashes = users
+      .map((u) => ({ u, hit: firstOverlap(db, u.id, startAt, durationMin) }))
+      .filter((x) => x.hit)
+      .map(({ u, hit }) => `${u.nickname} 和已加入的${overlapLabel(hit)}时间重叠了`);
+    if (clashes.length) throw conflict(clashes.join('；'));
     const sameSex = users.some((u) => userSettings(u).sameSexOnly);
 
     const eventId = db.insert('events', {
       title: str(overrides.title, '标题', { min: 2, max: 30, optional: true }) ?? p.title,
-      category: p.category || categoryOfTask(p.task),
+      category: p.category || tagCategory(db, p.task),
       task: p.task,
       description: str(overrides.description, '说明', { max: 500, optional: true }) ?? '',
       start_at: startAt.toISOString(),
-      duration_min:
-        int(overrides.durationMin, '时长', { min: 30, max: 24 * 60, optional: true }) ?? defaultDurationForTask(p.task),
-      place: str(overrides.place, '地点', { max: 40, optional: true }) ?? p.area,
+      duration_min: durationMin,
+      place: str(overrides.place, '地点', { max: 40, optional: true }) || location?.name || p.area,
       meeting_point: str(overrides.meetingPoint, '集合点', { max: 60, optional: true }) ?? '',
       capacity,
       min_size: Math.max(2, minSize),
@@ -89,6 +129,9 @@ export function confirmProposal(db, proposalId, overrides = {}) {
       require_approval: 0,
       same_sex_only: sameSex ? 1 : 0,
       gender: sameSex ? users[0].gender : null,
+      images: JSON.stringify(images),
+      location: location ? JSON.stringify(location) : null,
+      exit_deadline: exitDeadline.toISOString(),
       source: 'matched',
       creator_id: null,
       status: 'inviting',
@@ -155,7 +198,7 @@ export function acceptInvite(db, user, eventId) {
     const event = requireEvent(db, eventId);
     const mine = memberRow(db, eventId, user.id);
     if (event.source !== 'matched' || !mine) throw notFound('没有找到这个撮合结果');
-    if (mine.status === 'joined') return { myStatus: 'joined', eventStatus: event.status };
+    if (mine.status === 'joined') return joinResult(db, eventId, 'joined');
     if (mine.status !== 'invited') throw conflict('邀请已经失效了');
     if (event.status !== 'inviting') throw conflict('这个局已经不再邀请了');
     if (effectiveStatus(user) !== 'active' || creditOf(db, user).level === 'restricted') {
@@ -167,6 +210,7 @@ export function acceptInvite(db, user, eventId) {
       evaluateInviting(db, eventId);
       return { expired: true };
     }
+    assertNoOverlap(db, user.id, event.start_at, event.duration_min, { excludeEventId: eventId });
     db.run(
       "UPDATE event_members SET status = 'joined', joined_at = ? WHERE event_id = ? AND user_id = ?",
       clock.iso(),
@@ -174,7 +218,7 @@ export function acceptInvite(db, user, eventId) {
       user.id,
     );
     evaluateInviting(db, eventId);
-    return { myStatus: 'joined', eventStatus: getEvent(db, eventId).status };
+    return joinResult(db, eventId, 'joined');
   });
   if (outcome.expired) throw conflict('邀请已经过期了，已帮你继续撮合');
   return outcome;
@@ -188,6 +232,7 @@ export function declineInvite(db, user, eventId) {
     if (event.source !== 'matched' || !mine) throw notFound('没有找到这个撮合结果');
     const pendingJoin = mine.status === 'joined' && event.status === 'inviting';
     if (mine.status !== 'invited' && !pendingJoin) throw conflict('现在不能换一批了');
+    if (pendingJoin && exitDeadlinePassed(event)) throw conflict(exitDeadlineMessage(event));
     const now = clock.iso();
     db.run(
       "UPDATE event_members SET status = 'declined', left_at = ? WHERE event_id = ? AND user_id = ?",
@@ -242,10 +287,10 @@ export function evaluateInviting(db, eventId) {
   return 'inviting';
 }
 
+/** 撮合局成群：满员（加入人数 = 人数上限）用「满员啦…」，到期够人用「人数够了…」 */
 function formMatchedEvent(db, event) {
   const now = clock.iso();
   db.update('events', event.id, { status: 'formed', formed_at: now });
-  addSystemMessage(db, event.id, SYSTEM_MESSAGES.formed);
   const members = joinedMembers(db, event.id);
   for (const m of members) {
     db.run(
@@ -254,13 +299,8 @@ function formMatchedEvent(db, event) {
       event.id,
       m.user_id,
     );
-    notify(db, m.user_id, {
-      type: 'formed',
-      title: '成局啦',
-      body: `「${shortTitle(event.title)}」${members.length} 人到齐，群聊已开启。第一次见面，慢慢来`,
-      link: `chat:${event.id}`,
-    });
   }
+  announceFormed(db, event, { atDeadline: members.length < event.capacity });
 }
 
 function cancelUnderfilled(db, event) {
@@ -301,17 +341,26 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
     .all("SELECT * FROM intents WHERE event_id = ? AND status IN ('invited', 'matched')", event.id)
     .map((i) => enrichIntent(db, i, now));
   const eventDate = bjDate(new Date(event.start_at));
+  // 候选人的时间窗要覆盖 [开始, 开始 + 60 分钟]
+  const startMinute = bjMinuteOfDay(new Date(event.start_at));
+  const covers = (c) => {
+    const [from, to] = c.window ?? intentWindow(c);
+    return from <= startMinute && startMinute + MIN_TOGETHER <= to;
+  };
+  const key = tagKey(event.task);
+  const genderLimit = genderLimitOf(event);
   const blocks = allBlockPairs(db);
   const candidates = (pool ?? openPool(db, now)).filter(
     (c) =>
       !used.has(c.id) &&
       !known.has(c.user_id) &&
-      c.task === event.task &&
+      (c.taskKey ?? tagKey(c.task)) === key &&
       c.area === (event.area ?? c.area) &&
       c.date_from <= eventDate &&
       eventDate <= c.date_to &&
-      (!event.slot || event.slot === 'allday' || isFlexible(c) || c.slot === event.slot) &&
-      (!event.same_sex_only || c.gender === event.gender),
+      covers(c) &&
+      (genderLimit === 'any' || c.gender === genderLimit) &&
+      !firstOverlap(db, c.user_id, event.start_at, event.duration_min, { excludeEventId: event.id }),
   );
 
   let invited = 0;

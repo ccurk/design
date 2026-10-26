@@ -1,5 +1,12 @@
-<view class="ev" hover-class="pressed" bindtap="open">
-  <dz-cover variant="card" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+<view class="ev {{compact ? 'ev-compact' : ''}}" hover-class="pressed" bindtap="open">
+  <view class="ev-media">
+    <dz-cover variant="{{compact ? 'wide' : 'card'}}" image="{{event.cover}}" cover-key="{{event.coverKey}}" category="{{event.category}}" task="{{tag}}" title="{{event.title}}" />
+    <view class="ev-badges">
+      <text wx:if="{{tag}}" class="ev-badge"># {{tag}}</text>
+      <text wx:if="{{event.genderLabel}}" class="ev-badge">{{event.genderLabel}}</text>
+    </view>
+    <text wx:if="{{statusText}}" class="ev-status {{statusClass}}">{{statusText}}</text>
+  </view>
   <view class="ev-text">
     <view class="ev-title">{{event.title}}</view>
     <view class="ev-meta">{{meta}}</view>
@@ -7,11 +14,10 @@
   <view class="ev-foot">
     <view class="stack" wx:if="{{preview.length}}">
       <view class="stack-item" wx:for="{{preview}}" wx:key="id">
-        <dz-avatar user="{{item}}" size="28" ring="{{true}}" />
+        <dz-avatar user="{{item}}" size="{{compact ? 22 : 28}}" ring="{{true}}" />
       </view>
     </view>
     <text class="ev-count">{{event.memberCount}}/{{event.capacity}} 人</text>
-    <text wx:if="{{event.isFull}}" class="pill pill-stone">已满员</text>
-    <text wx:if="{{event.feeLabel}}" class="pill pill-ground ev-fee">{{event.feeLabel}}</text>
+    <text wx:if="{{event.feeLabel && !compact}}" class="pill pill-ground ev-fee">{{event.feeLabel}}</text>
   </view>
 </view>

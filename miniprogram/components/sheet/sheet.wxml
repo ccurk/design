@@ -1,0 +1,19 @@
+<view wx:if="{{rendered}}" class="sheet-root {{visible ? 'in' : ''}}" style="z-index: {{zIndex}};">
+  <view class="sheet-mask" bindtap="onMask" catchtouchmove="noop"></view>
+  <view class="sheet-panel" aria-role="dialog" aria-label="{{title}}">
+    <view wx:if="{{title}}" class="sheet-head" catchtouchmove="noop">
+      <text class="sheet-title">{{title}}</text>
+      <view class="sheet-close" hover-class="pressed" bindtap="onCancel" aria-role="button" aria-label="关闭">
+        <image class="ico-20" src="/assets/icons/close-gray.svg" />
+      </view>
+    </view>
+    <view class="sheet-body">
+      <slot></slot>
+    </view>
+    <view wx:if="{{actions}}" class="sheet-foot" catchtouchmove="noop">
+      <view class="btn btn-md btn-outline sheet-btn" hover-class="pressed" bindtap="onCancel">{{cancelText}}</view>
+      <view class="btn btn-md btn-primary sheet-btn {{confirmDisabled ? 'disabled' : ''}}" hover-class="{{confirmDisabled ? 'none' : 'pressed'}}" bindtap="onConfirm" aria-disabled="{{confirmDisabled}}">{{confirmText}}</view>
+    </view>
+    <slot name="footer"></slot>
+  </view>
+</view>

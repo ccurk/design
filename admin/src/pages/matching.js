@@ -93,6 +93,14 @@ export default {
         nextTick(() => document.getElementById(`proposal-${s.focusId}`)?.scrollIntoView({ block: 'start' }));
       }
     });
+    // 确认表单一改，上一次的错误提示（包括时间重叠）就收起来
+    watch(
+      () => s.form,
+      () => {
+        s.formErr = '';
+      },
+      { deep: true },
+    );
     watch(
       () => route.query.tab,
       (tab) => {
@@ -144,12 +152,25 @@ export default {
       return s.pool.filter((i) => i.task === p.task && !inGroup.has(i.user.id));
     }
 
-    /** 候选人和这个方案对不对得上 */
+    /** 意向的时间：「下午」「14:00–17:00」（接口的 timeLabel，旧数据退回 slotLabel） */
+    const timeOf = (i) => i.timeLabel || i.slotLabel || '';
+    /** 撮合池里一行：标题已经带时间的（「周日 14:00–17:00 · 骑行」）就不再重复 */
+    function poolLine(q) {
+      const t = timeOf(q);
+      return [q.title, t && !String(q.title).includes(t) ? t : '', q.area].filter(Boolean).join(' · ');
+    }
+
+    /** 候选人和这个方案对不对得上（时间按时间窗算：交集至少 60 分钟） */
     function compatNote(i, p) {
       if (p.date < i.dateFrom || p.date > i.dateTo) return `日期对不上：TA 是 ${fmt.md(i.dateFrom)}${i.dateTo !== i.dateFrom ? `–${fmt.md(i.dateTo)}` : ''}`;
       if (i.area !== p.area) return `地区不同：TA 在${i.area}`;
+      const groupWindow = p.window && p.window.from && p.window.to ? [p.window.from, p.window.to] : null;
+      if (groupWindow) {
+        if (fmt.overlapMinutes(fmt.intentWindow(i), groupWindow) < 60) return `时间对不上：TA 是${timeOf(i)}，大家是 ${groupWindow.join('–')}`;
+        return '时间对得上';
+      }
       const slotOk = i.slot === p.slot || i.slot === 'allday' || i.relaxTime || p.slot === 'allday';
-      if (!slotOk) return `时间段不同：TA 只有${i.slotLabel}有空`;
+      if (!slotOk) return `时间段不同：TA 只有${timeOf(i)}有空`;
       return '时间对得上';
     }
 
@@ -207,10 +228,12 @@ export default {
 
     function openEdit(p) {
       if (!sizeOk(p)) return;
+      // 集合时间默认用服务端算好的 defaultStartAt（有人用了自定义时间段时取大家都有空的开始）
+      const start = fmt.bj(p.defaultStartAt);
       s.form = {
         title: p.title,
-        date: p.date,
-        time: fmt.defaultStart(p.task, p.slot),
+        date: start ? start.date : p.date,
+        time: start ? `${start.hh}:${start.mm}` : fmt.defaultStart(p.task, p.slot),
         durationMin: fmt.defaultDuration(p.task),
         place: p.area || '',
         meetingPoint: '',
@@ -272,24 +295,36 @@ export default {
       };
       if (f.feeType !== 'free' && f.feeEstimate !== '' && f.feeEstimate !== null) body.feeEstimate = Number(f.feeEstimate);
       s.formErr = '';
+      if (s.busy) return;
+      s.busy = true;
       try {
-        const ok = await mutate(async () => {
-          await api(`/admin/proposals/${p.id}/confirm`, { method: 'POST', body });
-          s.pending = s.pending.filter((x) => x.id !== p.id);
-          s.mode = null;
-          showBanner(`已发邀请给 ${n} 人：「${title}」。都点「加入」就自动成群。`, {
-            actionLabel: '去看看',
-            action: () => {
-              s.tab = 'invited';
-            },
-          });
-        }, '没能确认');
-        if (ok) {
-          refreshBadges();
-          load();
-        }
+        await api(`/admin/proposals/${p.id}/confirm`, { method: 'POST', body });
+        s.pending = s.pending.filter((x) => x.id !== p.id);
+        s.mode = null;
+        showBanner(`已发邀请给 ${n} 人：「${title}」。都点「加入」就自动成群。`, {
+          actionLabel: '去看看',
+          action: () => {
+            s.tab = 'invited';
+          },
+        });
+        refreshBadges();
+        load();
       } catch (e) {
-        s.formErr = e.message;
+        if (e.code === 'NOT_FOUND') {
+          failBanner(e, '没能确认');
+          await load();
+        } else if (e.code === 'CONFLICT') {
+          // 409 有两种：方案已经被处理了（刷新后就不在待确认里了），或者有成员这个时间已经有局（「和 X 已加入的「…」时间重叠了」）
+          s.formErr = e.message;
+          await load();
+          if (!s.pending.some((x) => x.id === p.id)) failBanner(e, '没能确认');
+          else focusSoon(`#f-err-${p.id}`);
+        } else {
+          s.formErr = e.message;
+          focusSoon(`#f-err-${p.id}`);
+        }
+      } finally {
+        s.busy = false;
       }
     }
 
@@ -441,6 +476,8 @@ export default {
       rangeText,
       paceLabel,
       candidates,
+      timeOf,
+      poolLine,
       compatNote,
       sortedPool,
       autoText,
@@ -500,6 +537,7 @@ export default {
               <div class="proposal__info">
                 <div class="title-row"><h2 :id="'p-title-' + p.id" class="card-title">{{ p.title }}</h2><span class="pill pill--gray">{{ fmt.categoryLabel(p.category) }}</span></div>
                 <span class="proposal__meta">{{ proposalMeta(p) }} · {{ p.members.length }} 人（大家约好 {{ rangeText(p) }}）</span>
+                <span v-if="fmt.windowText(p)" class="proposal__window"><Icon name="check" :size="14" stroke="#193543" :weight="2.4" />{{ fmt.windowText(p) }}</span>
                 <span class="proposal__made">系统配出 · {{ fmt.ago(p.createdAt) }}</span>
               </div>
             </div>
@@ -511,6 +549,7 @@ export default {
                   <span class="member__name">{{ m.user.nickname }}</span>
                   <span class="tags">
                     <span class="tag">履约 {{ m.user.creditRate }}%</span>
+                    <span v-if="timeOf(m)" class="tag tag--time">{{ timeOf(m) }}</span>
                     <span v-if="paceLabel(m.pace)" class="tag">{{ paceLabel(m.pace) }}</span>
                     <span v-if="m.isNew" class="tag tag--tint">新人</span>
                     <span v-if="m.user.creditLevel === 'fair'" class="tag tag--warn">信用一般</span>
@@ -553,7 +592,7 @@ export default {
                   <Avatar :user="c.user" :size="32" />
                   <div class="cand__body">
                     <span class="cand__name">{{ c.user.nickname }} · {{ c.isNew ? '第一次参加' : '履约 ' + c.user.creditRate + '%' }}</span>
-                    <span class="cand__sub">{{ c.title }} · {{ c.slotLabel }} · {{ c.area }} · {{ compatNote(c, p) }}</span>
+                    <span class="cand__sub">{{ poolLine(c) }} · {{ compatNote(c, p) }}</span>
                   </div>
                   <button type="button" class="btn btn--outline-primary btn--sm" :aria-label="'把 ' + c.user.nickname + ' 加进这个方案'" :disabled="s.busy" @click="addMember(p, c)">加进来</button>
                 </li>
@@ -604,7 +643,7 @@ export default {
                 <Stepper v-model="s.form.capacity" :min="p.members.length" :max="Math.max(p.members.length, bounds(p).max)" :labelledby="'cap-label-' + p.id" />
                 <span class="cap-row__hint">已配 {{ p.members.length }} 人，这组人约好最多 {{ bounds(p).max }} 人{{ s.form.capacity > p.members.length ? '；多出来的名额系统会从池子里补邀' : '' }}</span>
               </div>
-              <p v-if="s.formErr" class="form-error" role="alert">{{ s.formErr }}</p>
+              <p v-if="s.formErr" :id="'f-err-' + p.id" class="form-error" role="alert" tabindex="-1">{{ s.formErr }}</p>
               <div class="actions">
                 <button type="submit" class="btn btn--primary btn--lg" :disabled="s.busy">{{ s.busy ? '正在发出…' : '发出邀请（' + p.members.length + ' 人）' }}</button>
                 <button type="button" class="btn btn--outline btn--lg" @click="closeMode">先不发</button>
@@ -721,7 +760,7 @@ export default {
             <Avatar :user="q.user" :size="36" />
             <div class="pool__body">
               <span class="pool__name">{{ q.user.nickname }}<span v-if="q.isNew" class="pill pill--tint pill--xs">新人</span></span>
-              <span class="pool__intent">{{ q.title }} · {{ q.slotLabel }} · {{ q.area }}</span>
+              <span class="pool__intent">{{ poolLine(q) }}</span>
             </div>
             <div class="pool__wait">
               <span>{{ fmt.waitText(q.waitingHours) }}</span>

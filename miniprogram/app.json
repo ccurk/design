@@ -69,7 +69,17 @@
     "dz-empty": "/components/empty/empty",
     "dz-switch": "/components/switch/switch",
     "dz-event-card": "/components/event-card/event-card",
-    "dz-post-card": "/components/post-card/post-card"
+    "dz-sheet": "/components/sheet/sheet",
+    "dz-datetime-sheet": "/components/datetime-sheet/datetime-sheet",
+    "dz-timerange-sheet": "/components/timerange-sheet/timerange-sheet",
+    "dz-date-sheet": "/components/date-sheet/date-sheet",
+    "dz-place-sheet": "/components/place-sheet/place-sheet",
+    "dz-tag-sheet": "/components/tag-sheet/tag-sheet",
+    "dz-join-sheet": "/components/join-sheet/join-sheet",
+    "dz-aa-sheet": "/components/aa-sheet/aa-sheet",
+    "dz-uploader": "/components/uploader/uploader",
+    "dz-skeleton": "/components/skeleton/skeleton",
+    "dz-note-card": "/components/note-card/note-card"
   },
   "requiredPrivateInfos": [
     "chooseLocation"

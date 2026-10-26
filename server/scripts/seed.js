@@ -12,17 +12,18 @@ if (config.isProd && !process.argv.includes('--force')) {
 }
 
 const db = openDb(config.dbPath);
-const result = seed(db);
+const result = seed(db, { uploadDir: config.uploadDir }); // 配图复制进上传目录
 const count = (table) => db.get(`SELECT COUNT(*) AS n FROM ${table}`).n;
 
 console.log(`演示数据已写入 ${config.dbPath}`);
 console.log(
   `  用户 ${count('users')} · 局 ${count('events')} · 意向 ${count('intents')} · 待确认建议 ${
     db.get("SELECT COUNT(*) AS n FROM proposals WHERE status = 'pending'").n
-  } · 动态 ${count('posts')} · 评论 ${count('comments')} · 待处理举报 ${
+  } · 动态 ${count('posts')} · 评论 ${count('comments')} · 轮播图 ${count('banners')} · 标签 ${count('tags')} · 待处理举报 ${
     db.get("SELECT COUNT(*) AS n FROM reports WHERE status = 'pending'").n
   } · 申诉 ${count('appeals')}`,
 );
+console.log(`  配图已复制到 ${config.uploadDir}（seed-*.png）`);
 console.log(`  演示账号：栗子（userId=${result.users.lizi}），开发环境 POST /api/auth/dev-login 不传 userId 即登录`);
 console.log(`  后台密码：${config.adminPasswordMissing ? 'admin123（开发默认）' : '见 ADMIN_PASSWORD'}`);
 db.close();

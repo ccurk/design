@@ -1,9 +1,11 @@
 // AA 记账：平台不经手钱，只算账（docs/api.md 3.7）。金额内部按「分」计算，避免浮点误差。
+// 每个局只有一笔 AA：由一个成员把总花费一次性记下（可写包含哪些），其他人按人数平摊转给 TA。
+// 记了就锁定，不能再加第二笔；记账人在还没人点「我已转账」之前可以改或撤回。
 import { clock } from '../clock.js';
-import { blocked, forbidden, invalid, notFound } from '../errors.js';
+import { blocked, conflict, forbidden, invalid } from '../errors.js';
 import { checkText } from '../moderation.js';
 import { num, str } from '../validate.js';
-import { joinedMembers, memberRow, requireEvent } from './events.js';
+import { joinedMembers, memberRow, requireEvent, shortTitle } from './events.js';
 import { notify } from './notices.js';
 import { getUser, userBrief } from './users.js';
 
@@ -38,18 +40,25 @@ export function settleTransfers(balances) {
   return transfers;
 }
 
-/** 汇总：总额、每人、转账（含状态） */
+export function getBill(db, eventId) {
+  return db.get('SELECT * FROM aa_bills WHERE event_id = ?', eventId) || null;
+}
+
+/** 有人点过「我已转账」（或收款人已经确认收到）之后，账单就不能再改 / 撤回 */
+function anyTransferMarked(db, eventId) {
+  return Boolean(db.get('SELECT 1 FROM aa_transfers WHERE event_id = ? LIMIT 1', eventId));
+}
+
+/** 汇总：账单、总额、每人、转账（含状态） */
 export function aaSummary(db, event, viewerId) {
-  const items = db.all('SELECT * FROM aa_items WHERE event_id = ? ORDER BY id', event.id);
+  const bill = getBill(db, event.id);
   const members = joinedMembers(db, event.id).map((m) => m.user_id);
-  const totalCents = items.reduce((sum, it) => sum + toCents(it.amount), 0);
+  const totalCents = bill ? toCents(bill.amount) : 0;
   const eachCents = members.length ? Math.round(totalCents / members.length) : 0;
 
   const balances = new Map(members.map((id) => [id, -eachCents]));
-  for (const it of items) {
-    // 垫钱的人如果已经退出，不再分摊，但仍然要拿回垫付的钱
-    balances.set(it.payer_id, (balances.get(it.payer_id) ?? 0) + toCents(it.amount));
-  }
+  // 记账人如果已经退出，不再分摊，但仍然要拿回垫付的钱
+  if (bill) balances.set(bill.payer_id, (balances.get(bill.payer_id) ?? 0) + totalCents);
   const statusRows = db.all('SELECT * FROM aa_transfers WHERE event_id = ?', event.id);
   const statusOf = (from, to) =>
     statusRows.find((r) => r.from_user_id === from && r.to_user_id === to)?.status ?? 'pending';
@@ -61,7 +70,7 @@ export function aaSummary(db, event, viewerId) {
     status: statusOf(t.from, t.to),
     role: t.from === viewerId ? 'from' : t.to === viewerId ? 'to' : null,
   }));
-  return { items, total: toYuan(totalCents), each: toYuan(eachCents), memberCount: members.length, transfers };
+  return { bill, total: toYuan(totalCents), each: toYuan(eachCents), memberCount: members.length, transfers };
 }
 
 function requireAaMember(db, user, eventId) {
@@ -71,6 +80,8 @@ function requireAaMember(db, user, eventId) {
   return event;
 }
 
+const closed = (event) => ['cancelled', 'rejected'].includes(event.status);
+
 export function aaView(db, user, eventId) {
   const event = requireAaMember(db, user, eventId);
   const summary = aaSummary(db, event, user.id);
@@ -79,15 +90,19 @@ export function aaView(db, user, eventId) {
     if (!cache.has(id)) cache.set(id, userBrief(db, id));
     return cache.get(id);
   };
+  const { bill } = summary;
+  const mine = Boolean(bill && bill.payer_id === user.id);
   return {
-    items: summary.items.map((it) => ({
-      id: it.id,
-      name: it.name,
-      payer: brief(it.payer_id),
-      amount: toYuan(toCents(it.amount)),
-      mine: it.payer_id === user.id,
-      createdAt: it.created_at,
-    })),
+    bill: bill
+      ? {
+          payer: brief(bill.payer_id),
+          amount: toYuan(toCents(bill.amount)),
+          note: bill.note || null,
+          createdAt: bill.created_at,
+          mine,
+          editable: mine && !closed(event) && !anyTransferMarked(db, eventId),
+        }
+      : null,
     total: summary.total,
     each: summary.each,
     memberCount: summary.memberCount,
@@ -98,34 +113,85 @@ export function aaView(db, user, eventId) {
       status: t.status,
       role: t.role,
     })),
+    canDeclare: !bill && !closed(event),
   };
 }
 
-export function addItem(db, user, eventId, body) {
-  const event = requireAaMember(db, user, eventId);
-  if (['cancelled', 'rejected'].includes(event.status)) throw invalid('这个局已经取消了');
-  const name = str(body?.name, '花在哪', { min: 1, max: 20 });
-  const check = checkText(name);
-  if (!check.ok) throw blocked('记账名称里不能有联系方式或广告', check.reasons);
+/** {amount, note?}：金额 0.01–100000，最多两位小数；note 写包含哪些（≤ 40 字，过内容审核） */
+function parseBill(body) {
   const amount = num(body?.amount, '金额', { min: 0.01, max: 100000 });
   if (Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) throw invalid('金额最多保留两位小数');
-  db.insert('aa_items', {
-    event_id: eventId,
-    payer_id: user.id,
-    name,
-    amount: toYuan(toCents(amount)),
-    created_at: clock.iso(),
-  });
-  return aaView(db, user, eventId);
+  const note = str(body?.note, '说明', { max: 40, optional: true }) || null;
+  if (note) {
+    const check = checkText(note);
+    if (!check.ok) throw blocked('AA 说明里不能有联系方式或广告', check.reasons);
+  }
+  return { amount: toYuan(toCents(amount)), note };
 }
 
-export function deleteItem(db, user, eventId, itemId) {
-  requireAaMember(db, user, eventId);
-  const item = db.get('SELECT * FROM aa_items WHERE id = ? AND event_id = ?', itemId, eventId);
-  if (!item) throw notFound('这笔账不存在');
-  if (item.payer_id !== user.id) throw forbidden('只能删除自己记的账');
-  db.run('DELETE FROM aa_items WHERE id = ?', itemId);
-  return aaView(db, user, eventId);
+const money = (yuan) => `¥${Number(yuan)}`;
+
+/** 通知其他成员：「阿野 记了这个局的 AA：共 ¥150（车费 + 早餐），每人 ¥30，转给阿野」 */
+function notifyBill(db, event, payer, verb) {
+  const summary = aaSummary(db, event, payer.id);
+  const bill = summary.bill;
+  const body = bill
+    ? `${payer.nickname} ${verb}这个局的 AA：共 ${money(summary.total)}${bill.note ? `（${bill.note}）` : ''}，每人 ${money(summary.each)}，转给${payer.nickname}`
+    : `${payer.nickname} 撤回了这个局的 AA`;
+  for (const m of joinedMembers(db, event.id)) {
+    if (m.user_id === payer.id) continue;
+    notify(db, m.user_id, {
+      type: 'aa_bill',
+      title: `AA 记账 · ${shortTitle(event.title)}`,
+      body,
+      link: `chat:${event.id}`,
+    });
+  }
+}
+
+/** 声明 AA：任何已加入的成员，每个局只能一次 */
+export function declareBill(db, user, eventId, body) {
+  return db.tx(() => {
+    const event = requireAaMember(db, user, eventId);
+    if (closed(event)) throw invalid('这个局已经取消了');
+    if (getBill(db, eventId)) throw conflict('这个局已经有人记过 AA 了');
+    const { amount, note } = parseBill(body);
+    const now = clock.iso();
+    db.insert('aa_bills', { event_id: eventId, payer_id: user.id, amount, note, created_at: now, updated_at: now });
+    notifyBill(db, event, user, '记了');
+    return aaView(db, user, eventId);
+  });
+}
+
+/** 只有记账人，且还没人点过「我已转账」 */
+function requireEditableBill(db, user, event) {
+  const bill = getBill(db, event.id);
+  if (!bill) throw conflict('这个局还没有记 AA');
+  if (bill.payer_id !== user.id) throw forbidden('只有记账的人可以修改');
+  if (closed(event)) throw invalid('这个局已经取消了');
+  if (anyTransferMarked(db, event.id)) throw conflict('已经有人转账了，不能再改');
+  return bill;
+}
+
+export function updateBill(db, user, eventId, body) {
+  return db.tx(() => {
+    const event = requireAaMember(db, user, eventId);
+    requireEditableBill(db, user, event);
+    const { amount, note } = parseBill(body);
+    db.run('UPDATE aa_bills SET amount = ?, note = ?, updated_at = ? WHERE event_id = ?', amount, note, clock.iso(), eventId);
+    notifyBill(db, event, user, '改了');
+    return aaView(db, user, eventId);
+  });
+}
+
+export function deleteBill(db, user, eventId) {
+  return db.tx(() => {
+    const event = requireAaMember(db, user, eventId);
+    requireEditableBill(db, user, event);
+    db.run('DELETE FROM aa_bills WHERE event_id = ?', eventId);
+    notifyBill(db, event, user, '撤回了');
+    return aaView(db, user, eventId);
+  });
 }
 
 function setTransferStatus(db, eventId, from, to, status) {

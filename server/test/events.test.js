@@ -54,10 +54,21 @@ describe('用户发起的局', () => {
     const detail = await s.ok('GET', `/api/events/${ev.id}`, { token: ta });
     assert.equal(detail.canJoin, true);
     let r = await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
-    assert.deepEqual(r, { myStatus: 'joined', eventStatus: 'open' });
-    assert.equal((await s.ok('GET', `/api/events/${ev.id}`, { token: ta })).chatOpen, true); // 用户局第一个人加入后开启群聊
+    assert.deepEqual(r, {
+      myStatus: 'joined',
+      eventStatus: 'open',
+      formed: false,
+      remaining: 1,
+      memberCount: 2,
+      capacity: 3,
+      exitDeadline: '2026-10-30T06:00:00.000Z', // 默认开场前 24 小时
+    });
+    assert.equal((await s.ok('GET', `/api/events/${ev.id}`, { token: ta })).chatOpen, false); // 群聊只在成群后开启
     r = await s.ok('POST', `/api/events/${ev.id}/join`, { token: tb });
-    assert.deepEqual(r, { myStatus: 'joined', eventStatus: 'formed' });
+    assert.equal(r.eventStatus, 'formed');
+    assert.equal(r.formed, true);
+    assert.equal(r.remaining, 0);
+    assert.equal((await s.ok('GET', `/api/events/${ev.id}`, { token: ta })).chatOpen, true);
     const msgs = await s.ok('GET', `/api/events/${ev.id}/messages`, { token: th });
     assert.ok(msgs.items.some((m) => m.text === '满员啦，群已自动建好 · 第一次见面，慢慢来'));
 
@@ -74,7 +85,8 @@ describe('用户发起的局', () => {
   test('开场前 24 小时内退出 → 临时鸽（cancel_late）；24 小时以上 → 不记录', async () => {
     const [host, a, b] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
     const [th, ta, tb] = await Promise.all([host, a, b].map((u) => s.login(u)));
-    const ev = await hostEvent(th, { capacity: 5 });
+    // 最晚退出时间设成开场前 2 小时，开场前 24 小时内还能退（但要记临时鸽）
+    const ev = await hostEvent(th, { capacity: 5, exitDeadline: '2026-10-31T04:00:00.000Z' });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: tb });
 
@@ -123,7 +135,11 @@ describe('用户发起的局', () => {
     const [host, a, b] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
     const [th, ta, tb] = await Promise.all([host, a, b].map((u) => s.login(u)));
     const ev = await hostEvent(th, { requireApproval: true, capacity: 4 });
-    assert.deepEqual(await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta }), { myStatus: 'applied', eventStatus: 'open' });
+    const applied = await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
+    assert.equal(applied.myStatus, 'applied');
+    assert.equal(applied.eventStatus, 'open');
+    assert.equal(applied.memberCount, 1);
+    assert.equal(applied.remaining, 3);
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: tb });
     assert.equal((await s.api('GET', `/api/events/${ev.id}/applications`, { token: ta })).status, 403);
     const apps = await s.ok('GET', `/api/events/${ev.id}/applications`, { token: th });
@@ -214,7 +230,8 @@ describe('用户发起的局', () => {
   test('广场分页与参数校验', async () => {
     const th = await s.login(makeUser(s.db));
     for (let i = 0; i < 3; i++) {
-      await hostEvent(th, { title: `读书局 ${i + 1}`, startAt: new Date(Date.parse(SAT_2PM) + i * 3600000).toISOString() });
+      // 同一个发起人的局时间不能重叠：每个 1 小时，前后接上
+      await hostEvent(th, { title: `读书局 ${i + 1}`, startAt: new Date(Date.parse(SAT_2PM) + i * 3600000).toISOString(), durationMin: 60 });
     }
     const p1 = await s.ok('GET', '/api/events?limit=2');
     assert.deepEqual(p1.items.map((e) => e.title), ['读书局 1', '读书局 2']);

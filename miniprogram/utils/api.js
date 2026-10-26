@@ -1,4 +1,4 @@
-// 所有接口集中在这里，路径与 docs/api.md 一一对应（tools/check.js 会核对）。
+// 所有接口集中在这里，路径与 docs/api.md、docs/changes-v0.3.md 对应（tools/check.js 会核对）。
 const { get, post, put, del } = require('./request');
 
 const q = (params) => {
@@ -25,21 +25,25 @@ module.exports = {
   unblock: (userId) => del(`/api/blocks/${userId}`),
   muteUser: (userId) => post(`/api/mutes/${userId}`),
 
-  // 4.3 撮合意向与撮合结果
-  createIntent: (data) => post('/api/intents', data),
+  // v0.3 首页与标签
+  home: (opts) => get('/api/home', {}, opts),
+  hotTags: (opts) => get('/api/tags/hot', {}, opts),
+
+  // 4.3 撮合意向与撮合结果。createIntent：{task, when, slot} 或 {task, when, timeFrom, timeTo}
+  createIntent: (data, opts) => post('/api/intents', data, opts),
   myIntents: (opts) => get('/api/intents/mine', {}, opts),
   intent: (id, opts) => get(`/api/intents/${id}`, {}, opts),
   updateIntent: (id, data) => put(`/api/intents/${id}`, data),
   cancelIntent: (id) => del(`/api/intents/${id}`),
-  match: (eventId) => get(`/api/matches/${eventId}`),
-  acceptMatch: (eventId) => post(`/api/matches/${eventId}/accept`),
+  match: (eventId, opts) => get(`/api/matches/${eventId}`, {}, opts),
+  acceptMatch: (eventId, opts) => post(`/api/matches/${eventId}/accept`, {}, opts),
   declineMatch: (eventId) => post(`/api/matches/${eventId}/decline`),
 
   // 4.4 局
   events: (params) => get('/api/events', q(params)),
   event: (id, opts) => get(`/api/events/${id}`, {}, opts),
-  createEvent: (data) => post('/api/events', data),
-  join: (id) => post(`/api/events/${id}/join`),
+  createEvent: (data, opts) => post('/api/events', data, opts),
+  join: (id, opts) => post(`/api/events/${id}/join`, {}, opts),
   leave: (id) => post(`/api/events/${id}/leave`),
   cancelEvent: (id) => post(`/api/events/${id}/cancel`),
   applications: (id) => get(`/api/events/${id}/applications`, {}, { silent: true }),
@@ -58,9 +62,11 @@ module.exports = {
   nextIcebreaker: (id) => post(`/api/events/${id}/icebreaker/next`),
   eventInfo: (id) => get(`/api/events/${id}/info`),
   muteEvent: (id, muted) => put(`/api/events/${id}/mute`, { muted }),
-  aa: (id) => get(`/api/events/${id}/aa`),
-  addAA: (id, data) => post(`/api/events/${id}/aa/items`, data),
-  deleteAA: (id, itemId) => del(`/api/events/${id}/aa/items/${itemId}`),
+  // v0.3 AA：每个局只有一笔，由垫钱的人一次声明
+  aa: (id, opts) => get(`/api/events/${id}/aa`, {}, opts),
+  declareAA: (id, data) => post(`/api/events/${id}/aa`, data),
+  updateAA: (id, data) => put(`/api/events/${id}/aa`, data),
+  withdrawAA: (id) => del(`/api/events/${id}/aa`),
   aaPaid: (id, toUserId) => post(`/api/events/${id}/aa/paid`, { toUserId }),
   aaConfirm: (id, fromUserId) => post(`/api/events/${id}/aa/confirm`, { fromUserId }),
 
@@ -70,7 +76,7 @@ module.exports = {
 
   // 4.7 动态
   posts: (cursor) => get('/api/posts', q({ cursor })),
-  post: (id) => get(`/api/posts/${id}`),
+  post: (id, opts) => get(`/api/posts/${id}`, {}, opts),
   createPost: (data) => post('/api/posts', data),
   deletePost: (id) => del(`/api/posts/${id}`),
   like: (id) => post(`/api/posts/${id}/like`),

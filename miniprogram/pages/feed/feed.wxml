@@ -1,23 +1,35 @@
 <view class="page">
   <view class="head">
     <view class="big-title">动态</view>
-    <view class="compose" hover-class="pressed" bindtap="goCompose" aria-label="发动态">
+    <view class="compose" hover-class="pressed" bindtap="goCompose" aria-role="button" aria-label="发动态">
       <image class="ico-20" src="/assets/icons/plus-white.svg" />
     </view>
   </view>
   <view class="sub">局结束后的花絮，先看看氛围再决定去不去</view>
 
-  <view class="list">
-    <dz-post-card wx:for="{{posts}}" wx:key="id" post="{{item}}" bindlike="onLike" bindmore="onMore" bindopen="onOpen" />
-  </view>
+  <dz-skeleton wx:if="{{loading}}" type="feed" />
 
-  <view wx:if="{{loading && !posts.length}}" class="loading">加载中…</view>
-  <dz-empty wx:elif="{{!posts.length}}" title="{{error ? '暂时加载不出来' : '还没有动态'}}" desc="{{error ? error : '局结束后，来这里留点花絮吧。'}}" icon="/assets/icons/image-primary.svg">
-    <view wx:if="{{error}}" class="btn btn-sm btn-primary" bindtap="refresh">再试一次</view>
-    <view wx:else class="btn btn-sm btn-primary" bindtap="goCompose">发一条</view>
+  <dz-empty wx:elif="{{error && empty}}" title="暂时加载不出来" desc="{{error}}" icon="/assets/icons/image-primary.svg">
+    <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="retry">再试一次</view>
   </dz-empty>
-  <view wx:elif="{{loadingMore}}" class="load-more">加载中…</view>
-  <view wx:elif="{{!nextCursor}}" class="load-more">没有更多了</view>
+
+  <dz-empty wx:elif="{{empty}}" title="还没有动态" desc="局结束后，来这里留点花絮吧。" icon="/assets/icons/image-primary.svg">
+    <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="goCompose">发一条</view>
+  </dz-empty>
+
+  <block wx:else>
+    <view class="falls">
+      <view class="fall">
+        <dz-note-card wx:for="{{left}}" wx:key="id" post="{{item}}" bindopen="onOpen" bindlike="onLike" bindmore="onMore" bindsize="onSize" />
+      </view>
+      <view class="fall">
+        <dz-note-card wx:for="{{right}}" wx:key="id" post="{{item}}" bindopen="onOpen" bindlike="onLike" bindmore="onMore" bindsize="onSize" />
+      </view>
+    </view>
+    <view wx:if="{{loadingMore}}" class="load-more">加载中…</view>
+    <view wx:elif="{{moreError}}" class="load-more more-retry" hover-class="pressed" bindtap="loadMore">没加载出来，点一下重试</view>
+    <view wx:elif="{{!nextCursor}}" class="load-more">没有更多了</view>
+  </block>
 
   <view class="tab-space"></view>
 </view>

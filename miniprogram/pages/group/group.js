@@ -1,9 +1,12 @@
-// 成局群聊：页面可见时每 3 秒拉一次新消息；破冰话题；集合小任务「我到了」；AA / 照片 / 位置
+// 成局群聊（只在成群后开启）：页面可见时每 3 秒拉一次新消息；破冰话题；集合小任务「我到了」；
+// 顶部 AA 卡片（一次声明的那笔：谁垫付、每人多少、我要转给谁）；照片 / 位置
 const api = require('../../utils/api');
 const format = require('../../utils/format');
 const native = require('../../utils/native');
 
 const POLL_MS = 3000;
+// AA 卡片每 30 秒刷新一次（也会在有人记账的系统消息出现时刷新）
+const AA_EVERY = 10;
 const ICE_KEY = 'dz_ice_hidden_';
 
 Page({
@@ -12,6 +15,9 @@ Page({
     closed: false,
     closedTitle: '',
     closedDesc: '',
+    closedShare: false,
+    closedProgress: null,
+    aa: { show: false },
     subtitle: '',
     task: { show: false },
     headSystem: null,
@@ -46,8 +52,17 @@ Page({
   onShow() {
     if (!this.ready) return;
     this.refreshEvent();
+    this.loadAA();
     this.fetch(false);
     this.startPoll();
+  },
+
+  onShareAppMessage() {
+    const ev = this.event;
+    return {
+      title: ev ? (ev.remaining > 0 ? '还差 ' + ev.remaining + ' 人：' : '') + ev.title : '活动搭子 · 大理兴趣局',
+      path: '/pages/detail/detail?id=' + this.id
+    };
   },
 
   onHide() {
@@ -65,21 +80,23 @@ Page({
         this.applyEvent(ev);
         if (!ev.chatOpen) {
           const joined = ev.myStatus === 'joined';
+          const remaining = typeof ev.remaining === 'number' ? ev.remaining : Math.max(0, (ev.capacity || 0) - (ev.memberCount || 0));
           let closedTitle = '加入这个局后才能看到群聊';
           let closedDesc = '只在同一个局里聊天，防骚扰。';
+          let closedProgress = null;
           if (ev.status === 'cancelled') {
             closedTitle = '这个局已经取消了';
             closedDesc = '换个时间再约，或者去广场看看别的局。';
-          } else if (joined && ev.source === 'matched') {
-            closedTitle = '人齐了群聊会自动打开';
-            closedDesc = '先等其他人确认，满员后会通知你。';
           } else if (joined) {
-            closedTitle = '再有人加入，群聊就开了';
-            closedDesc = '有人加入时会通知你。';
+            // 群聊只在成群后开启（满员，或到最晚退出时间人数够了）
+            closedTitle = '还差 ' + remaining + ' 人成群，群聊就开了';
+            closedDesc = ev.source === 'matched' ? '等其他人确认，人齐了第一时间通知你。' : '人齐了第一时间通知你，群聊会自动建好。';
+            closedProgress = { pct: ev.capacity ? Math.round(((ev.memberCount || 0) / ev.capacity) * 100) : 0, text: (ev.memberCount || 0) + '/' + ev.capacity + ' 人' };
           }
-          this.setData({ loading: false, closed: true, closedTitle, closedDesc });
+          this.setData({ loading: false, closed: true, closedTitle, closedDesc, closedProgress, closedShare: joined && ev.source !== 'matched' && ev.status === 'open' });
           return null;
         }
+        this.loadAA();
         return this.fetch(true).then(() => {
           this.ready = true;
           this.setData({ loading: false });
@@ -155,6 +172,8 @@ Page({
     const fresh = items.filter((m) => m && m.id > this.lastId).sort((a, b) => a.id - b.id);
     if (!fresh.length) return;
     fresh.forEach((m) => this.msgs.push(m));
+    // 有人记了 / 改了 AA，顺手刷新顶部卡片
+    if (this.ready && fresh.some((m) => /AA/.test(m.text || ''))) this.loadAA();
     this.lastId = fresh[fresh.length - 1].id;
     let head = null;
     let list = this.msgs;
@@ -167,7 +186,62 @@ Page({
 
   startPoll() {
     this.stopPoll();
-    this.timer = setInterval(() => this.fetch(false), POLL_MS);
+    this.ticks = 0;
+    this.timer = setInterval(() => {
+      this.fetch(false);
+      this.ticks += 1;
+      if (this.ticks % AA_EVERY === 0) this.loadAA();
+    }, POLL_MS);
+  },
+
+  // ---- AA 卡片 ----
+  loadAA() {
+    return api
+      .aa(this.id, { silent: true })
+      .then((res) => this.setData({ aa: this.aaCard(res) }))
+      .catch(() => {});
+  },
+
+  aaCard(res) {
+    const b = res && res.bill;
+    const ev = this.event || {};
+    if (!b) {
+      // 活动开始后才提醒「谁垫了钱」
+      const show = !!(res && res.canDeclare && (ev.phase === 'ongoing' || ev.phase === 'ended'));
+      return show ? { show: true, empty: true, title: '谁垫了钱？记一笔 AA', text: '一次记下总花费，大家按人数转给他', button: '记一笔' } : { show: false };
+    }
+    const payer = b.mine ? '我' : (b.payer && b.payer.nickname) || '';
+    const each = format.money(res.each);
+    const ts = res.transfers || [];
+    const mine = ts.filter((t) => t.role === 'from')[0];
+    const confirmed = ts.filter((t) => t.status === 'confirmed').length;
+    let text = '每人 ¥' + each;
+    let button = '';
+    let done = false;
+    if (mine && mine.status === 'pending') {
+      text = '每人 ¥' + each + '，你转给' + payer;
+      button = '去转账';
+    } else if (mine && mine.status === 'paid') {
+      text = '你已转 ¥' + each + '，等' + payer + '确认';
+    } else if (mine && mine.status === 'confirmed') {
+      text = '你已结清';
+      done = true;
+    } else if (b.mine) {
+      done = ts.length > 0 && confirmed === ts.length;
+      text = done ? '大家都转好了' : '每人 ¥' + each + ' · ' + confirmed + '/' + ts.length + ' 人已结清';
+      if (ts.some((t) => t.status === 'paid')) button = '去确认';
+    } else if (ts.length && confirmed === ts.length) {
+      text = '每人 ¥' + each + ' · 已结清';
+      done = true;
+    }
+    return {
+      show: true,
+      empty: false,
+      title: 'AA · ' + payer + ' 垫付 ¥' + format.money(b.amount) + (b.note ? '（' + b.note + '）' : ''),
+      text,
+      button,
+      done
+    };
   },
 
   stopPoll() {

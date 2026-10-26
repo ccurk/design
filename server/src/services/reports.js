@@ -5,6 +5,7 @@ import { REPORT_ACTIONS, REPORT_TARGETS } from '../constants.js';
 import { json } from '../db.js';
 import { blocked, conflict, invalid, notFound } from '../errors.js';
 import { checkContact } from '../moderation.js';
+import { absUrls, storeUrl } from '../urls.js';
 import { oneOf, str, strArray } from '../validate.js';
 import { effectiveStatus, restrictUser } from './credit.js';
 import { canViewEvent, cancelEvent, getEvent, memberRow } from './events.js';
@@ -65,7 +66,7 @@ export function createReport(db, user, body) {
   if (!Number.isInteger(targetId) || targetId <= 0) throw invalid('举报对象不正确');
   const reason = str(body?.reason, '举报原因', { min: 1, max: 30 });
   const detail = str(body?.detail, '补充说明', { max: 500, optional: true });
-  const images = strArray(body?.images ?? [], '截图', { maxItems: 3, maxLen: 500 });
+  const images = strArray(body?.images ?? [], '截图', { maxItems: 3, maxLen: 500 }).map(storeUrl);
   const target = resolveTarget(db, targetType, targetId);
   if (!target) throw notFound('被举报的内容不存在');
   if (targetType === 'message' && !memberRow(db, target.eventId, user.id)) throw notFound('被举报的内容不存在');
@@ -111,7 +112,7 @@ export function adminReportView(db, r) {
     id: r.id,
     reason: r.reason,
     detail: r.detail,
-    images: json.parse(r.images, []),
+    images: absUrls(db, json.parse(r.images, [])),
     targetType: r.target_type,
     targetId: r.target_id,
     preview: target ? String(target.preview).slice(0, 120) : '（内容已不存在）',

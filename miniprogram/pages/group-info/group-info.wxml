@@ -6,7 +6,7 @@
 
 <view wx:else class="page">
   <view class="summary" hover-class="pressed" bindtap="openDetail">
-    <dz-cover variant="tile" size="52" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+    <dz-cover variant="tile" size="52" image="{{event.cover}}" cover-key="{{event.coverKey}}" category="{{event.category}}" task="{{event.tag || event.task}}" title="{{event.title}}" />
     <view class="flex1 col gap-3">
       <text class="t-16 w8 ellipsis">{{event.title}}</text>
       <text class="t-13 c-2 ellipsis">{{when}}</text>
@@ -32,7 +32,7 @@
   <view class="list-card mx-16 mt-12">
     <view class="list-row member" hover-class="pressed" bindtap="openAA">
       <image class="ico-20" src="/assets/icons/wallet-ink.svg" />
-      <text class="flex1 t-15 w5">AA 记账</text>
+      <text class="flex1 t-15 w5">AA</text>
       <text class="t-12 c-2">{{aaText}}</text>
       <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
     </view>
@@ -48,10 +48,11 @@
       <image class="ico-16" src="/assets/icons/flag-ink.svg" />
       <text>举报这个局</text>
     </view>
-    <view wx:if="{{canLeave}}" class="btn btn-sm btn-danger-outline flex1 t-14" hover-class="pressed" bindtap="leave">
-      <image class="ico-16" src="/assets/icons/exit-danger.svg" />
+    <view wx:if="{{showLeave}}" class="btn btn-sm flex1 t-14 {{leaveOff ? 'btn-outline leave-off' : 'btn-danger-outline'}}" hover-class="{{leaveOff ? 'none' : 'pressed'}}" bindtap="leave" aria-disabled="{{leaveOff}}">
+      <image class="ico-16" src="{{leaveOff ? '/assets/icons/lock-gray.svg' : '/assets/icons/exit-danger.svg'}}" />
       <text>{{isHost ? '取消这个局' : '退出这个局'}}</text>
     </view>
   </view>
+  <view wx:if="{{showLeave && leaveOff}}" class="leave-reason">{{leaveReason}}</view>
   <view class="bottom-pad"></view>
 </view>

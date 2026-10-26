@@ -1,13 +1,58 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="detail" />
 
 <dz-empty wx:elif="{{error}}" title="这条动态看不到了" desc="{{error}}" icon="/assets/icons/image-primary.svg">
-  <view class="btn btn-sm btn-primary" bindtap="goFeed">回到动态</view>
+  <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="retry">重新加载</view>
+  <view class="btn btn-sm btn-ghost" hover-class="pressed" bindtap="goFeed">回到动态</view>
 </dz-empty>
 
 <view wx:else class="post-page">
-  <scroll-view scroll-y enhanced class="scroll" scroll-into-view="{{intoView}}" refresher-enabled="{{false}}">
+  <scroll-view scroll-y enhanced="{{true}}" class="scroll" scroll-into-view="{{intoView}}">
+    <!-- 图片：左右滑，点开看大图 -->
+    <view wx:if="{{post.images.length}}" class="gallery" style="height: {{galleryH}}rpx;">
+      <swiper class="gallery-swiper" style="height: {{galleryH}}rpx;" current="{{current}}" bindchange="onSwiper">
+        <swiper-item wx:for="{{post.images}}" wx:key="*this">
+          <image class="gallery-img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="preview" bindload="onImgLoad" />
+        </swiper-item>
+      </swiper>
+      <view wx:if="{{post.images.length > 1}}" class="dots">
+        <view wx:for="{{post.images}}" wx:key="*this" class="dot {{current === index ? 'on' : ''}}"></view>
+      </view>
+      <text wx:if="{{post.images.length > 1}}" class="gallery-count">{{current + 1}}/{{post.images.length}}</text>
+    </view>
+
     <view class="inner">
-      <dz-post-card post="{{post}}" detail="{{true}}" bindlike="onLike" bindmore="onMore" />
+      <view class="author">
+        <view class="author-main" hover-class="pressed" bindtap="openAuthor">
+          <dz-avatar user="{{post.author}}" size="40" />
+          <view class="flex1 col">
+            <text class="t-15 w7 ellipsis">{{post.author.nickname}}</text>
+            <text class="t-12 c-2">{{post.time}} · 履约 {{post.author.creditRate}}%</text>
+          </view>
+        </view>
+        <text wx:if="{{post.pending}}" class="pill pill-pill">审核中</text>
+        <view class="round" hover-class="pressed" bindtap="onMore" aria-role="button" aria-label="更多操作">
+          <image class="ico-20" src="/assets/icons/more-gray.svg" />
+        </view>
+      </view>
+
+      <view wx:if="{{post.text}}" class="text">{{post.text}}</view>
+
+      <view wx:if="{{post.event}}" class="from" hover-class="pressed" bindtap="openEvent">
+        <image class="ico-14" src="/assets/icons/hash-ink.svg" />
+        <text class="flex1 ellipsis">来自局：{{post.eventTitle}}</text>
+        <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+      </view>
+
+      <view class="acts">
+        <view class="act" hover-class="pressed" bindtap="onLike" aria-role="button" aria-checked="{{post.liked}}" aria-label="喜欢 {{post.likeCount}}">
+          <image class="ico-20" src="{{post.liked ? '/assets/icons/heart-fill-danger.svg' : '/assets/icons/heart-ink.svg'}}" />
+          <text>{{post.likeCount}}</text>
+        </view>
+        <view class="act">
+          <image class="ico-20" src="/assets/icons/chat-ink.svg" />
+          <text>{{comments.length}}</text>
+        </view>
+      </view>
 
       <view class="count-head">
         <text class="t-15 w8">评论</text>
@@ -35,7 +80,7 @@
 
   <view class="composer" style="{{composerStyle}}">
     <input class="composer-input" value="{{draft}}" placeholder="{{replyTo ? '回复 ' + replyTo.nickname + '：' : '说点什么…'}}" placeholder-class="ph" confirm-type="send" adjust-position="{{false}}" focus="{{focus}}" maxlength="200" bindinput="onInput" bindconfirm="send" bindfocus="onFocus" bindblur="onBlur" bindkeyboardheightchange="onKeyboard" />
-    <view class="send-btn" hover-class="pressed" bindtap="send" aria-label="发送">
+    <view class="send-btn" hover-class="pressed" bindtap="send" aria-role="button" aria-label="发送">
       <image class="ico-18" src="/assets/icons/send-white.svg" />
     </view>
   </view>

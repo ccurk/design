@@ -38,6 +38,12 @@ function openLink(link) {
     go(s);
     return true;
   }
+  // 轮播图的 link 还可以是 square / create / feed / rules（docs/changes-v0.3.md E）
+  const named = { square: '/pages/square/square', create: '/pages/create/create', feed: '/pages/feed/feed', rules: '/pages/rules/rules', home: '/pages/home/home' };
+  if (named[s]) {
+    go(named[s]);
+    return true;
+  }
   // 「我的信用记录」在「我的」页里展开
   if (s === 'credit') {
     getApp().globalData.openCredit = true;

@@ -1,0 +1,58 @@
+<view class="sk" aria-label="加载中">
+  <block wx:if="{{type === 'home'}}">
+    <view class="sk-block sk-banner"></view>
+    <view class="sk-grid">
+      <view wx:for="{{[0,1,2,3,4,5,6,7,8,9]}}" wx:key="*this" class="sk-grid-item">
+        <view class="sk-block sk-tile"></view>
+        <view class="sk-block sk-line sk-w40"></view>
+      </view>
+    </view>
+    <view class="sk-block sk-card-lg"></view>
+  </block>
+
+  <block wx:elif="{{type === 'cards'}}">
+    <view wx:for="{{rows}}" wx:key="*this" class="sk-card">
+      <view class="sk-block sk-cover"></view>
+      <view class="sk-block sk-line sk-w60"></view>
+      <view class="sk-block sk-line sk-w40"></view>
+    </view>
+  </block>
+
+  <block wx:elif="{{type === 'feed'}}">
+    <view class="sk-cols">
+      <view class="sk-col">
+        <view class="sk-block sk-note sk-h1"></view>
+        <view class="sk-block sk-note sk-h2"></view>
+      </view>
+      <view class="sk-col">
+        <view class="sk-block sk-note sk-h2"></view>
+        <view class="sk-block sk-note sk-h1"></view>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{type === 'detail'}}">
+    <view class="sk-block sk-hero"></view>
+    <view class="sk-pad">
+      <view class="sk-block sk-line sk-w40"></view>
+      <view class="sk-block sk-title"></view>
+      <view wx:for="{{[0,1,2]}}" wx:key="*this" class="sk-row">
+        <view class="sk-block sk-icon"></view>
+        <view class="sk-col-flex">
+          <view class="sk-block sk-line sk-w60"></view>
+          <view class="sk-block sk-line sk-w40"></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view wx:for="{{rows}}" wx:key="*this" class="sk-row sk-list-row">
+      <view class="sk-block sk-thumb"></view>
+      <view class="sk-col-flex">
+        <view class="sk-block sk-line sk-w60"></view>
+        <view class="sk-block sk-line sk-w40"></view>
+      </view>
+    </view>
+  </block>
+</view>

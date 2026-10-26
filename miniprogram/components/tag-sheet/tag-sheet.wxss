@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+.tg {
+  padding: 0 40rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.tg-label {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #5B5F68;
+}
+.tg-chip {
+  font-size: 28rpx;
+  padding: 0 28rpx;
+}
+.tg-field {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  height: 100rpx;
+  padding: 0 28rpx;
+  border-radius: 28rpx;
+  border: 1px solid #D3DAE0;
+  background: #FFFFFF;
+}
+.tg-field.active {
+  border: 2rpx solid #193543;
+}
+.tg-field.bad {
+  border: 2rpx solid #B42318;
+}
+.tg-input {
+  flex: 1;
+  min-width: 0;
+  height: 96rpx;
+  font-size: 30rpx;
+}
+.tg-hint {
+  min-height: 36rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #5B5F68;
+}

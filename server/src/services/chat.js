@@ -5,7 +5,7 @@ import { blocked, forbidden } from '../errors.js';
 import { checkText } from '../moderation.js';
 import { str } from '../validate.js';
 import { aaSummary } from './aa.js';
-import { eventDetail, isChatOpen, joinedCount, joinedMembers, memberRow, requireEvent } from './events.js';
+import { eventDetail, isChatOpen, joinedMembers, memberRow, requireEvent } from './events.js';
 import { userBrief } from './users.js';
 
 function requireJoined(db, user, eventId, message = '加入这个局后才能看群聊') {
@@ -54,13 +54,13 @@ export function listMessages(db, user, eventId, { after = null } = {}) {
   return {
     items: rows.map((r) => messageView(db, r, user.id, cache)),
     icebreaker: icebreakerView(event),
-    chatOpen: isChatOpen(event, joinedCount(db, eventId)),
+    chatOpen: isChatOpen(event),
   };
 }
 
 export function postMessage(db, user, eventId, body) {
   const { event } = requireJoined(db, user, eventId, '加入这个局后才能发消息');
-  if (!isChatOpen(event, joinedCount(db, eventId))) throw forbidden('群聊还没开启，成局后就能聊了');
+  if (!isChatOpen(event)) throw forbidden('群聊还没开启，成群后就能聊了');
   const text = str(body?.text, '消息', { min: 1, max: 500 });
   const check = checkText(text);
   if (!check.ok) throw blocked('群聊里不能发联系方式或广告', check.reasons);

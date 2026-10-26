@@ -63,7 +63,7 @@ describe('举报与处理', () => {
     const [ta, tb] = [await s.login(a), await s.login(b)];
     const ev = await s.ok('POST', '/api/events', {
       token: ta,
-      body: { title: '吃饭局', category: 'food', startAt: '2026-10-31T06:00:00.000Z', place: '人民路', capacity: 4, feeType: 'aa' },
+      body: { title: '吃饭局', category: 'food', startAt: '2026-10-31T06:00:00.000Z', place: '人民路', capacity: 2, feeType: 'aa' },
     });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: tb });
     const msg = await s.ok('POST', `/api/events/${ev.id}/messages`, { token: tb, body: { text: '我朋友的店能打折，回头私下找我' } });

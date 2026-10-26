@@ -1,11 +1,11 @@
 // 「我的局」：进行中（含撮合中的意向）/ 已结束 / 我发起的。
 import { clock, DAY } from '../clock.js';
-import { intentTitle } from './intentFormat.js';
+import { intentTimeLabel, intentTitle } from './intentFormat.js';
 import { similarCount } from './intents.js';
 import { endAt, eventCard, getEvent, joinedCount, phaseOf } from './events.js';
 import { hasSubmitted } from './reviews.js';
 import { sizeBounds } from './matchRules.js';
-import { rangeLabel, slotLabel } from '../time.js';
+import { rangeLabel } from '../time.js';
 
 const REVIEW_WINDOW = 7 * DAY;
 
@@ -38,7 +38,7 @@ function intentCard(db, intent, now) {
     category: intent.category,
     task: intent.task,
     startAt: null,
-    dateLabel: `${rangeLabel(intent.date_from, intent.date_to, now)} ${slotLabel(intent.slot, intent.task)}`,
+    dateLabel: `${rangeLabel(intent.date_from, intent.date_to, now)} ${intentTimeLabel(intent)}`,
     place: intent.area,
     capacity: intent.size_max,
     memberCount: similar + 1,

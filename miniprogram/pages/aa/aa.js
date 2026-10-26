@@ -1,11 +1,12 @@
-// AA 记账：记一笔（我垫付）、谁该转给谁、我已转账 / 确认收到。平台不经手钱。
+// AA：每个局只有一笔，由垫钱的人一次记下总花费，其他人按人数平摊转给他（docs/changes-v0.3.md D）。
+// 记了就锁定；有人点「我已转账」之前，记账人还能改或撤回。平台不经手钱。
 const api = require('../../utils/api');
 const format = require('../../utils/format');
 const native = require('../../utils/native');
 
 const STATUS = {
   pending: { text: '待转', cls: 'pill-accent' },
-  paid: { text: '等对方确认', cls: 'pill-accent' },
+  paid: { text: '等确认', cls: 'pill-accent' },
   confirmed: { text: '已结清', cls: 'pill-stone' }
 };
 
@@ -14,15 +15,17 @@ Page({
     loading: true,
     error: '',
     title: '',
+    bill: null,
     total: '0',
     each: '0',
     memberCount: 0,
-    items: [],
     transfers: [],
-    adding: false,
-    saving: false,
-    name: '',
-    amount: ''
+    canDeclare: false,
+    settled: false,
+    myTodo: '',
+    sheet: false,
+    editing: false,
+    busy: false
   },
 
   onLoad(query) {
@@ -44,109 +47,133 @@ Page({
 
   load() {
     return api
-      .aa(this.id)
+      .aa(this.id, { silent: true })
       .then((res) => this.render(res))
-      .catch((err) => this.setData({ loading: false, error: err.message }));
+      .catch((err) => this.setData({ loading: false, error: (err && err.message) || '网络不太好' }));
+  },
+
+  retry() {
+    this.setData({ loading: true, error: '' });
+    this.load();
   },
 
   render(res) {
-    const name = (u, role) => (role ? '我' : (u && u.nickname) || '');
-    const items = (res.items || []).map((it) => ({
-      id: it.id,
-      name: it.name,
-      mine: !!it.mine,
-      payerText: (it.mine ? '我' : (it.payer && it.payer.nickname) || '') + '垫付' + (it.mine ? ' · 点一下可删除' : ''),
-      amountText: format.money(it.amount)
-    }));
+    const b = res.bill;
+    const bill = b
+      ? {
+          payer: b.payer,
+          payerName: b.mine ? '我' : (b.payer && b.payer.nickname) || '',
+          amount: Number(b.amount) || 0,
+          amountText: format.money(b.amount),
+          note: b.note || '',
+          time: format.stamp(b.createdAt),
+          mine: !!b.mine,
+          editable: !!b.editable
+        }
+      : null;
+    let myTodo = '';
     const transfers = (res.transfers || []).map((t, i) => {
       let action = '';
       if (t.role === 'from' && t.status === 'pending') action = 'pay';
       if (t.role === 'to' && t.status === 'paid') action = 'confirm';
+      if (t.role === 'from' && t.status === 'pending') myTodo = '你需要转 ¥' + format.money(t.amount) + ' 给 ' + ((t.to && t.to.nickname) || '记账的人');
       const st = STATUS[t.status] || STATUS.pending;
       let statusText = st.text;
-      if (t.status === 'paid' && t.role !== 'from') statusText = '待确认';
+      if (t.status === 'paid' && t.role === 'from') statusText = '等对方确认';
       return {
         key: (t.from && t.from.id) + '-' + (t.to && t.to.id) + '-' + i,
+        from: t.from,
         fromId: t.from && t.from.id,
         toId: t.to && t.to.id,
-        fromName: name(t.from, t.role === 'from'),
-        toName: name(t.to, t.role === 'to'),
+        fromName: t.role === 'from' ? '我' : (t.from && t.from.nickname) || '',
+        toName: t.role === 'to' ? '我' : (t.to && t.to.nickname) || '',
         amountText: format.money(t.amount),
         action,
         statusText,
-        pillClass: st.cls
+        pillClass: st.cls,
+        done: t.status === 'confirmed'
       };
     });
     this.setData({
       loading: false,
       error: '',
-      items,
+      bill,
       transfers,
       total: format.money(res.total),
       each: format.money(res.each),
-      memberCount: res.memberCount || 0
+      memberCount: res.memberCount || 0,
+      canDeclare: !!res.canDeclare,
+      settled: !!bill && transfers.length > 0 && transfers.every((t) => t.done),
+      myTodo
     });
   },
 
-  startAdd() {
-    this.setData({ adding: true, name: '', amount: '' });
+  // 接口返回了新的 AA 视图就直接用，否则重新拉一次
+  apply(res) {
+    if (res && Object.prototype.hasOwnProperty.call(res, 'transfers')) this.render(res);
+    else return this.load();
   },
 
-  cancelAdd() {
-    this.setData({ adding: false });
+  openDeclare() {
+    if (!this.data.canDeclare) return;
+    this.setData({ sheet: true, editing: false });
   },
 
-  onName(e) {
-    this.setData({ name: e.detail.value });
+  openEdit() {
+    if (!this.data.bill || !this.data.bill.editable) return;
+    this.setData({ sheet: true, editing: true });
   },
 
-  onAmount(e) {
-    this.setData({ amount: e.detail.value });
+  closeSheet() {
+    this.setData({ sheet: false });
   },
 
-  save() {
-    if (this.data.saving) return;
-    const amount = Math.round(Number(this.data.amount) * 100) / 100;
-    if (!amount || amount <= 0) {
-      wx.showToast({ title: '金额要大于 0', icon: 'none' });
-      return;
-    }
-    this.setData({ saving: true });
-    api
-      .addAA(this.id, { name: (this.data.name || '').trim() || '其他花费', amount })
+  onSheetConfirm(e) {
+    if (this.data.busy) return;
+    const data = { amount: e.detail.amount, note: e.detail.note };
+    const editing = this.data.editing;
+    this.setData({ busy: true });
+    (editing ? api.updateAA(this.id, data) : api.declareAA(this.id, data))
       .then((res) => {
-        this.setData({ adding: false });
-        if (res && res.items) this.render(res);
-        else this.load();
+        this.setData({ sheet: false });
+        wx.showToast({ title: editing ? '已修改' : '记好了，已通知大家', icon: 'success' });
+        return this.apply(res);
       })
-      .catch(() => {})
-      .then(() => this.setData({ saving: false }));
+      .catch(() => this.load())
+      .then(() => this.setData({ busy: false }));
   },
 
-  onItem(e) {
-    const item = this.data.items[e.currentTarget.dataset.index];
-    if (!item || !item.mine) return;
-    native.actionSheet(['删除这笔'], { itemColor: '#B42318' }).then((i) => {
-      if (i !== 0) return;
-      api
-        .deleteAA(this.id, item.id)
-        .then((res) => {
-          if (res && res.items) this.render(res);
-          else this.load();
-        })
-        .catch(() => {});
+  manage() {
+    native.actionSheet(['修改金额或说明', '撤回这笔 AA']).then((i) => {
+      if (i === 0) this.openEdit();
+      if (i === 1) this.withdraw();
     });
+  },
+
+  withdraw() {
+    native
+      .confirm({ title: '撤回这笔 AA？', content: '撤回后大家不用再转给你，之后可以重新记一笔。', confirmText: '撤回', confirmColor: '#B42318' })
+      .then((ok) => {
+        if (!ok) return;
+        api
+          .withdrawAA(this.id)
+          .then((res) => {
+            wx.showToast({ title: '已撤回', icon: 'success' });
+            return this.apply(res);
+          })
+          .catch(() => this.load());
+      });
   },
 
   pay(e) {
     const t = this.data.transfers[e.currentTarget.dataset.index];
     if (!t) return;
-    native.confirm({ title: '已经转给 ' + t.toName + ' 了吗？', content: '在微信里转完 ¥' + t.amountText + ' 再点确认，对方收到后会清账。', confirmText: '已转账' }).then((ok) => {
+    native.confirm({ title: '已经转给 ' + t.toName + ' 了吗？', content: '在微信里转完 ¥' + t.amountText + ' 再点确认，对方收到后就清账。', confirmText: '已转账' }).then((ok) => {
       if (!ok) return;
       api
         .aaPaid(this.id, t.toId)
-        .then((res) => this.render(res))
-        .catch(() => {});
+        .then((res) => this.apply(res))
+        .catch(() => this.load());
     });
   },
 
@@ -157,9 +184,9 @@ Page({
       .aaConfirm(this.id, t.fromId)
       .then((res) => {
         wx.showToast({ title: '已确认收到', icon: 'success' });
-        this.render(res);
+        return this.apply(res);
       })
-      .catch(() => {});
+      .catch(() => this.load());
   },
 
   goBack() {

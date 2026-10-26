@@ -1,0 +1,62 @@
+<dz-sheet show="{{show}}" title="{{result ? '' : '确认加入'}}" actions="{{false}}" mask-close="{{!busy}}" bindclose="onClose">
+  <view wx:if="{{!result}}" class="js">
+    <view class="js-title">{{info.title}}</view>
+    <view class="js-rows">
+      <view class="js-row">
+        <image class="ico-18" src="/assets/icons/clock-gray.svg" />
+        <text class="flex1">{{info.when}}</text>
+      </view>
+      <view class="js-row">
+        <image class="ico-18" src="/assets/icons/pin-gray.svg" />
+        <text class="flex1">{{info.place}}</text>
+      </view>
+      <view wx:if="{{info.fee}}" class="js-row">
+        <image class="ico-18" src="/assets/icons/wallet-gray.svg" />
+        <text class="flex1">{{info.fee}}</text>
+      </view>
+      <view wx:if="{{info.exit}}" class="js-row">
+        <image class="ico-18" src="/assets/icons/hourglass-gray.svg" />
+        <text class="flex1">最晚 {{info.exit}} 前可以退出，之后就不能退了</text>
+      </view>
+    </view>
+    <view class="js-terms">
+      <text>活动由参与者自发组织，平台只提供信息撮合，不组织、不收费，也不对活动中的人身和财产安全承担责任。请选择公共场所见面，量力而行，注意安全；费用由大家自行 AA 结算。报名即表示你同意</text><text class="js-link" bindtap="openRules">《社区公约》</text><text>。</text>
+    </view>
+  </view>
+
+  <view wx:else class="js-done">
+    <view class="done-mark"><image class="ico-34" src="/assets/icons/check-ink.svg" /></view>
+    <block wx:if="{{result.formed}}">
+      <view class="done-title">满员啦，群已建好</view>
+      <view class="done-text">第一次见面，慢慢来。先去群里打个招呼吧。</view>
+    </block>
+    <block wx:elif="{{result.myStatus === 'applied'}}">
+      <view class="done-title">已申请，等发起人同意</view>
+      <view class="done-text">同意后会通知你。在这之前不用做什么。</view>
+    </block>
+    <block wx:else>
+      <view class="done-title">已加入，还差 {{result.remaining}} 人成群</view>
+      <view class="done-text">人齐了第一时间通知你，群聊也会自动建好。{{info.exit ? '最晚 ' + info.exit + ' 前可以退出。' : ''}}</view>
+    </block>
+  </view>
+
+  <view slot="footer" class="js-foot">
+    <block wx:if="{{!result}}">
+      <view class="btn btn-md btn-outline js-btn" hover-class="pressed" bindtap="onClose">再想想</view>
+      <view class="btn btn-md btn-primary js-btn js-main {{busy ? 'disabled' : ''}}" hover-class="{{busy ? 'none' : 'pressed'}}" bindtap="onConfirm">{{busy ? '加入中…' : confirmText}}</view>
+    </block>
+    <block wx:elif="{{result.formed}}">
+      <view class="btn btn-md btn-outline js-btn" hover-class="pressed" bindtap="onClose">稍后再说</view>
+      <view class="btn btn-md btn-primary js-btn js-main" hover-class="pressed" bindtap="onChat">进入群聊</view>
+    </block>
+    <block wx:else>
+      <button wx:if="{{share}}" class="native-btn js-btn" open-type="share" hover-class="none">
+        <view class="btn btn-md btn-outline" hover-class="pressed">
+          <image class="ico-16" src="/assets/icons/share-ink.svg" />
+          <text>邀请朋友</text>
+        </view>
+      </button>
+      <view class="btn btn-md btn-primary js-btn js-main" hover-class="pressed" bindtap="onClose">知道了</view>
+    </block>
+  </view>
+</dz-sheet>

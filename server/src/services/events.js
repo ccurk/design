@@ -1,13 +1,19 @@
-// 局：卡片 / 详情视图、可见性、广场、发起、报名、退出、轻确认、到场、报平安。
+// 局：卡片 / 详情视图、可见性、广场、发起、报名、退出、最晚退出时间、成群、轻确认、到场、报平安。
 import { clock, HOUR, MINUTE } from '../clock.js';
-import { CATEGORIES, FEE_TYPES, SYSTEM_MESSAGES, categoryOfTask } from '../constants.js';
+import { CATEGORIES, FEE_TYPES, GENDER_LIMITS, GENDER_LIMIT_LABELS, SYSTEM_MESSAGES, categoryOfTask } from '../constants.js';
+import { json } from '../db.js';
 import { conflict, forbidden, invalid, notFound, restricted } from '../errors.js';
 import { checkAll } from '../moderation.js';
-import { dateLabel, fullDateLabel } from '../time.js';
+import { dateLabel, fullDateLabel, shortTitle } from '../time.js';
+import { absUrl, absUrls, parseImages } from '../urls.js';
 import { bool, int, isoTime, num, oneOf, str } from '../validate.js';
 import { creditOf, effectiveStatus, upsertEventCredit } from './credit.js';
 import { notify } from './notices.js';
+import { assertNoOverlap, firstOverlap } from './overlap.js';
+import { coverKeyFor, parseTag, tagKey, useTag } from './tags.js';
 import { blockRelatedIds, getUser, userBrief, userSettings } from './users.js';
+
+export { shortTitle };
 
 // ---- 基础查询 ----
 
@@ -68,22 +74,51 @@ export function feeLabel(event) {
   }
 }
 
-/** 群聊是否开启：撮合局成局后；用户局 / 平台局有第二个人加入后 */
-export function isChatOpen(event, count) {
-  if (event.source === 'matched') return event.status === 'formed';
-  return ['open', 'formed'].includes(event.status) && count >= 2;
-}
-
-/** 「周六清晨 · 苍山看日出」→「苍山看日出」；「桌游夜 · 新手友好」→「桌游夜」 */
-export function shortTitle(title) {
-  const parts = String(title).split(/\s*·\s*/);
-  if (parts.length > 1 && /^(周|今天|明天|后天|本周|下周|这周|\d+月)/.test(parts[0])) return parts[1];
-  return parts[0];
+/**
+ * 群聊是否开启：只在成群后（所有来源一致）。
+ * 成群后有人退出、局回到 open 时，群聊照常（群已经建好了）；取消 / 驳回的局关闭。
+ */
+export function isChatOpen(event) {
+  if (event.status === 'formed') return true;
+  return event.status === 'open' && Boolean(event.formed_at);
 }
 
 export function addSystemMessage(db, eventId, text) {
   return db.insert('messages', { event_id: eventId, user_id: null, kind: 'system', text, created_at: clock.iso() });
 }
+
+// ---- 最晚退出时间、谁可以报名 ----
+
+/** 默认的最晚退出时间：max(开始前 24 小时, 现在 + 30 分钟)，不晚于开始 */
+export function defaultExitDeadline(startAt, now = clock.now()) {
+  const start = new Date(startAt).getTime();
+  return new Date(Math.min(start, Math.max(start - 24 * HOUR, now.getTime() + 30 * MINUTE)));
+}
+
+/** 局的最晚退出时间（老数据没存时按创建时间套默认规则） */
+export function exitDeadlineOf(event) {
+  if (event.exit_deadline) return new Date(event.exit_deadline);
+  return defaultExitDeadline(event.start_at, new Date(event.created_at));
+}
+
+export function exitDeadlinePassed(event, now = clock.now()) {
+  return now.getTime() >= exitDeadlineOf(event).getTime();
+}
+
+/** 「已过最晚退出时间（10月30日 05:50），不能退出了」 */
+export function exitDeadlineMessage(event) {
+  return `已过最晚退出时间（${fullDateLabel(exitDeadlineOf(event))}），不能退出了`;
+}
+
+/** 谁可以报名：any / female / male（存在 same_sex_only + gender 两列里） */
+export function genderLimitOf(event) {
+  return event.same_sex_only && ['female', 'male'].includes(event.gender) ? event.gender : 'any';
+}
+
+const genderAllowed = (event, viewer) => {
+  const limit = genderLimitOf(event);
+  return limit === 'any' || viewer?.gender === limit;
+};
 
 // ---- 可见性 ----
 
@@ -91,7 +126,7 @@ export function addSystemMessage(db, eventId, text) {
  * 能否查看这个局：
  * - 撮合局只有被邀请过 / 加入过的人能看；
  * - 待审核 / 被驳回的局只有发起人能看；
- * - 和发起人或成员有拉黑关系、或同性局性别不符时，非成员看不到。
+ * - 和发起人或成员有拉黑关系、或性别不符合「谁可以报名」（含性别未填）时，非成员看不到。
  */
 export function canViewEvent(db, event, viewer) {
   const m = viewer ? memberRow(db, event.id, viewer.id) : null;
@@ -99,7 +134,7 @@ export function canViewEvent(db, event, viewer) {
   if (isCreator || m) return true;
   if (event.source === 'matched') return false;
   if (['pending_review', 'rejected'].includes(event.status)) return false;
-  if (event.same_sex_only && (!viewer || viewer.gender !== event.gender)) return false;
+  if (!genderAllowed(event, viewer)) return false;
   if (viewer) {
     const related = blockRelatedIds(db, viewer.id);
     if (related.size) {
@@ -116,30 +151,47 @@ export function requireVisibleEvent(db, eventId, viewer) {
   return event;
 }
 
-/** 报名资格检查（返回中文原因，可报名时返回 null） */
+const CONFLICT_REASONS = ['已经满员了', '这个局现在不能报名了', '已经截止报名了'];
+
+/** 报名资格检查（返回中文原因，可报名时返回 null）；时间重叠在报名时单独检查 */
 function joinBlocker(db, event, viewer, count, members) {
   if (!viewer) return '请先登录';
   if (event.source === 'matched') return '撮合局只能通过邀请加入';
   if (event.status !== 'open') return '这个局现在不能报名了';
   if (phaseOf(event) !== 'upcoming') return '局已经开始了';
+  if (exitDeadlinePassed(event)) return '已经截止报名了';
   if (count >= event.capacity) return '已经满员了';
   const status = effectiveStatus(viewer);
   if (status !== 'active' || creditOf(db, viewer).level === 'restricted') return '账号受限中，暂时不能报名';
-  if (event.same_sex_only && viewer.gender !== event.gender) return '这是同性局，暂时不能报名';
+  if (!genderAllowed(event, viewer)) return `这个局${GENDER_LIMIT_LABELS[genderLimitOf(event)]}报名`;
   const related = blockRelatedIds(db, viewer.id);
   if (members.some((x) => related.has(x.user_id))) return '暂时不能加入这个局';
   return null;
+}
+
+/** 退出按钮的状态：能不能退、不能退的原因（不在局里时两者都没有） */
+function leaveState(event, mine, now = clock.now()) {
+  if (!mine || !['joined', 'applied', 'invited'].includes(mine.status)) return { canLeave: false, reason: null };
+  if (['cancelled', 'rejected'].includes(event.status)) return { canLeave: false, reason: '这个局已经取消了' };
+  if (phaseOf(event, now) === 'ended') return { canLeave: false, reason: '局已经结束了' };
+  if (mine.status !== 'joined') return { canLeave: true, reason: null }; // 撤回申请 / 换一批
+  if (mine.role === 'host') return { canLeave: false, reason: '你是发起人，不想办了可以取消这个局' };
+  if (exitDeadlinePassed(event, now)) return { canLeave: false, reason: exitDeadlineMessage(event) };
+  return { canLeave: true, reason: null };
 }
 
 // ---- 视图 ----
 
 export function eventCard(db, event, viewer = null, members = joinedMembers(db, event.id)) {
   const now = clock.now();
+  const images = json.parse(event.images, []);
+  const limit = genderLimitOf(event);
   return {
     id: event.id,
     title: event.title,
     category: event.category,
     task: event.task,
+    tag: event.task,
     startAt: event.start_at,
     dateLabel: dateLabel(new Date(event.start_at), now),
     place: event.place,
@@ -150,6 +202,11 @@ export function eventCard(db, event, viewer = null, members = joinedMembers(db, 
     source: event.source,
     status: event.status,
     phase: phaseOf(event, now),
+    cover: images.length ? absUrl(db, images[0]) : null,
+    coverKey: coverKeyFor(db, event.task, event.category),
+    genderLimit: limit,
+    genderLabel: GENDER_LIMIT_LABELS[limit] ?? null,
+    exitDeadline: exitDeadlineOf(event).toISOString(),
   };
 }
 
@@ -159,6 +216,7 @@ export function eventDetail(db, event, viewer = null) {
   const mine = viewer ? memberRow(db, event.id, viewer.id) : null;
   const myStatus = mine?.status ?? null;
   const alreadyIn = ['joined', 'applied', 'invited'].includes(myStatus);
+  const leave = leaveState(event, mine);
   return {
     ...card,
     description: event.description,
@@ -167,7 +225,7 @@ export function eventDetail(db, event, viewer = null) {
     feeType: event.fee_type,
     feeEstimate: event.fee_estimate === null ? null : Number(event.fee_estimate),
     requireApproval: Boolean(event.require_approval),
-    sameSexOnly: Boolean(event.same_sex_only),
+    sameSexOnly: card.genderLimit !== 'any',
     host: event.source === 'user' && event.creator_id ? userBrief(db, event.creator_id) : null,
     members: members.map((x) => ({ ...userBrief(db, x.user_id), role: x.role })),
     myStatus,
@@ -175,7 +233,13 @@ export function eventDetail(db, event, viewer = null) {
     myArrivedAt: mine?.arrived_at ?? null,
     canJoin: !alreadyIn && joinBlocker(db, event, viewer, members.length, members) === null,
     isFull: members.length >= event.capacity,
-    chatOpen: isChatOpen(event, members.length),
+    chatOpen: isChatOpen(event),
+    images: absUrls(db, json.parse(event.images, [])),
+    location: json.parse(event.location, null),
+    exitDeadlineLabel: fullDateLabel(exitDeadlineOf(event)),
+    canLeave: leave.canLeave,
+    leaveBlockedReason: leave.reason,
+    remaining: Math.max(0, event.capacity - members.length),
     // 以下为补充字段
     endAt: endAt(event).toISOString(),
     fullDateLabel: fullDateLabel(new Date(event.start_at)),
@@ -184,20 +248,39 @@ export function eventDetail(db, event, viewer = null) {
   };
 }
 
+/** 报名 / 接受邀请的返回值：客户端据此显示「进入群聊」或「已加入，还差 N 人成群」 */
+export function joinResult(db, eventId, myStatus) {
+  const event = getEvent(db, eventId);
+  const memberCount = joinedCount(db, eventId);
+  return {
+    myStatus,
+    eventStatus: event.status,
+    formed: isChatOpen(event),
+    remaining: Math.max(0, event.capacity - memberCount),
+    memberCount,
+    capacity: event.capacity,
+    exitDeadline: exitDeadlineOf(event).toISOString(),
+  };
+}
+
 // ---- 广场 / 搜索 ----
 
-function squareCandidates(db, viewer, { category = null } = {}) {
-  const nowIso = clock.iso();
+/** 广场上的局：open 的用户局 / 平台局，还没开始、还没过最晚退出时间；按看的人过滤性别和拉黑 */
+export function squareCandidates(db, viewer, { category = null, tag = null } = {}) {
+  const now = clock.now();
   const rows = db.all(
     `SELECT * FROM events WHERE status = 'open' AND source IN ('user', 'platform') AND start_at > ?
      ${category ? 'AND category = ?' : ''} ORDER BY start_at, id`,
-    ...(category ? [nowIso, category] : [nowIso]),
+    ...(category ? [now.toISOString(), category] : [now.toISOString()]),
   );
+  const key = tag ? tagKey(tag) : '';
   const related = viewer ? blockRelatedIds(db, viewer.id) : new Set();
   const settings = viewer ? userSettings(viewer) : null;
   return rows.filter((e) => {
-    if (e.same_sex_only && (!viewer || viewer.gender !== e.gender)) return false;
-    if (settings?.sameSexOnly && !e.same_sex_only) return false;
+    if (exitDeadlinePassed(e, now)) return false;
+    if (key && tagKey(e.task) !== key) return false;
+    if (!genderAllowed(e, viewer)) return false;
+    if (settings?.sameSexOnly && genderLimitOf(e) === 'any') return false;
     if (related.size) {
       if (e.creator_id && related.has(e.creator_id)) return false;
       if (joinedMembers(db, e.id).some((x) => related.has(x.user_id))) return false;
@@ -206,9 +289,9 @@ function squareCandidates(db, viewer, { category = null } = {}) {
   });
 }
 
-export function squareList(db, viewer, { category, limit = 20, cursor = 0 } = {}) {
+export function squareList(db, viewer, { category, tag, limit = 20, cursor = 0 } = {}) {
   if (category && !CATEGORIES.includes(category)) throw invalid('分类不正确');
-  const all = squareCandidates(db, viewer, { category });
+  const all = squareCandidates(db, viewer, { category, tag });
   const page = all.slice(cursor, cursor + limit);
   return {
     items: page.map((e) => eventCard(db, e, viewer)),
@@ -242,37 +325,89 @@ export function hotTerms(db) {
 
 // ---- 发起 ----
 
-export function parseEventInput(body) {
+const given = (v) => v !== undefined && v !== null && v !== '';
+
+/** 地点（wx.chooseLocation 的返回）：{name, address, latitude, longitude}；名字必填，经纬度要么都有要么都没有 */
+export function parseLocation(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) throw invalid('地点格式不正确');
+  const name = str(value.name, '地点名称', { min: 1, max: 40 });
+  const address = str(value.address, '详细地址', { max: 100, optional: true });
+  if (given(value.latitude) !== given(value.longitude)) throw invalid('经纬度要一起填');
+  const latitude = given(value.latitude) ? num(value.latitude, '纬度', { min: -90, max: 90 }) : null;
+  const longitude = given(value.longitude) ? num(value.longitude, '经度', { min: -180, max: 180 }) : null;
+  return { name, address: address || null, latitude, longitude };
+}
+
+/**
+ * 谁可以报名：genderLimit（any / female / male）；旧字段 sameSexOnly 仍接受
+ * （用户局 = 发起人的性别，平台局要带 gender）。用户局的限制必须包含发起人自己。
+ */
+function parseGenderLimit(body, creator) {
+  let limit = oneOf(body.genderLimit, '谁可以报名', GENDER_LIMITS, { optional: true });
+  if (!limit) {
+    const sameSex = bool(body.sameSexOnly, '是否只限同性', { optional: true }) ?? false;
+    if (!sameSex) limit = 'any';
+    else if (creator) limit = creator.gender;
+    else if (['female', 'male'].includes(body.gender)) limit = body.gender;
+    else throw invalid('同性局需要指定 gender（female / male）');
+  }
+  if (creator && limit !== 'any') {
+    if (!['female', 'male'].includes(creator.gender)) throw invalid('先在资料里选性别');
+    if (limit !== creator.gender) throw invalid('发起人自己也要能参加');
+  }
+  return limit;
+}
+
+/** 发起局的参数。creator = 发起人（平台局为 null） */
+export function parseEventInput(body, { creator = null } = {}) {
   const now = clock.now();
   const title = str(body.title, '标题', { min: 2, max: 30 });
-  const category = oneOf(body.category, '类型', CATEGORIES);
-  const task = str(body.task, '任务', { max: 10, optional: true });
+  // 标签：tag；旧的 category（+ task）仍接受，只给 category 时按标题推一个默认标签
+  const category = oneOf(body.category, '类型', CATEGORIES, { optional: true });
+  let tag;
+  if (given(body.tag)) tag = parseTag(body.tag);
+  else if (given(body.task)) tag = parseTag(body.task);
+  else if (category) tag = defaultTaskForCategory(category, title);
+  else throw invalid('请选择标签');
   const startAt = isoTime(body.startAt, '开始时间');
   if (startAt.getTime() < now.getTime() + 30 * MINUTE) throw invalid('开始时间至少要在 30 分钟以后');
   if (startAt.getTime() > now.getTime() + 90 * 24 * HOUR) throw invalid('只能发起 90 天以内的局');
   const durationMin = int(body.durationMin, '时长', { min: 30, max: 24 * 60, optional: true }) ?? 120;
-  const place = str(body.place, '地点', { min: 1, max: 40 });
+  const location = parseLocation(body.location);
+  const place = str(body.place, '地点', { max: 40, optional: true }) || location?.name;
+  if (!place) throw invalid('请填写地点');
   const meetingPoint = str(body.meetingPoint, '集合点', { max: 60, optional: true }) ?? '';
   const capacity = int(body.capacity, '人数', { min: 2, max: 20 });
+  const minSize = int(body.minSize, '最少成群人数', { min: 2, max: capacity, optional: true }) ?? 2;
   const feeType = oneOf(body.feeType ?? 'aa', '费用方式', FEE_TYPES);
   const feeEstimate = num(body.feeEstimate, '预计费用', { min: 0, max: 100000, optional: true });
   const requireApproval = bool(body.requireApproval, '是否需要同意', { optional: true }) ?? false;
-  const sameSexOnly = bool(body.sameSexOnly, '是否只限同性', { optional: true }) ?? false;
   const description = str(body.description, '说明', { max: 500, optional: true }) ?? '';
+  const images = parseImages(body.images, { max: 9 });
+  const exitDeadline = isoTime(body.exitDeadline, '最晚退出时间', { optional: true }) ?? defaultExitDeadline(startAt, now);
+  if (exitDeadline.getTime() <= now.getTime() || exitDeadline.getTime() > startAt.getTime()) {
+    throw invalid('最晚退出时间要在现在和开始时间之间');
+  }
+  const genderLimit = parseGenderLimit(body, creator);
   return {
     title,
     category,
-    task: task || defaultTaskForCategory(category, title),
+    tag,
     startAt,
     durationMin,
     place,
+    location,
     meetingPoint,
     capacity,
+    minSize,
     feeType,
     feeEstimate,
     requireApproval,
-    sameSexOnly,
     description,
+    images,
+    exitDeadline,
+    genderLimit,
   };
 }
 
@@ -283,26 +418,54 @@ function defaultTaskForCategory(category, title) {
   return { outdoor: '随便走走', food: '吃饭', coffee: '咖啡', game: '桌游', carpool: '拼车' }[category] || '其他';
 }
 
-/** 用户发起局：过审核则 open，否则 pending_review */
+/** 写库用的列；tag 是 useTag 返回的标签行（分类由标签推出） */
+function eventColumns(input, tag) {
+  return {
+    title: input.title,
+    category: tag.category,
+    task: tag.name,
+    description: input.description,
+    start_at: input.startAt.toISOString(),
+    duration_min: input.durationMin,
+    place: input.place,
+    meeting_point: input.meetingPoint,
+    capacity: input.capacity,
+    min_size: input.minSize,
+    fee_type: input.feeType,
+    fee_estimate: input.feeEstimate,
+    require_approval: input.requireApproval,
+    same_sex_only: input.genderLimit !== 'any',
+    gender: input.genderLimit === 'any' ? null : input.genderLimit,
+    images: JSON.stringify(input.images),
+    location: input.location ? JSON.stringify(input.location) : null,
+    exit_deadline: input.exitDeadline.toISOString(),
+  };
+}
+
+/** 用户发起局：过审核则 open，否则 pending_review；发起人自动加入（要检查时间重叠） */
 export function createUserEvent(db, user, body) {
   if (effectiveStatus(user) !== 'active' || creditOf(db, user).level === 'restricted') {
     throw restricted('账号受限中，暂时不能发起局');
   }
-  const input = parseEventInput(body);
-  if (input.sameSexOnly && !['female', 'male'].includes(user.gender)) {
-    throw invalid('先在资料里填写性别，才能发起同性局');
-  }
-  const check = checkAll(input.title, input.description, input.place, input.meetingPoint);
+  const input = parseEventInput(body, { creator: user });
+  const check = checkAll(
+    input.title,
+    input.description,
+    input.place,
+    input.meetingPoint,
+    input.location?.name,
+    input.location?.address,
+  );
   return db.tx(() => {
+    assertNoOverlap(db, user.id, input.startAt, input.durationMin);
+    const tag = useTag(db, input.tag, { category: input.category });
     const now = clock.iso();
     const id = db.insert('events', {
-      ...eventColumns(input),
-      gender: input.sameSexOnly ? user.gender : null,
+      ...eventColumns(input, tag),
       source: 'user',
       creator_id: user.id,
       status: check.ok ? 'open' : 'pending_review',
       moderation: JSON.stringify(check.reasons),
-      min_size: 2,
       created_at: now,
     });
     db.insert('event_members', {
@@ -317,41 +480,43 @@ export function createUserEvent(db, user, body) {
   });
 }
 
-/** 平台局（后台发起） */
+/** 平台局（后台发起）：谁可以报名不受限制 */
 export function createPlatformEvent(db, body) {
   const input = parseEventInput(body);
-  if (input.sameSexOnly && !['female', 'male'].includes(body.gender)) {
-    throw invalid('同性局需要指定 gender（female / male）');
-  }
-  const id = db.insert('events', {
-    ...eventColumns(input),
-    require_approval: 0,
-    gender: input.sameSexOnly ? body.gender : null,
-    source: 'platform',
-    creator_id: null,
-    status: 'open',
-    min_size: 2,
-    created_at: clock.iso(),
+  return db.tx(() => {
+    const tag = useTag(db, input.tag, { category: input.category });
+    const id = db.insert('events', {
+      ...eventColumns(input, tag),
+      require_approval: 0,
+      source: 'platform',
+      creator_id: null,
+      status: 'open',
+      created_at: clock.iso(),
+    });
+    return getEvent(db, id);
   });
-  return getEvent(db, id);
 }
 
-function eventColumns(input) {
-  return {
-    title: input.title,
-    category: input.category,
-    task: input.task,
-    description: input.description,
-    start_at: input.startAt.toISOString(),
-    duration_min: input.durationMin,
-    place: input.place,
-    meeting_point: input.meetingPoint,
-    capacity: input.capacity,
-    fee_type: input.feeType,
-    fee_estimate: input.feeEstimate,
-    require_approval: input.requireApproval,
-    same_sex_only: input.sameSexOnly,
-  };
+// ---- 成群 ----
+
+/** 成群的系统消息 + 给每个成员的通知（type formed，link chat:<id>） */
+export function announceFormed(db, event, { atDeadline = false } = {}) {
+  addSystemMessage(db, event.id, atDeadline ? SYSTEM_MESSAGES.formedAtDeadline : SYSTEM_MESSAGES.formed);
+  const members = joinedMembers(db, event.id);
+  for (const m of members) {
+    notify(db, m.user_id, {
+      type: 'formed',
+      title: atDeadline ? '人数够了，群已建好' : '满员啦，群已建好',
+      body: `「${shortTitle(event.title)}」${members.length} 人，群聊已开启。第一次见面，慢慢来`,
+      link: `chat:${event.id}`,
+    });
+  }
+}
+
+/** 用户局 / 平台局成群：满员时立即，或到了最晚退出时间人数够 minSize。已经成过群的（有人退出后又满）不再重复通知 */
+export function formEvent(db, event, { atDeadline = false } = {}) {
+  db.update('events', event.id, { status: 'formed', formed_at: event.formed_at || clock.iso() });
+  if (!event.formed_at) announceFormed(db, event, { atDeadline });
 }
 
 // ---- 成员变动 ----
@@ -369,22 +534,11 @@ function setMember(db, eventId, userId, patch) {
   }
 }
 
-/** 加入成功后的统一处理：系统消息、满员成局 */
+/** 加入成功后的统一处理：系统消息、满员成群 */
 function afterJoined(db, event, user) {
   const count = joinedCount(db, event.id);
   if (event.source !== 'matched') addSystemMessage(db, event.id, `${user.nickname} 加入了这个局`);
-  if (event.status === 'open' && count >= event.capacity) {
-    db.update('events', event.id, { status: 'formed', formed_at: clock.iso() });
-    addSystemMessage(db, event.id, SYSTEM_MESSAGES.formed);
-    for (const m of joinedMembers(db, event.id)) {
-      notify(db, m.user_id, {
-        type: 'formed',
-        title: '满员成局啦',
-        body: `「${event.title}」人齐了，群聊已开启`,
-        link: `chat:${event.id}`,
-      });
-    }
-  }
+  if (event.status === 'open' && count >= event.capacity) formEvent(db, event);
   return getEvent(db, event.id);
 }
 
@@ -392,18 +546,17 @@ export function joinEvent(db, user, eventId) {
   return db.tx(() => {
     const event = requireVisibleEvent(db, eventId, user);
     const mine = memberRow(db, eventId, user.id);
-    if (mine && ['joined', 'applied'].includes(mine.status)) {
-      return { myStatus: mine.status, eventStatus: event.status };
-    }
+    if (mine && ['joined', 'applied'].includes(mine.status)) return joinResult(db, eventId, mine.status);
     if (mine?.status === 'invited') throw conflict('你已被邀请，请在「撮合成功」页确认加入');
     const members = joinedMembers(db, eventId);
     const reason = joinBlocker(db, event, user, members.length, members);
     if (reason) {
       if (reason.startsWith('账号受限')) throw restricted(reason);
-      if (reason === '已经满员了' || reason === '这个局现在不能报名了') throw conflict(reason);
+      if (CONFLICT_REASONS.includes(reason)) throw conflict(reason);
       if (reason === '局已经开始了') throw invalid(reason);
       throw forbidden(reason);
     }
+    assertNoOverlap(db, user.id, event.start_at, event.duration_min, { excludeEventId: eventId });
     const now = clock.iso();
     const needApproval =
       event.source === 'user' && (event.require_approval || (creditOf(db, user).level === 'fair' && event.capacity >= 6));
@@ -417,7 +570,7 @@ export function joinEvent(db, user, eventId) {
           link: `event:${event.id}`,
         });
       }
-      return { myStatus: 'applied', eventStatus: event.status };
+      return joinResult(db, eventId, 'applied');
     }
     setMember(db, eventId, user.id, {
       status: 'joined',
@@ -428,7 +581,7 @@ export function joinEvent(db, user, eventId) {
       arrived_at: null,
       safe_at: null,
     });
-    const updated = afterJoined(db, event, user);
+    afterJoined(db, event, user);
     if (event.creator_id && event.creator_id !== user.id) {
       notify(db, event.creator_id, {
         type: 'join',
@@ -437,7 +590,7 @@ export function joinEvent(db, user, eventId) {
         link: `event:${event.id}`,
       });
     }
-    return { myStatus: 'joined', eventStatus: updated.status };
+    return joinResult(db, eventId, 'joined');
   });
 }
 
@@ -448,18 +601,22 @@ export function latePenalty(event, now = clock.now()) {
 
 /**
  * 退出：joined → left（24 小时规则记临时鸽）；applied → 撤回申请；invited → 等同「换一批」。
- * declineInvite 由 invites.js 注入，避免循环依赖。
+ * 过了最晚退出时间，已加入的人不能退出（409）。declineInvite 由 invites.js 注入，避免循环依赖。
  */
 export function leaveEvent(db, user, eventId, { declineInvite } = {}) {
   return db.tx(() => {
     const event = requireEvent(db, eventId);
     const mine = memberRow(db, eventId, user.id);
     if (!mine || !['joined', 'applied', 'invited'].includes(mine.status)) throw invalid('你不在这个局里');
+    const now = clock.now();
+    const live = !['cancelled', 'rejected'].includes(event.status) && phaseOf(event, now) !== 'ended';
+    if (mine.status === 'joined' && mine.role !== 'host' && live && exitDeadlinePassed(event, now)) {
+      throw conflict(exitDeadlineMessage(event));
+    }
     if (mine.status === 'invited' || (event.source === 'matched' && event.status === 'inviting')) {
       declineInvite(db, user, eventId); // 还没成局：等同「换一批」，不扣分
       return { penalty: null };
     }
-    const now = clock.now();
     if (mine.status === 'applied') {
       setMember(db, eventId, user.id, { status: 'left', left_at: now.toISOString() });
       return { penalty: null };
@@ -481,6 +638,7 @@ export function leaveEvent(db, user, eventId, { declineInvite } = {}) {
     }
     const count = joinedCount(db, eventId);
     if (count > 0) addSystemMessage(db, eventId, `${user.nickname} 退出了这个局`);
+    // 满员成群后有人退出：回到 open 让别人补上（群聊照常）
     if (event.source !== 'matched' && event.status === 'formed' && count < event.capacity) {
       db.update('events', eventId, { status: 'open' });
     }
@@ -504,17 +662,24 @@ export function leaveEvent(db, user, eventId, { declineInvite } = {}) {
   });
 }
 
-/** 取消局（发起人 / 后台）。后台取消时连发起人一起通知；skipUserIds 里的人不发「局已取消」 */
-export function cancelEvent(db, event, { reason, byAdmin = false, skipUserIds = [] } = {}) {
+/**
+ * 取消局（发起人 / 后台 / 到最晚退出时间没凑齐人）。
+ * notifyHost：发起人也收到「局已取消」（后台取消、没凑齐人时）；skipUserIds 里的人不发；systemText 换群里的系统消息。
+ */
+export function cancelEvent(db, event, { reason, byAdmin = false, skipUserIds = [], notifyHost = byAdmin, systemText = null } = {}) {
   const now = clock.iso();
   db.update('events', event.id, { status: 'cancelled', cancel_reason: reason || null });
-  addSystemMessage(db, event.id, byAdmin ? `这个局已被平台取消${reason ? `：${reason}` : ''}` : '发起人取消了这个局');
+  addSystemMessage(
+    db,
+    event.id,
+    systemText ?? (byAdmin ? `这个局已被平台取消${reason ? `：${reason}` : ''}` : '发起人取消了这个局'),
+  );
   const members = db.all(
     "SELECT * FROM event_members WHERE event_id = ? AND status IN ('joined', 'applied', 'invited')",
     event.id,
   );
   for (const m of members) {
-    if (!byAdmin && m.user_id === event.creator_id) continue;
+    if (!notifyHost && m.user_id === event.creator_id) continue;
     if (skipUserIds.includes(m.user_id)) continue;
     notify(db, m.user_id, {
       type: 'event_cancelled',
@@ -541,6 +706,46 @@ export function cancelByHost(db, user, eventId) {
     const updated = cancelEvent(db, event, { reason: '发起人取消了这个局' });
     return { ok: true, status: updated.status };
   });
+}
+
+/**
+ * 每分钟：用户局 / 平台局到了最晚退出时间还没满员（还是 open）——
+ * 已加入人数 ≥ minSize 就成群，不够就取消（原因「没凑齐人」）；两种情况都通知所有人。
+ * 成群时还在等发起人同意的申请一并结束（不再接受报名）。
+ */
+export function processExitDeadlines(db, now = clock.now()) {
+  return db.tx(() => {
+    const result = { formed: 0, cancelled: 0 };
+    const rows = db.all("SELECT * FROM events WHERE status = 'open' AND source IN ('user', 'platform') ORDER BY start_at, id");
+    for (const event of rows) {
+      if (!exitDeadlinePassed(event, now)) continue;
+      if (joinedCount(db, event.id) >= Math.max(2, event.min_size)) {
+        formEvent(db, event, { atDeadline: true });
+        closePendingApplications(db, event);
+        result.formed++;
+      } else {
+        cancelEvent(db, event, {
+          reason: '没凑齐人',
+          notifyHost: true,
+          systemText: '到最晚退出时间还没凑齐人，这个局取消了',
+        });
+        result.cancelled++;
+      }
+    }
+    return result;
+  });
+}
+
+function closePendingApplications(db, event) {
+  for (const m of db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'applied'", event.id)) {
+    setMember(db, event.id, m.user_id, { status: 'declined' });
+    notify(db, m.user_id, {
+      type: 'application_result',
+      title: '这次没能加入',
+      body: `「${event.title}」已经截止报名了，去广场看看别的局吧`,
+      link: `event:${event.id}`,
+    });
+  }
 }
 
 // ---- 报名申请 ----
@@ -571,17 +776,23 @@ export function approveApplication(db, user, eventId, applicantId) {
     const m = memberRow(db, eventId, applicantId);
     if (!m || m.status !== 'applied') throw notFound('没有这条申请');
     if (event.status !== 'open') throw conflict('这个局现在不能再加人了');
+    if (exitDeadlinePassed(event)) throw conflict('已经截止报名了');
     if (joinedCount(db, eventId) >= event.capacity) throw conflict('已经满员了');
-    setMember(db, eventId, applicantId, { status: 'joined', joined_at: clock.iso(), attendance: 'pending' });
     const applicant = getUser(db, applicantId);
-    const updated = afterJoined(db, event, applicant);
+    // 不告诉发起人对方另一个局的细节
+    if (firstOverlap(db, applicantId, event.start_at, event.duration_min, { excludeEventId: eventId })) {
+      throw conflict(`${applicant.nickname} 这个时间已经有别的局了，不能通过`);
+    }
+    setMember(db, eventId, applicantId, { status: 'joined', joined_at: clock.iso(), attendance: 'pending' });
+    afterJoined(db, event, applicant);
     notify(db, applicantId, {
       type: 'application_result',
       title: '申请通过啦',
       body: `你已加入「${event.title}」`,
       link: `event:${event.id}`,
     });
-    return { ok: true, eventStatus: updated.status, memberCount: joinedCount(db, eventId) };
+    const result = joinResult(db, eventId, 'joined');
+    return { ok: true, eventStatus: result.eventStatus, memberCount: result.memberCount, formed: result.formed, remaining: result.remaining };
   });
 }
 
@@ -610,6 +821,7 @@ function requireJoined(db, user, eventId) {
   return { event, mine };
 }
 
+/** 轻确认：去 / 去不了；「去不了」= 退出（过了最晚退出时间同样 409） */
 export function setAttendance(db, user, eventId, going, deps) {
   const { event, mine } = requireJoined(db, user, eventId);
   if (phaseOf(event) === 'ended') throw invalid('局已经结束了');
@@ -642,4 +854,3 @@ export function reportSafe(db, user, eventId) {
   db.run('UPDATE event_members SET safe_at = ? WHERE event_id = ? AND user_id = ?', safeAt, eventId, user.id);
   return { ok: true, safeAt };
 }
-

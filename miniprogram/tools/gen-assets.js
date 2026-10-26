@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * 生成 assets/icons/*.svg 与 assets/covers/*.svg。
- * 小程序 <image> 里的 SVG 不支持 currentColor，所以每种颜色单独输出一个文件。
- * 线条路径取自 design/app/*.dc.html。用法：node tools/gen-assets.js
+ * - 图标：小程序 <image> 里的 SVG 不支持 currentColor，所以每种颜色单独输出一个文件；线条路径取自 design/app/*.dc.html。
+ * - 封面插画：从 design/illustrations/<key>.svg 复制（docs/changes-v0.3.md H）。
+ * 用法：node tools/gen-assets.js
  */
 const fs = require('fs');
 const path = require('path');
@@ -26,17 +27,17 @@ const ICONS = {
   pin: { sw: 2, body: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>', colors: ['gray', 'ink'] },
   clock: { sw: 2, body: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', colors: ['gray', 'ink'] },
   wallet: { sw: 1.9, body: '<rect x="3.5" y="6" width="17" height="12.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M15.5 14.5h2"/>', colors: ['gray', 'ink'] },
-  people: { sw: 1.9, body: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.1 2.8-5 5.5-5s4.9 1.9 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.8 14.2c2.3.2 4 1.9 4.6 4.8"/>', colors: ['ink', 'tab', 'primary', 'accent'] },
+  people: { sw: 1.9, body: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.1 2.8-5 5.5-5s4.9 1.9 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.8 14.2c2.3.2 4 1.9 4.6 4.8"/>', colors: ['ink', 'tab', 'primary', 'accent', 'gray'] },
   compass: { sw: 1.8, body: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>', colors: ['ink', 'tab', 'primary'] },
   image: { sw: 1.8, body: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-4.5-4.5-7.5 8"/>', colors: ['ink', 'tab', 'primary'] },
   chat: { sw: 1.8, body: '<path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.5z"/>', colors: ['ink', 'tab', 'primary'] },
-  user: { sw: 1.9, body: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c.9-3.8 3.9-6 7.5-6s6.6 2.2 7.5 6"/>', colors: ['ink', 'tab', 'white'] },
+  user: { sw: 1.9, body: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c.9-3.8 3.9-6 7.5-6s6.6 2.2 7.5 6"/>', colors: ['ink', 'tab', 'white', 'gray'] },
   sparkle: { sw: 2, body: '<path d="M12 3.5l1.9 5 5 1.9-5 1.9-1.9 5-1.9-5-5-1.9 5-1.9z"/>', colors: ['primary', 'white'] },
   'shield-check': { sw: 2, body: '<path d="M12 3.5l7 2.8v5.4c0 4.2-2.9 7.4-7 8.8-4.1-1.4-7-4.6-7-8.8V6.3z"/><path d="M9 12l2 2 4-4"/>', colors: ['primary', 'gray', 'body'] },
   shield: { sw: 1.8, body: '<path d="M12 3.5l7 2.8v5.4c0 4.2-2.9 7.4-7 8.8-4.1-1.4-7-4.6-7-8.8V6.3z"/>', colors: ['ink'] },
   phone: { sw: 2, body: '<path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16.5 16.5 0 0 1 4.5 5.5a2 2 0 0 1 2-2z"/>', colors: ['white', 'danger'] },
   bell: { sw: 1.8, body: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>', colors: ['primary', 'ink', 'gray'] },
-  refresh: { sw: 2, body: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>', colors: ['ink', 'body'] },
+  refresh: { sw: 2, body: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>', colors: ['ink', 'body', 'white'] },
   check: { sw: 2.4, body: '<path d="M5 12.5l4.2 4.2L19 7"/>', colors: ['ink', 'white', 'primary'] },
   plus: { sw: 2, body: '<path d="M12 5v14M5 12h14"/>', colors: ['white', 'gray', 'ink', 'primary'] },
   minus: { sw: 2.2, body: '<path d="M5 12h14"/>', colors: ['ink'] },
@@ -48,11 +49,22 @@ const ICONS = {
   ban: { sw: 2, body: '<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', colors: ['danger', 'body', 'ink'] },
   send: { sw: 2, body: '<path d="M21 3.5L10.5 14"/><path d="M21 3.5l-6.5 17-4-6.5-6.5-4z"/>', colors: ['white'] },
   more: { fill: true, body: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>', colors: ['gray'] },
-  heart: { sw: 1.8, body: '<path d="M12 19.5s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4z"/>', colors: ['ink'] },
-  'heart-fill': { sw: 1.8, filled: true, body: '<path d="M12 19.5s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4z"/>', colors: ['ink'] },
+  heart: { sw: 1.8, body: '<path d="M12 19.5s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4z"/>', colors: ['ink', 'gray'] },
+  'heart-fill': { sw: 1.8, filled: true, body: '<path d="M12 19.5s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4z"/>', colors: ['ink', 'danger'] },
   star: { sw: 2, body: '<path d="M12 4l2.4 5 5.4.6-4 3.7 1.1 5.3L12 15.9 7.1 18.6l1.1-5.3-4-3.7 5.4-.6z"/>', colors: ['accent'] },
   doc: { sw: 1.8, body: '<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 8.5h6M9 12h6M9 15.5h3.5"/>', colors: ['ink'] },
-  headset: { sw: 1.8, body: '<path d="M4.5 14v-2a7.5 7.5 0 0 1 15 0v2"/><rect x="3.5" y="13" width="4" height="6" rx="1.5"/><rect x="16.5" y="13" width="4" height="6" rx="1.5"/><path d="M18.5 19c0 1.5-1.5 2.5-4 2.5"/>', colors: ['ink'] }
+  headset: { sw: 1.8, body: '<path d="M4.5 14v-2a7.5 7.5 0 0 1 15 0v2"/><rect x="3.5" y="13" width="4" height="6" rx="1.5"/><rect x="16.5" y="13" width="4" height="6" rx="1.5"/><path d="M18.5 19c0 1.5-1.5 2.5-4 2.5"/>', colors: ['ink'] },
+  // v0.3
+  calendar: { sw: 1.9, body: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', colors: ['gray', 'ink'] },
+  hash: { sw: 1.9, body: '<path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"/>', colors: ['gray', 'ink'] },
+  grid: { sw: 1.8, body: '<rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/>', colors: ['ink'] },
+  share: { sw: 1.9, body: '<path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/>', colors: ['ink', 'white'] },
+  edit: { sw: 1.9, body: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>', colors: ['ink'] },
+  trash: { sw: 1.9, body: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>', colors: ['danger'] },
+  lock: { sw: 1.9, body: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>', colors: ['gray'] },
+  alert: { sw: 1.9, body: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.5v.01"/>', colors: ['gray', 'danger'] },
+  map: { sw: 1.9, body: '<path d="M9 4.5L3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5z"/><path d="M9 4.5v13M15 6.5v13"/>', colors: ['primary'] },
+  hourglass: { sw: 1.9, body: '<path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5c0 4 8 5 8 8.5s-8 4.5-8 8.5M16 3.5c0 4-8 5-8 8.5s8 4.5 8 8.5"/>', colors: ['gray'] }
 };
 
 // 封面插画：固定配色（底色由容器提供）
@@ -151,6 +163,11 @@ function clean(dir) {
 clean('assets/icons');
 clean('assets/covers');
 
+// 封面插画：design/illustrations/<key>.svg（v0.3 H）
+const ILLUSTRATIONS = ['sunrise', 'mountain', 'cycling', 'lake', 'coffee', 'reading', 'food', 'boardgame', 'carpool', 'oldtown'];
+const ILL_DIR = path.join(ROOT, '..', 'design', 'illustrations');
+const missing = [];
+
 let count = 0;
 for (const [name, def] of Object.entries(ICONS)) {
   for (const key of def.colors) {
@@ -169,5 +186,16 @@ for (const [name, def] of Object.entries(COVERS)) {
   write(`assets/covers/${name}.svg`, svg(def.w, def.h, attrs, def.body));
   count++;
 }
+
+for (const key of ILLUSTRATIONS) {
+  const src = path.join(ILL_DIR, key + '.svg');
+  if (!fs.existsSync(src)) {
+    missing.push(key);
+    continue;
+  }
+  write(`assets/covers/${key}.svg`, fs.readFileSync(src, 'utf8'));
+  count++;
+}
+if (missing.length) console.warn('缺少插画（design/illustrations）：' + missing.join(', '));
 
 console.log(`generated ${count} svg files`);

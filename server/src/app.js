@@ -9,10 +9,12 @@ import { AppError, errorBody, internal, notFound } from './errors.js';
 import { createLogger } from './logger.js';
 import { accountRoutes } from './routes/account.js';
 import { adminRoutes } from './routes/admin.js';
+import { contentRoutes } from './routes/content.js';
 import { devRoutes } from './routes/dev.js';
 import { eventRoutes } from './routes/events.js';
 import { matchingRoutes } from './routes/matching.js';
 import { socialRoutes } from './routes/social.js';
+import { ensureDefaultTags } from './services/tags.js';
 import { getUser } from './services/users.js';
 import { createWechat } from './wechat.js';
 
@@ -70,6 +72,10 @@ export function createApp({ db, config = loadConfig(), logger, wechat } = {}) {
   logger ??= createLogger(config.logLevel);
   wechat ??= createWechat({ appId: config.wxAppId, secret: config.wxSecret, isProd: config.isProd, logger });
   const ctx = { db, config, logger, wechat };
+  // 图片在库里存相对路径，返回时拼上 PUBLIC_BASE_URL
+  db.publicBaseUrl = config.publicBaseUrl;
+  // 标签表是空的就写入默认标签
+  ensureDefaultTags(db);
 
   // 站内通知同时尝试发微信订阅消息（目前为占位实现）
   db.hooks.notice = (notice) => {
@@ -94,6 +100,7 @@ export function createApp({ db, config = loadConfig(), logger, wechat } = {}) {
     res.json({ ok: true, time: clock.iso(), env: config.nodeEnv, wechat: wechat.configured ? 'configured' : 'dev' }),
   );
   api.use(accountRoutes(ctx));
+  api.use(contentRoutes(ctx));
   api.use(matchingRoutes(ctx));
   api.use(eventRoutes(ctx));
   api.use(socialRoutes(ctx));

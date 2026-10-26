@@ -1,8 +1,10 @@
-// 通用组件：图标、头像、左侧菜单、提示条、标签页、计数器、开关、加载状态、状态标签、费用选择。
-import { computed, h, nextTick, ref } from './vue.js';
+// 通用组件：图标、头像、左侧菜单、提示条、标签页、计数器、开关、加载状态、状态标签、费用选择、
+// 图片（缩略图 + 点开看大图、上传）、封面（图片或插画）。
+import { computed, h, nextTick, reactive, ref, watch } from './vue.js';
+import { uploadImage } from './api.js';
 import { route } from './router.js';
 import { badges } from './store.js';
-import { AVATAR, EVENT_STATUS, FEE_OPTIONS, LEVEL, safeUrl } from './format.js';
+import { AVATAR, EVENT_STATUS, FEE_OPTIONS, LEVEL, illustrationUrl, safeUrl } from './format.js';
 
 /** 只是让编辑器把模板当 HTML 高亮；返回原样的字符串 */
 export const html = String.raw;
@@ -42,6 +44,12 @@ const ICONS = {
     ['path', { d: 'M6 12h10' }],
   ],
   chevron: [['path', { d: 'M9.5 6l6 6-6 6' }]],
+  chevronLeft: [['path', { d: 'M14.5 6l-6 6 6 6' }]],
+  image: [
+    ['rect', { x: 3.5, y: 4.5, width: 17, height: 15, rx: 3 }],
+    ['circle', { cx: 9, cy: 10, r: 1.8 }],
+    ['path', { d: 'M20.5 16l-5-5-8.5 8.5' }],
+  ],
   refresh: [
     ['path', { d: 'M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5' }],
     ['path', { d: 'M4 4v4.5h4.5' }],
@@ -137,6 +145,7 @@ export const AppNav = {
       { name: 'moderation', label: '审核与举报', icon: 'shield', count: badges.moderation, aria: (n) => `审核与举报，${n} 条待处理` },
       { name: 'events', label: '局管理', icon: 'calendar', count: 0 },
       { name: 'users', label: '用户与信用', icon: 'user', count: badges.appeals, aria: (n) => `用户与信用，${n} 条申诉待处理` },
+      { name: 'content', label: '内容运营', icon: 'image', count: 0 },
     ]);
     return { items, route };
   },
@@ -351,6 +360,207 @@ export const FeePicker = {
 </div>`,
 };
 
+// ---- 看大图（全局一个弹窗；Esc 关闭，左右方向键切换，焦点留在弹窗里，关掉后回到点开它的缩略图）----
+
+export const lightbox = reactive({ open: false, images: [], index: 0, label: '' });
+let lightboxOpener = null;
+
+export function openLightbox(images, index = 0, label = '图片') {
+  const list = (images || []).map((u) => safeUrl(u)).filter(Boolean);
+  if (!list.length) return;
+  lightboxOpener = document.activeElement;
+  Object.assign(lightbox, { images: list, index: Math.min(Math.max(0, index), list.length - 1), label, open: true });
+}
+
+export function closeLightbox() {
+  if (!lightbox.open) return;
+  lightbox.open = false;
+  const el = lightboxOpener;
+  lightboxOpener = null;
+  nextTick(() => {
+    if (el && typeof el.focus === 'function' && document.contains(el)) el.focus();
+  });
+}
+
+export const Lightbox = {
+  name: 'Lightbox',
+  setup() {
+    const root = ref(null);
+    const many = computed(() => lightbox.images.length > 1);
+    const current = computed(() => lightbox.images[lightbox.index] || '');
+    function step(d) {
+      const n = lightbox.images.length;
+      lightbox.index = (lightbox.index + d + n) % n;
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeLightbox();
+      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && many.value) {
+        e.preventDefault();
+        step(e.key === 'ArrowLeft' ? -1 : 1);
+      } else if (e.key === 'Tab' && root.value) {
+        const els = [...root.value.querySelectorAll('button')];
+        const i = els.indexOf(document.activeElement);
+        e.preventDefault();
+        els[e.shiftKey ? (i <= 0 ? els.length - 1 : i - 1) : (i + 1) % els.length].focus();
+      }
+    }
+    watch(
+      () => lightbox.open,
+      (open) => {
+        // 弹窗开着时，后面的页面不能被点到、也不会被读屏软件读到
+        document.documentElement.classList.toggle('has-lightbox', open);
+        const page = document.querySelector('.layout');
+        if (page) page.inert = open;
+        if (open) nextTick(() => root.value && root.value.querySelector('.lightbox__close').focus());
+      },
+    );
+    return { lb: lightbox, root, many, current, step, onKey, close: closeLightbox };
+  },
+  template: html`
+<div v-if="lb.open" ref="root" class="lightbox" role="dialog" aria-modal="true"
+  :aria-label="lb.label + '，第 ' + (lb.index + 1) + ' 张，共 ' + lb.images.length + ' 张'"
+  @keydown="onKey" @click.self="close">
+  <img class="lightbox__img" :src="current" :alt="lb.label + ' ' + (lb.index + 1)">
+  <div v-if="many" class="lightbox__bar">
+    <button type="button" class="lightbox__btn" aria-label="上一张" @click="step(-1)"><Icon name="chevronLeft" :size="22" :weight="2.2" /></button>
+    <span class="lightbox__count" aria-hidden="true">{{ lb.index + 1 }} / {{ lb.images.length }}</span>
+    <button type="button" class="lightbox__btn" aria-label="下一张" @click="step(1)"><Icon name="chevron" :size="22" :weight="2.2" /></button>
+  </div>
+  <button type="button" class="lightbox__close" aria-label="关闭大图" @click="close"><Icon name="close" :size="22" :weight="2.2" /></button>
+</div>`,
+};
+
+// ---- 缩略图：点了看大图 ----
+
+export const Thumbs = {
+  name: 'Thumbs',
+  props: {
+    images: { type: Array, default: () => [] },
+    label: { type: String, default: '图片' },
+    size: { type: String, default: 'md' }, // sm 56px / md 88px
+  },
+  setup(props) {
+    const list = computed(() => props.images.map((u) => safeUrl(u)).filter(Boolean));
+    const open = (i) => openLightbox(list.value, i, props.label);
+    return { list, open };
+  },
+  template: html`
+<ul v-if="list.length" class="thumbs" :class="'thumbs--' + size" :aria-label="label">
+  <li v-for="(u, i) in list" :key="i">
+    <button type="button" class="thumb" :aria-label="'看大图：' + label + ' ' + (i + 1)" @click="open(i)"><img :src="u" alt="" loading="lazy"></button>
+  </li>
+</ul>`,
+};
+
+// ---- 封面：有图用图，没有就用标签的插画 ----
+
+export const Cover = {
+  name: 'Cover',
+  props: {
+    image: { type: String, default: '' },
+    coverKey: { type: String, default: '' },
+    width: { type: Number, default: 60 },
+  },
+  setup(props) {
+    const broken = ref(false);
+    watch(
+      () => props.image,
+      () => {
+        broken.value = false;
+      },
+    );
+    const src = computed(() => (!broken.value && safeUrl(props.image)) || illustrationUrl(props.coverKey));
+    const style = computed(() => ({ width: `${props.width}px`, height: `${Math.round((props.width * 2) / 3)}px` }));
+    return { src, style, broken };
+  },
+  template: html`<span class="cover" :style="style" aria-hidden="true"><img v-if="src" :src="src" alt="" loading="lazy" @error="broken = true"></span>`,
+};
+
+// ---- 上传图片：选文件 → 逐张上传到 /api/admin/upload → v-model 是图片地址数组 ----
+
+let uploaderSeq = 0;
+export const ImageUploader = {
+  name: 'ImageUploader',
+  props: {
+    modelValue: { type: Array, default: () => [] },
+    max: { type: Number, default: 9 },
+    label: { type: String, default: '图片' }, // 读屏用：「局的照片」
+    wide: { type: Boolean, default: false }, // 轮播图：横的大预览
+  },
+  emits: ['update:modelValue', 'busy'],
+  setup(props, { emit }) {
+    const id = `upload-${++uploaderSeq}`;
+    const st = reactive({ done: 0, total: 0, err: '' });
+    const list = computed(() => props.modelValue.map((u) => safeUrl(u)).filter(Boolean));
+    const single = computed(() => props.max === 1);
+    const canAdd = computed(() => single.value || props.modelValue.length < props.max);
+    const addLabel = computed(() => {
+      if (st.total) return `正在上传 ${st.done + 1}/${st.total}…`;
+      if (single.value) return props.modelValue.length ? '换一张' : '上传图片';
+      return props.modelValue.length ? '再加几张' : '添加图片';
+    });
+
+    async function onPick(e) {
+      const input = e.target;
+      const files = [...(input.files || [])];
+      input.value = '';
+      if (!files.length || st.total) return;
+      st.err = '';
+      const room = single.value ? 1 : props.max - props.modelValue.length;
+      const take = files.slice(0, room);
+      const skipped = files.length - take.length;
+      st.total = take.length;
+      st.done = 0;
+      emit('busy', true);
+      let urls = single.value ? [] : props.modelValue.slice();
+      try {
+        for (const f of take) {
+          const url = await uploadImage(f);
+          urls = [...urls, url];
+          st.done += 1;
+          emit('update:modelValue', single.value ? urls : urls.slice());
+        }
+        if (skipped) st.err = `最多 ${props.max} 张，多出来的 ${skipped} 张没有传`;
+      } catch (err) {
+        st.err = err.message;
+      } finally {
+        st.total = 0;
+        st.done = 0;
+        emit('busy', false);
+      }
+    }
+
+    function remove(i) {
+      const urls = props.modelValue.slice();
+      urls.splice(i, 1);
+      emit('update:modelValue', urls);
+      st.err = '';
+      focusSoon(`#${id}`);
+    }
+
+    const open = (i) => openLightbox(list.value, i, props.label);
+    return { id, st, list, single, canAdd, addLabel, onPick, remove, open };
+  },
+  template: html`
+<div class="uploader">
+  <ul v-if="list.length" class="thumbs" :class="wide ? 'thumbs--wide' : 'thumbs--md'" :aria-label="label">
+    <li v-for="(u, i) in list" :key="u" class="thumb-item">
+      <button type="button" class="thumb" :aria-label="'看大图：' + label + ' ' + (i + 1)" @click="open(i)"><img :src="u" alt="" loading="lazy"></button>
+      <button v-if="!single" type="button" class="thumb-remove" :aria-label="'删掉' + label + ' ' + (i + 1)" @click="remove(i)"><Icon name="close" :size="14" :weight="2.4" /></button>
+    </li>
+  </ul>
+  <div v-if="canAdd" class="uploader__add">
+    <input :id="id" type="file" class="file-input" accept="image/jpeg,image/png,image/gif,image/webp" :multiple="!single" :aria-label="addLabel + '（' + label + '）'" :disabled="st.total > 0" @change="onPick">
+    <label :for="id" class="btn btn--outline btn--sm file-btn" :class="{ 'is-busy': st.total > 0 }" aria-hidden="true"><Icon name="image" :size="16" :weight="2" />{{ addLabel }}</label>
+    <span class="small muted">{{ single ? 'jpg / png / gif / webp，不超过 5MB' : '最多 ' + max + ' 张，每张不超过 5MB · 已有 ' + modelValue.length + ' 张' }}</span>
+  </div>
+  <p v-if="st.total" class="sr-only" role="status">{{ addLabel }}</p>
+  <p v-if="st.err" class="form-error" role="alert">{{ st.err }}</p>
+</div>`,
+};
+
 /** 下一帧把焦点放到某个元素上（面板打开 / 关闭后，别让焦点掉回页面开头） */
 export function focusSoon(selector) {
   nextTick(() => {
@@ -360,7 +570,7 @@ export function focusSoon(selector) {
 }
 
 export function registerUi(app) {
-  for (const c of [Icon, Avatar, AppNav, StatusBanner, TabList, Stepper, ToggleSwitch, LoadState, StatusPill, LevelPill, FeePicker]) {
+  for (const c of [Icon, Avatar, AppNav, StatusBanner, TabList, Stepper, ToggleSwitch, LoadState, StatusPill, LevelPill, FeePicker, Lightbox, Thumbs, Cover, ImageUploader]) {
     app.component(c.name, c);
   }
 }

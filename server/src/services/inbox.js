@@ -62,7 +62,7 @@ export function inboxChats(db, user) {
   for (const m of rows) {
     const e = getEvent(db, m.event_id);
     const count = joinedCount(db, e.id);
-    if (!isChatOpen(e, count)) continue;
+    if (!isChatOpen(e)) continue;
     if (!m.last_id && phaseOf(e) === 'ended') continue; // 已结束且没人说过话的局不进列表
     const last = m.last_id ? db.get('SELECT * FROM messages WHERE id = ?', m.last_id) : null;
     const unread = Number(

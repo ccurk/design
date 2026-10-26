@@ -1,4 +1,4 @@
-// 动态详情 + 评论：回复、点赞、举报（动态 / 评论）、删除自己的动态
+// 动态详情：图片左右滑（高度跟第一张图走，点开看大图）+ 正文 + 评论：回复、点赞、举报、删除自己的动态
 const api = require('../../utils/api');
 const native = require('../../utils/native');
 const session = require('../../utils/session');
@@ -9,6 +9,8 @@ Page({
     loading: true,
     error: '',
     post: null,
+    current: 0,
+    galleryH: 750,
     comments: [],
     draft: '',
     replyTo: null,
@@ -33,12 +35,52 @@ Page({
 
   load() {
     return api
-      .post(this.id)
+      .post(this.id, { silent: true })
       .then((res) => {
         const comments = (res.comments || []).map(mapComment);
         this.setData({ loading: false, error: '', post: mapPost(Object.assign({}, res, { commentCount: comments.length })), comments });
       })
       .catch((err) => this.setData({ loading: false, error: err.message }));
+  },
+
+  retry() {
+    this.setData({ loading: true, error: '' });
+    this.load();
+  },
+
+  // 轮播高度按第一张图的比例（3:4 到 4:3 之间），避免大片留白
+  onImgLoad(e) {
+    if (Number(e.currentTarget.dataset.index) !== 0) return;
+    const d = e.detail || {};
+    if (!d.width || !d.height) return;
+    const ratio = Math.max(0.75, Math.min(1.333, d.height / d.width));
+    this.setData({ galleryH: Math.round(750 * ratio) });
+  },
+
+  onSwiper(e) {
+    this.setData({ current: e.detail.current });
+  },
+
+  preview(e) {
+    const urls = (this.data.post && this.data.post.images) || [];
+    wx.previewImage({ urls, current: urls[e.currentTarget.dataset.index] || urls[0] });
+  },
+
+  openAuthor() {
+    const a = this.data.post && this.data.post.author;
+    if (a && a.id) wx.navigateTo({ url: '/pages/user/user?id=' + a.id });
+  },
+
+  openEvent() {
+    const ev = this.data.post && this.data.post.event;
+    if (ev && ev.id) wx.navigateTo({ url: '/pages/detail/detail?id=' + ev.id });
+  },
+
+  onShareAppMessage() {
+    const p = this.data.post;
+    const share = { title: p ? (p.text || '').slice(0, 24) || '大理的局 · 花絮' : '大理的局 · 花絮', path: '/pages/post/post?id=' + this.id };
+    if (p && p.images.length) share.imageUrl = p.images[0];
+    return share;
   },
 
   onLike() {

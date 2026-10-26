@@ -6,64 +6,99 @@
       <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
     </view>
 
+    <!-- 玩什么：热门标签 + 自己添加 -->
     <view class="box">
-      <view class="col gap-8">
-        <view class="label">类型</view>
-        <view class="chips">
-          <view wx:for="{{types}}" wx:key="value" class="chip {{category === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickType" aria-role="radio" aria-checked="{{category === item.value}}">{{item.label}}</view>
+      <view class="box-head">
+        <text class="label">玩什么</text>
+        <text class="box-hint">选一个，或者自己写</text>
+      </view>
+      <view class="chips">
+        <view wx:if="{{customTag}}" class="chip chip-sm {{tag === customTag ? 'on' : ''}}" data-name="{{customTag}}" bindtap="pickTag" aria-role="radio" aria-checked="{{tag === customTag}}"># {{customTag}}</view>
+        <view wx:for="{{hotTags}}" wx:key="name" class="chip chip-sm {{tag === item.name ? 'on' : ''}}" data-name="{{item.name}}" bindtap="pickTag" aria-role="radio" aria-checked="{{tag === item.name}}">{{item.name}}</view>
+        <view class="chip chip-sm chip-add" hover-class="pressed" bindtap="openTagSheet" aria-role="button">
+          <image class="ico-16" src="/assets/icons/plus-ink.svg" />
+          <text>自己添加</text>
         </view>
       </view>
+    </view>
 
-      <view class="col gap-8">
-        <view class="label">标题</view>
-        <input class="field" value="{{title}}" placeholder="比如：周六清晨 · 苍山看日出" placeholder-class="ph" maxlength="30" bindinput="onTitle" />
+    <!-- 标题 -->
+    <view class="box">
+      <view class="label">标题</view>
+      <input class="field" value="{{title}}" placeholder="比如：周六清晨 · 苍山看日出" placeholder-class="ph" maxlength="30" bindinput="onTitle" />
+      <view wx:if="{{titleHint && !title}}" class="suggest" hover-class="pressed" bindtap="useHint" aria-role="button">
+        <image class="ico-14" src="/assets/icons/sparkle-primary.svg" />
+        <text>用「{{titleHint}}」</text>
       </view>
+    </view>
 
-      <view class="col gap-8">
-        <view class="label">时间和地点</view>
-        <view class="pick-row">
-          <image class="ico-18" src="/assets/icons/clock-gray.svg" />
-          <picker class="flex1" mode="date" value="{{date}}" start="{{minDate}}" end="{{maxDate}}" bindchange="onDate">
-            <view class="pick-text {{date ? '' : 'ph'}}">{{date ? dateText : '选日期'}}</view>
-          </picker>
-          <picker mode="time" value="{{time || '09:00'}}" bindchange="onTime">
-            <view class="pick-text pick-time {{time ? '' : 'ph'}}">{{time || '选时间'}}</view>
-          </picker>
-          <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    <!-- 时间、地点、最晚退出时间 -->
+    <view class="box rows">
+      <view class="pick-row" hover-class="pressed" bindtap="openTime" aria-role="button" aria-label="开始时间">
+        <image class="ico-20" src="/assets/icons/clock-gray.svg" />
+        <view class="flex1 col">
+          <text class="row-label">开始时间</text>
+          <text class="row-value {{startAt ? '' : 'ph'}}">{{startText || '选日期和时间'}}</text>
         </view>
-        <view class="pick-row" hover-class="pressed" bindtap="pickPlace">
-          <image class="ico-18" src="/assets/icons/pin-gray.svg" />
-          <text class="flex1 pick-text ellipsis {{place ? '' : 'ph'}}">{{place || '选个集合地点'}}</text>
-          <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
-        </view>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
       </view>
+      <view class="pick-row divider-top" hover-class="pressed" bindtap="openPlace" aria-role="button" aria-label="集合地点">
+        <image class="ico-20" src="/assets/icons/pin-gray.svg" />
+        <view class="flex1 col">
+          <text class="row-label">集合地点</text>
+          <text class="row-value ellipsis {{place ? '' : 'ph'}}">{{place || '选个集合地点'}}</text>
+          <text wx:if="{{location && location.address}}" class="row-sub ellipsis">{{location.address}}</text>
+        </view>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+      <view class="pick-row divider-top" hover-class="pressed" bindtap="openExit" aria-role="button" aria-label="最晚退出时间">
+        <image class="ico-20" src="/assets/icons/hourglass-gray.svg" />
+        <view class="flex1 col">
+          <text class="row-label">最晚退出时间</text>
+          <text class="row-value {{startAt ? '' : 'ph'}}">{{startAt ? exitText : '先选开始时间'}}</text>
+        </view>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+    </view>
 
-      <view class="row between gap-12">
-        <view class="col gap-2">
-          <text class="t-15 w7">人数</text>
-          <text class="t-12 c-2">含你自己，满员自动建群</text>
+    <!-- 人数、谁可以报名 -->
+    <view class="box rows">
+      <view class="pick-row">
+        <image class="ico-20" src="/assets/icons/people-gray.svg" />
+        <view class="flex1 col">
+          <text class="row-label">人数</text>
+          <text class="row-sub">含你自己，人齐了自动建群</text>
         </view>
         <view class="row gap-4">
-          <view class="step-btn {{capacity <= 2 ? 'off' : ''}}" hover-class="pressed" bindtap="dec" aria-label="减少人数">
+          <view class="step-btn {{capacity <= 2 ? 'off' : ''}}" hover-class="pressed" bindtap="dec" aria-role="button" aria-label="减少人数">
             <image class="ico-18" src="/assets/icons/minus-ink.svg" />
           </view>
           <text class="step-num">{{capacity}}</text>
-          <view class="step-btn {{capacity >= 20 ? 'off' : ''}}" hover-class="pressed" bindtap="inc" aria-label="增加人数">
+          <view class="step-btn {{capacity >= 20 ? 'off' : ''}}" hover-class="pressed" bindtap="inc" aria-role="button" aria-label="增加人数">
             <image class="ico-18" src="/assets/icons/plus-ink.svg" />
           </view>
         </view>
       </view>
+      <view class="pick-row divider-top" hover-class="pressed" bindtap="openGender" aria-role="button" aria-label="谁可以报名">
+        <image class="ico-20" src="/assets/icons/user-gray.svg" />
+        <view class="flex1 col">
+          <text class="row-label">谁可以报名</text>
+          <text class="row-value">{{genderText}}</text>
+        </view>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
+    </view>
 
-      <view class="col gap-8">
-        <view class="label">费用</view>
-        <view class="chips">
-          <view wx:for="{{fees}}" wx:key="value" class="chip {{feeType === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickFee" aria-role="radio" aria-checked="{{feeType === item.value}}">{{item.label}}</view>
-        </view>
-        <view wx:if="{{feeType === 'aa'}}" class="per">
-          <text class="t-14 c-body">预计每人（元）</text>
-          <input class="field per-input" type="digit" value="{{feeEstimate}}" placeholder="30" placeholder-class="ph" bindinput="onFee" />
-          <text class="t-12 c-2">只记账，平台不收钱</text>
-        </view>
+    <!-- 费用 -->
+    <view class="box">
+      <view class="label">费用</view>
+      <view class="chips">
+        <view wx:for="{{fees}}" wx:key="value" class="chip chip-sm {{feeType === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickFee" aria-role="radio" aria-checked="{{feeType === item.value}}">{{item.label}}</view>
+      </view>
+      <view wx:if="{{feeType === 'aa'}}" class="per">
+        <text class="t-14 c-body">预计每人（元）</text>
+        <input class="field per-input" type="digit" value="{{feeEstimate}}" placeholder="30" placeholder-class="ph" bindinput="onFee" />
+        <text class="t-12 c-2">只是参考，最后由垫钱的人记一笔 AA</text>
       </view>
     </view>
 
@@ -75,29 +110,32 @@
         </view>
         <dz-switch checked="{{requireApproval}}" label="报名需要我同意" bindchange="toggleApproval" />
       </view>
-      <view class="sw-row divider-top">
-        <view class="flex1 col gap-2">
-          <text class="t-15 w5">只限同性</text>
-          <text class="t-12 c-2">只有同性别的人能看到和报名</text>
-        </view>
-        <dz-switch checked="{{sameSexOnly}}" label="只限同性" bindchange="toggleSameSex" />
-      </view>
     </view>
 
+    <!-- 介绍一下 + 照片 -->
     <view class="box">
-      <view class="label">说两句（选填）</view>
-      <textarea class="area desc" value="{{description}}" placeholder="比如：慢热友好，不用尬聊，到点出现就好" placeholder-class="ph" maxlength="300" bindinput="onDesc" />
+      <view class="label">介绍一下（选填）</view>
+      <textarea class="area desc" value="{{description}}" placeholder="想怎么玩、适合什么样的人、要带点什么…" placeholder-class="ph" maxlength="300" bindinput="onDesc" />
+      <view class="chips phrases">
+        <view wx:for="{{phrases}}" wx:key="*this" class="phrase" hover-class="pressed" data-word="{{item}}" bindtap="addPhrase" aria-role="button">+ {{item}}</view>
+      </view>
+      <view class="box-head">
+        <text class="label">照片（选填）</text>
+        <text class="box-hint">最多 9 张，第一张做封面</text>
+      </view>
+      <dz-uploader max="{{9}}" size="{{196}}" cover="{{true}}" bindchange="onImages" />
+      <view wx:if="{{!images.length && !uploading}}" class="t-12 c-2">不传照片，就用「{{tag || '标签'}}」的插画当封面。</view>
     </view>
 
     <view class="note">
       <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
-      <text>发布前会自动审核：含联系方式、广告、约会擦边的内容会被拦截。</text>
+      <text>发布前会自动审核：含联系方式、广告、约会擦边的内容和照片会被拦截。</text>
     </view>
   </view>
 
   <view class="bar-space"></view>
   <view class="bottom-bar">
-    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="publish">{{submitting ? '发布中…' : '发布'}}</view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="{{submitting ? 'none' : 'pressed'}}" bindtap="publish">{{submitting ? '发布中…' : (uploading ? '照片上传中…' : '发布')}}</view>
   </view>
 </view>
 
@@ -107,8 +145,61 @@
     <view class="done-title">发布成功</view>
     <view class="done-text">{{doneText}}</view>
     <view class="done-actions">
-      <view class="btn btn-primary" hover-class="pressed" bindtap="openMine">看看我的局</view>
-      <view class="btn btn-md btn-outline" hover-class="pressed" bindtap="goSquare">回到广场</view>
+      <view class="btn btn-primary" hover-class="pressed" bindtap="openEvent">去看看这个局</view>
+      <button class="native-btn" open-type="share" hover-class="none">
+        <view class="btn btn-md btn-outline" hover-class="pressed">
+          <image class="ico-16" src="/assets/icons/share-ink.svg" />
+          <text>邀请朋友来</text>
+        </view>
+      </button>
+      <view class="btn btn-ghost" hover-class="pressed" bindtap="goSquare">回到广场</view>
     </view>
   </view>
 </view>
+
+<dz-tag-sheet show="{{tagShow}}" title="玩什么" tags="{{hotTags}}" value="{{tag}}" custom="{{true}}" bindclose="closeTagSheet" bindconfirm="onTagSheet" />
+<dz-datetime-sheet show="{{timeShow}}" value="{{startAt}}" bindclose="closeTime" bindconfirm="onTime" />
+<dz-place-sheet show="{{placeShow}}" value="{{place}}" location="{{location}}" bindclose="closePlace" bindconfirm="onPlace" />
+
+<dz-sheet show="{{exitShow}}" title="最晚退出时间" bindclose="closeExit" bindconfirm="confirmExit">
+  <view class="xs">
+    <view class="xs-intro">过了这个时间就不能退出了。到时候人够了自动成群，不够就取消，并通知大家。</view>
+    <view wx:for="{{exitOptions}}" wx:key="hours" class="xs-row {{item.off ? 'off' : ''}} {{index ? 'divider-top' : ''}}" hover-class="{{item.off ? 'none' : 'pressed'}}" data-hours="{{item.hours}}" data-off="{{item.off}}" bindtap="pickExit" aria-role="radio" aria-checked="{{exitPick === item.hours}}" aria-disabled="{{item.off}}">
+      <view class="radio {{exitPick === item.hours ? 'on' : ''}}"></view>
+      <view class="flex1 col">
+        <text class="xs-label">{{item.label}}<text wx:if="{{item.hours === 24}}" class="xs-rec"> 推荐</text></text>
+        <text class="xs-time">{{item.off ? '来不及了' : item.time + ' 之前可以退出'}}</text>
+      </view>
+    </view>
+    <view wx:if="{{!exitPick}}" class="xs-note">离开始太近了，发布后 30 分钟内可以退出。</view>
+  </view>
+</dz-sheet>
+
+<dz-sheet show="{{genderShow}}" title="谁可以报名" bindclose="closeGender" bindconfirm="confirmGender">
+  <view class="gs">
+    <view class="gs-opt {{genderPick.female ? 'on' : ''}} {{myGender === 'female' ? 'lock' : ''}} {{myGender ? '' : 'off'}}" hover-class="pressed" data-g="female" bindtap="toggleGender" aria-role="checkbox" aria-checked="{{genderPick.female}}">
+      <view class="gs-box"><image wx:if="{{genderPick.female}}" class="ico-14" src="/assets/icons/check-white.svg" /></view>
+      <text class="flex1">女生</text>
+      <text wx:if="{{myGender === 'female'}}" class="gs-me">你自己</text>
+    </view>
+    <view class="gs-opt divider-top {{genderPick.male ? 'on' : ''}} {{myGender === 'male' ? 'lock' : ''}} {{myGender ? '' : 'off'}}" hover-class="pressed" data-g="male" bindtap="toggleGender" aria-role="checkbox" aria-checked="{{genderPick.male}}">
+      <view class="gs-box"><image wx:if="{{genderPick.male}}" class="ico-14" src="/assets/icons/check-white.svg" /></view>
+      <text class="flex1">男生</text>
+      <text wx:if="{{myGender === 'male'}}" class="gs-me">你自己</text>
+    </view>
+    <view class="gs-opt divider-top {{genderPick.female && genderPick.male ? 'on' : ''}}" hover-class="pressed" data-g="any" bindtap="toggleGender" aria-role="checkbox" aria-checked="{{genderPick.female && genderPick.male}}">
+      <view class="gs-box"><image wx:if="{{genderPick.female && genderPick.male}}" class="ico-14" src="/assets/icons/check-white.svg" /></view>
+      <text class="flex1">不限</text>
+      <text class="gs-me">男生女生都可以</text>
+    </view>
+    <view class="gs-hint">男生、女生都选就是「不限」。性别不符的人看不到这个局，也报不了名。</view>
+    <view wx:if="{{myGender}}" class="gs-hint">发起人自己也要能参加：你是{{myGender === 'female' ? '女生' : '男生'}}，所以不能选「只限{{myGender === 'female' ? '男生' : '女生'}}」。</view>
+    <view wx:else class="tip gs-tip">
+      <text class="flex1">资料里还没选性别，只能选「不限」。</text>
+      <view class="link" hover-class="pressed" bindtap="goProfile">
+        <text>去资料里选</text>
+        <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+      </view>
+    </view>
+  </view>
+</dz-sheet>

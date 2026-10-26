@@ -1,0 +1,51 @@
+:host {
+  display: block;
+}
+.pk {
+  padding: 0 40rpx 8rpx;
+}
+.pk-summary {
+  padding: 8rpx 0 20rpx;
+  text-align: center;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #193543;
+}
+.pk-head {
+  display: flex;
+  padding: 0 0 8rpx;
+  font-size: 24rpx;
+  color: #5B5F68;
+  text-align: center;
+}
+.pk-col {
+  flex: 1;
+}
+.pk-col-wide {
+  flex: 2.4;
+}
+.pk-view {
+  height: 440rpx;
+}
+.pk-item {
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: 32rpx;
+  color: #15171C;
+}
+.pk-indicator {
+  border-radius: 24rpx;
+  background: rgba(124, 202, 227, 0.18);
+}
+.pk-indicator::before,
+.pk-indicator::after {
+  border: 0;
+}
+.pk-error {
+  min-height: 48rpx;
+  padding-top: 8rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #B42318;
+}

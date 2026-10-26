@@ -1,20 +1,30 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="detail" />
 
 <dz-empty wx:elif="{{error}}" title="看不到这个局" desc="{{error}}" icon="/assets/icons/compass-primary.svg">
-  <view class="btn btn-sm btn-primary" bindtap="goSquare">去广场看看</view>
+  <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="retry">重新加载</view>
+  <view class="btn btn-sm btn-ghost" hover-class="pressed" bindtap="goSquare">去广场看看</view>
 </dz-empty>
 
 <view wx:else class="detail">
-  <dz-cover variant="hero" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+  <!-- 照片：可以左右滑，点开看大图；没有照片用标签插画 -->
+  <view wx:if="{{images.length}}" class="gallery">
+    <swiper class="gallery-swiper" current="{{imageIndex}}" bindchange="onSwiper">
+      <swiper-item wx:for="{{images}}" wx:key="*this">
+        <image class="gallery-img" src="{{item}}" mode="aspectFill" lazy-load data-index="{{index}}" bindtap="previewImage" />
+      </swiper-item>
+    </swiper>
+    <text wx:if="{{images.length > 1}}" class="gallery-count">{{imageIndex + 1}}/{{images.length}}</text>
+  </view>
+  <dz-cover wx:else variant="hero" cover-key="{{event.coverKey}}" category="{{event.category}}" task="{{event.tag || event.task}}" title="{{event.title}}" />
 
   <view class="sheet">
     <view class="col gap-10">
       <view class="row gap-6 tags">
         <text class="pill pill-accent">{{sourceLabel}}</text>
-        <text class="pill pill-outline">{{categoryLabel}}</text>
+        <text wx:if="{{event.tag || event.task}}" class="pill pill-outline"># {{event.tag || event.task}}</text>
+        <text wx:if="{{event.genderLabel}}" class="pill pill-outline">{{event.genderLabel}}</text>
         <text wx:if="{{event.requireApproval}}" class="pill pill-outline">需发起人同意</text>
-        <text wx:if="{{event.sameSexOnly}}" class="pill pill-outline">同性局</text>
-        <view class="report" hover-class="pressed" bindtap="report">
+        <view class="report" hover-class="pressed" bindtap="report" aria-role="button">
           <image class="ico-14" src="/assets/icons/flag-gray.svg" />
           <text>举报</text>
         </view>
@@ -34,26 +44,37 @@
       </view>
     </view>
 
-    <view class="col gap-10">
+    <view class="infos">
       <view class="info">
         <view class="info-ico"><image class="ico-20" src="/assets/icons/clock-ink.svg" /></view>
-        <view class="col gap-2">
+        <view class="flex1 col gap-2">
           <text class="t-15 w7">{{dateFull}}</text>
           <text wx:if="{{durationText}}" class="t-13 c-2">{{durationText}}</text>
         </view>
       </view>
-      <view class="info">
+      <view class="info" hover-class="{{hasMap ? 'pressed' : 'none'}}" bindtap="openMap" aria-role="{{hasMap ? 'link' : ''}}">
         <view class="info-ico"><image class="ico-20" src="/assets/icons/pin-ink.svg" /></view>
-        <view class="col gap-2">
+        <view class="flex1 col gap-2">
           <text class="t-15 w7">{{event.place}}</text>
-          <text wx:if="{{event.meetingPoint}}" class="t-13 c-2">{{event.meetingPoint}}</text>
+          <text wx:if="{{placeSub}}" class="t-13 c-2">{{placeSub}}</text>
+        </view>
+        <view wx:if="{{hasMap}}" class="map-link">
+          <image class="ico-16" src="/assets/icons/map-primary.svg" />
+          <text>地图</text>
         </view>
       </view>
       <view class="info">
         <view class="info-ico"><image class="ico-20" src="/assets/icons/wallet-ink.svg" /></view>
-        <view class="col gap-2">
+        <view class="flex1 col gap-2">
           <text class="t-15 w7">{{feeTitle}}</text>
           <text class="t-13 c-2">{{feeNote}}</text>
+        </view>
+      </view>
+      <view wx:if="{{event.exitDeadlineLabel}}" class="info">
+        <view class="info-ico"><image class="ico-20" src="/assets/icons/hourglass-gray.svg" /></view>
+        <view class="flex1 col gap-2">
+          <text class="t-15 w7">最晚 {{event.exitDeadlineLabel}} 前可以退出</text>
+          <text class="t-13 c-2">到时候人够了自动成群，不够就取消</text>
         </view>
       </view>
     </view>
@@ -65,7 +86,7 @@
         <text class="t-15 w7">同行的人</text>
         <text class="t-13 c-2">{{event.memberCount}}/{{event.capacity}} · 点头像看主页</text>
       </view>
-      <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="members-scroll">
+      <scroll-view scroll-x enhanced="{{true}}" show-scrollbar="{{false}}" class="members-scroll">
         <view class="members">
           <view wx:for="{{members}}" wx:key="id" class="member" hover-class="pressed" data-id="{{item.id}}" bindtap="openUser">
             <dz-avatar user="{{item}}" size="44" />
@@ -94,19 +115,43 @@
 
     <view class="tip-box">
       <image class="ico-18 tip-ico" src="/assets/icons/shield-check-body.svg" />
-      <text>活动前一天会提醒你轻确认出席。临时有事提前取消就好，不用跟谁解释。</text>
+      <text>活动由参与者自发组织，平台不收费。请在公共场所见面，量力而行。活动前一天会提醒你确认出席。</text>
     </view>
 
+    <view wx:if="{{leave}}" class="leave">
+      <view class="leave-btn {{leave.disabled ? 'off' : ''}}" hover-class="{{leave.disabled ? 'none' : 'pressed'}}" bindtap="leaveEvent" aria-role="button" aria-disabled="{{leave.disabled}}">
+        <image class="ico-16" src="{{leave.disabled ? '/assets/icons/lock-gray.svg' : '/assets/icons/exit-danger.svg'}}" />
+        <text>{{leave.label}}</text>
+      </view>
+      <text wx:if="{{leave.disabled}}" class="leave-reason">{{leave.reason}}</text>
+    </view>
     <view wx:if="{{canCancel}}" class="host-cancel" hover-class="pressed" bindtap="cancelEvent">取消这个局</view>
 
     <view class="bar-space"></view>
   </view>
 
   <view class="bottom-bar bar">
-    <view class="flex1 col gap-6">
-      <text class="t-14 w7">{{slotText}}</text>
-      <view class="progress"><view class="progress-bar" style="width: {{fillPct}}%;"></view></view>
-    </view>
-    <view class="btn btn-md btn-primary cta {{cta.disabled ? 'disabled' : ''}}" hover-class="{{cta.disabled ? 'none' : 'pressed'}}" bindtap="onCta">{{cta.label}}</view>
+    <block wx:if="{{bar.mode === 'waiting'}}">
+      <view class="flex1 col gap-6">
+        <text class="t-14 w7">已加入 · 还差 {{bar.remaining}} 人成群</text>
+        <view class="progress"><view class="progress-bar" style="width: {{fillPct}}%;"></view></view>
+        <text class="t-12 c-2">人齐了第一时间通知你，群聊会自动建好</text>
+      </view>
+      <button class="native-btn" open-type="share" hover-class="none">
+        <view class="btn btn-md btn-primary cta" hover-class="pressed">
+          <image class="ico-16" src="/assets/icons/share-white.svg" />
+          <text>邀请朋友</text>
+        </view>
+      </button>
+    </block>
+    <block wx:else>
+      <view class="flex1 col gap-6">
+        <text class="t-14 w7">{{slotText}}</text>
+        <view class="progress"><view class="progress-bar" style="width: {{fillPct}}%;"></view></view>
+      </view>
+      <view class="btn btn-md btn-primary cta {{bar.disabled ? 'disabled' : ''}}" hover-class="{{bar.disabled ? 'none' : 'pressed'}}" bindtap="onCta" aria-disabled="{{bar.disabled}}">{{bar.label}}</view>
+    </block>
   </view>
 </view>
+
+<dz-join-sheet show="{{joinShow}}" info="{{joinInfo}}" busy="{{joinBusy}}" result="{{joinResult}}" bindclose="closeJoin" bindconfirm="confirmJoin" bindchat="joinChat" />

@@ -1,0 +1,14 @@
+<dz-sheet show="{{show}}" title="{{title}}" confirm-disabled="{{!picked}}" z-index="{{zIndex}}" bindclose="onClose" bindconfirm="onConfirm">
+  <view class="tg">
+    <view class="tg-label">大家常玩的</view>
+    <view class="chips">
+      <view wx:for="{{tags}}" wx:key="name" class="chip tg-chip {{!isCustom && picked === item.name ? 'on' : ''}}" data-name="{{item.name}}" bindtap="pick" aria-role="radio" aria-checked="{{!isCustom && picked === item.name}}">{{item.name}}</view>
+    </view>
+    <view class="tg-label">自己添加</view>
+    <view class="tg-field {{isCustom && input ? 'active' : ''}} {{error ? 'bad' : ''}}">
+      <image class="ico-18" src="/assets/icons/hash-gray.svg" />
+      <input class="tg-input" value="{{input}}" focus="{{focus}}" placeholder="写一个，比如：溯溪、KTV、写生" placeholder-class="ph" maxlength="12" confirm-type="done" bindinput="onInput" bindconfirm="onConfirm" />
+    </view>
+    <view class="tg-hint {{error ? 'c-danger' : ''}}">{{error || '最多 8 个字。新标签用的人多了，会出现在热门里。'}}</view>
+  </view>
+</dz-sheet>

@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS intents (
   size_max INTEGER NOT NULL DEFAULT 5,
   relax_time INTEGER NOT NULL DEFAULT 0,
   relax_size INTEGER NOT NULL DEFAULT 0,
+  time_from TEXT,
+  time_to TEXT,
   status TEXT NOT NULL DEFAULT 'open',
   event_id INTEGER,
   proposal_id INTEGER,
@@ -110,6 +112,9 @@ CREATE TABLE IF NOT EXISTS events (
   review_note TEXT,
   cancel_reason TEXT,
   formed_at TEXT,
+  images TEXT NOT NULL DEFAULT '[]',
+  location TEXT,
+  exit_deadline TEXT,
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_status ON events(status, start_at);
@@ -143,13 +148,14 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_event ON messages(event_id, id);
 
-CREATE TABLE IF NOT EXISTS aa_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  event_id INTEGER NOT NULL REFERENCES events(id),
+-- 每个局只有一笔 AA：一个成员把总花费一次性记下，其他人按人数平摊转给 TA（旧的 aa_items 不再使用）
+CREATE TABLE IF NOT EXISTS aa_bills (
+  event_id INTEGER PRIMARY KEY REFERENCES events(id),
   payer_id INTEGER NOT NULL REFERENCES users(id),
-  name TEXT NOT NULL,
   amount REAL NOT NULL,
-  created_at TEXT NOT NULL
+  note TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS aa_transfers (
@@ -279,6 +285,31 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- 标签：意向的「想做的事」和局的标签共用；key = 规范化后的名字（拉丁字母小写），撮合按 key 比较
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  key TEXT NOT NULL UNIQUE,
+  category TEXT NOT NULL DEFAULT 'other',
+  cover TEXT,
+  hot INTEGER NOT NULL DEFAULT 0,
+  sort INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
+-- 首页轮播图（后台维护）
+CREATE TABLE IF NOT EXISTS banners (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  image TEXT NOT NULL,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  link TEXT,
+  sort INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+
 -- 定时任务去重（例如「只提醒一次」）
 CREATE TABLE IF NOT EXISTS job_marks (
   key TEXT PRIMARY KEY,
@@ -291,6 +322,12 @@ const COLUMN_MIGRATIONS = [
   ['users', 'restricted_reason', 'TEXT'],
   ['event_members', 'invite_expired', 'INTEGER NOT NULL DEFAULT 0'],
   ['reports', 'user_message', 'TEXT'],
+  // v0.3
+  ['intents', 'time_from', 'TEXT'],
+  ['intents', 'time_to', 'TEXT'],
+  ['events', 'images', "TEXT NOT NULL DEFAULT '[]'"],
+  ['events', 'location', 'TEXT'],
+  ['events', 'exit_deadline', 'TEXT'],
 ];
 
 function migrate(raw) {
@@ -341,6 +378,7 @@ export function openDb(dbPath = ':memory:') {
     raw,
     path: dbPath,
     hooks: {}, // 由 app 注册，例如 notice → 微信订阅消息
+    publicBaseUrl: '', // 由 app 设置（PUBLIC_BASE_URL），图片相对路径拼成绝对地址时用
     get: (sql, ...params) => stmt(sql).get(...bindParams(params)),
     all: (sql, ...params) => stmt(sql).all(...bindParams(params)),
     run(sql, ...params) {

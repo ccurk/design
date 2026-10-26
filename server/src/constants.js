@@ -58,7 +58,12 @@ export const FEE_TYPES = ['aa', 'free', 'host', 'split'];
 
 export const SYSTEM_MESSAGES = {
   formed: '满员啦，群已自动建好 · 第一次见面，慢慢来',
+  formedAtDeadline: '人数够了，群已自动建好 · 第一次见面，慢慢来',
 };
+
+/** 谁可以报名：不限 / 只限女生 / 只限男生 */
+export const GENDER_LIMITS = ['any', 'female', 'male'];
+export const GENDER_LIMIT_LABELS = { female: '只限女生', male: '只限男生' };
 
 /** 信用记录类型的中文名 */
 export const CREDIT_TYPE_LABELS = {

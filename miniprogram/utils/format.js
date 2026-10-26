@@ -10,6 +10,42 @@ const SLOT = { morning: '上午', afternoon: '下午', evening: '晚上', allday
 const PACE = { slow: '比较慢热', warm: '熟了就话多', open: '随时都能聊' };
 const GENDER = { female: '女', male: '男', unknown: '不填' };
 const FEE_NOTE = { aa: '平台不经手钱，钱在微信里直接转', free: '不用花钱，人到就行', host: '不用 AA，人到就行', split: '各自付自己的，平台不经手钱' };
+// 意向的时间段（v0.3）：上午 / 下午 / 晚上 / 都可以，或自定义时间段
+const TIME_SLOTS = [
+  { value: 'morning', label: '上午', from: '05:00', to: '12:00' },
+  { value: 'afternoon', label: '下午', from: '12:00', to: '18:00' },
+  { value: 'evening', label: '晚上', from: '18:00', to: '23:00' },
+  { value: 'allday', label: '都可以', from: '05:00', to: '23:00' }
+];
+const GENDER_LIMIT = { any: '不限', female: '只限女生', male: '只限男生' };
+// 插画 key（design/illustrations）→ 本地文件；分类没有标签插画时的默认值
+const COVER_KEYS = ['sunrise', 'mountain', 'cycling', 'lake', 'coffee', 'reading', 'food', 'boardgame', 'carpool', 'oldtown'];
+const CATEGORY_COVER = { outdoor: 'mountain', food: 'food', coffee: 'coffee', game: 'boardgame', carpool: 'carpool', other: 'oldtown' };
+const COVER_SRC = {
+  sunrise: '/assets/covers/sunrise.svg',
+  mountain: '/assets/covers/mountain.svg',
+  cycling: '/assets/covers/cycling.svg',
+  lake: '/assets/covers/lake.svg',
+  coffee: '/assets/covers/coffee.svg',
+  reading: '/assets/covers/reading.svg',
+  food: '/assets/covers/food.svg',
+  boardgame: '/assets/covers/boardgame.svg',
+  carpool: '/assets/covers/carpool.svg',
+  oldtown: '/assets/covers/oldtown.svg'
+};
+// 接口拿不到时用的默认热门标签（与 docs/changes-v0.3.md A 一致）
+const DEFAULT_TAGS = [
+  { name: '看日出', category: 'outdoor', cover: 'sunrise' },
+  { name: '爬山', category: 'outdoor', cover: 'mountain' },
+  { name: '骑行', category: 'outdoor', cover: 'cycling' },
+  { name: '咖啡', category: 'coffee', cover: 'coffee' },
+  { name: '吃饭', category: 'food', cover: 'food' },
+  { name: '桌游', category: 'game', cover: 'boardgame' },
+  { name: '拼车', category: 'carpool', cover: 'carpool' },
+  { name: '随便走走', category: 'outdoor', cover: 'oldtown' },
+  { name: '读书', category: 'coffee', cover: 'reading' },
+  { name: '拍照', category: 'outdoor', cover: 'lake' }
+];
 
 function pad(n) {
   return n < 10 ? '0' + n : String(n);
@@ -175,6 +211,75 @@ function shortTitle(title) {
   return s;
 }
 
+// 北京日期 YYYY-MM-DD 往后的日期列表：[{ date, label: '今天 10月26日 周一' }]
+function dateOptions(days, from) {
+  const out = [];
+  for (let i = from || 0; i < (from || 0) + days; i++) {
+    const date = dateStr(i);
+    const prefix = i === 0 ? '今天 ' : i === 1 ? '明天 ' : i === 2 ? '后天 ' : '';
+    out.push({ date, label: prefix + dateLabel(date) });
+  }
+  return out;
+}
+
+function range(from, to) {
+  const out = [];
+  for (let i = from; i <= to; i++) out.push(pad(i));
+  return out;
+}
+
+// "HH:MM" ↔ 分钟数
+function toMinutes(hhmm) {
+  const [h, m] = String(hhmm || '0:0').split(':').map(Number);
+  return h * 60 + m;
+}
+
+function fromMinutes(n) {
+  return pad(Math.floor(n / 60)) + ':' + pad(n % 60);
+}
+
+// 时长文字：90 → 「1.5 小时」，60 → 「1 小时」，45 → 「45 分钟」
+function spanLabel(minutes) {
+  if (minutes < 60) return minutes + ' 分钟';
+  const h = Math.round((minutes / 60) * 10) / 10;
+  return h + ' 小时';
+}
+
+// 「本周末」「今天」「10月30日 周五」
+function whenLabel(when) {
+  if (when === 'today') return '今天';
+  if (when === 'tomorrow') return '明天';
+  if (when === 'weekend') return '本周末';
+  return /^\d{4}-\d{2}-\d{2}$/.test(when || '') ? dateLabel(when) : '';
+}
+
+// 局的封面插画 key：优先接口给的 coverKey，其次按分类
+function coverKey(key, category) {
+  if (COVER_KEYS.indexOf(key) >= 0) return key;
+  return CATEGORY_COVER[category] || 'oldtown';
+}
+
+// 标签的插画 key：在热门标签里找，找不到按分类
+function tagCover(name, hotTags, category) {
+  const hit = (hotTags || []).concat(DEFAULT_TAGS).filter((t) => t.name === name)[0];
+  return coverKey(hit && hit.cover, (hit && hit.category) || category);
+}
+
+function coverSrc(key) {
+  return COVER_SRC[key] || COVER_SRC.oldtown;
+}
+
+// 规范化用户自己写的标签：去首尾空格、合并空白；返回 { name, error }
+const TAG_CHARS = /^[\u3400-\u9fff\uf900-\ufaffA-Za-z0-9\uff10-\uff19\uff21-\uff3a\uff41-\uff5a ·\-_]+$/;
+function normalizeTag(raw) {
+  const name = String(raw || '').replace(/\s+/g, ' ').trim();
+  const len = Array.from(name).length;
+  if (!len) return { name, error: '先写一个标签' };
+  if (len > 8) return { name, error: '标签最多 8 个字' };
+  if (!TAG_CHARS.test(name)) return { name, error: '只能用文字、数字、空格和 ·-_' };
+  return { name, error: '' };
+}
+
 function creditText(level) {
   if (level === 'restricted') return '账号受限 · 只能看，暂时不能报名';
   if (level === 'fair') return '信用一般 · 大一点的局需要发起人同意';
@@ -210,5 +315,21 @@ module.exports = {
   sizeLabel,
   imageUrl,
   shortTitle,
-  creditText
+  creditText,
+  TIME_SLOTS,
+  GENDER_LIMIT,
+  COVER_KEYS,
+  CATEGORY_COVER,
+  COVER_SRC,
+  DEFAULT_TAGS,
+  coverSrc,
+  dateOptions,
+  range,
+  toMinutes,
+  fromMinutes,
+  spanLabel,
+  whenLabel,
+  coverKey,
+  tagCover,
+  normalizeTag
 };

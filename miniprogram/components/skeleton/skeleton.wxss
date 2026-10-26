@@ -1,0 +1,134 @@
+:host {
+  display: block;
+}
+.sk {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+@keyframes sk-shine {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+.sk-block {
+  border-radius: 20rpx;
+  background: linear-gradient(90deg, #E6EBEF 25%, #F3F6F8 37%, #E6EBEF 63%);
+  background-size: 400% 100%;
+  animation: sk-shine 1.4s ease infinite;
+}
+.sk-line {
+  height: 28rpx;
+  border-radius: 12rpx;
+}
+.sk-w40 {
+  width: 40%;
+}
+.sk-w60 {
+  width: 62%;
+}
+.sk-banner {
+  height: 300rpx;
+  border-radius: 40rpx;
+}
+.sk-grid {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 28rpx;
+}
+.sk-grid-item {
+  width: 20%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+.sk-grid-item .sk-w40 {
+  width: 64rpx;
+}
+.sk-tile {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 32rpx;
+}
+.sk-card-lg {
+  height: 260rpx;
+  border-radius: 40rpx;
+}
+.sk-card {
+  padding: 20rpx;
+  border-radius: 48rpx;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+.sk-cover {
+  height: 340rpx;
+  border-radius: 36rpx;
+}
+.sk-cols {
+  display: flex;
+  gap: 20rpx;
+}
+.sk-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.sk-note {
+  border-radius: 32rpx;
+}
+.sk-h1 {
+  height: 420rpx;
+}
+.sk-h2 {
+  height: 320rpx;
+}
+.sk-hero {
+  height: 420rpx;
+  border-radius: 0;
+}
+.sk-pad {
+  padding: 32rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+.sk-title {
+  height: 48rpx;
+  width: 80%;
+  border-radius: 14rpx;
+}
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+.sk-list-row {
+  padding: 24rpx;
+  border-radius: 40rpx;
+  background: #FFFFFF;
+}
+.sk-thumb {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 28rpx;
+  flex-shrink: 0;
+}
+.sk-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 28rpx;
+  flex-shrink: 0;
+}
+.sk-col-flex {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}

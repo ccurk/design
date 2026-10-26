@@ -3,7 +3,8 @@ import { clock } from '../clock.js';
 import { json } from '../db.js';
 import { blocked, conflict, forbidden, invalid, notFound } from '../errors.js';
 import { checkText } from '../moderation.js';
-import { int, oneOf, str, strArray } from '../validate.js';
+import { absUrl, absUrls, parseImages } from '../urls.js';
+import { int, oneOf, str } from '../validate.js';
 import { getEvent, memberRow } from './events.js';
 import { notify } from './notices.js';
 import { blockRelatedIds, getUser, mutedIds, userBrief } from './users.js';
@@ -28,7 +29,7 @@ export function postView(db, post, viewerId, cache = new Map()) {
     id: post.id,
     author: brief(post.user_id),
     text: post.text,
-    images: json.parse(post.images, []),
+    images: absUrls(db, json.parse(post.images, [])),
     event: event ? { id: event.id, title: event.title } : null,
     likeCount,
     commentCount,
@@ -81,6 +82,42 @@ export function listPosts(db, viewer, { cursor = null, limit = 20 } = {}) {
   };
 }
 
+/** 首页「大家最近在玩」：最近带图的公开动态（排除拉黑、不看的人），第一张图作封面 */
+export function highlightPosts(db, viewer, limit = 10) {
+  const related = blockRelatedIds(db, viewer?.id);
+  const muted = mutedIds(db, viewer?.id);
+  const picked = [];
+  let lastId = null;
+  for (;;) {
+    const batch = db.all(
+      `SELECT * FROM posts WHERE status = 'approved' AND visibility = 'public' ${lastId ? 'AND id < ?' : ''}
+       ORDER BY id DESC LIMIT 100`,
+      ...(lastId ? [lastId] : []),
+    );
+    for (const post of batch) {
+      if (related.has(post.user_id) || muted.has(post.user_id)) continue;
+      const images = json.parse(post.images, []);
+      if (!images.length) continue;
+      picked.push({ post, image: images[0] });
+      if (picked.length >= limit) break;
+    }
+    if (picked.length >= limit || batch.length < 100) break;
+    lastId = batch.at(-1).id;
+  }
+  const cache = new Map();
+  return picked.map(({ post, image }) => {
+    if (!cache.has(post.user_id)) cache.set(post.user_id, userBrief(db, post.user_id));
+    const event = post.event_id ? getEvent(db, post.event_id) : null;
+    return {
+      postId: post.id,
+      image: absUrl(db, image),
+      text: post.text,
+      user: cache.get(post.user_id),
+      eventTitle: event?.title ?? null,
+    };
+  });
+}
+
 function requireVisiblePost(db, id, viewer) {
   const post = db.get('SELECT * FROM posts WHERE id = ?', id);
   if (!post || !canSeePost(db, post, viewer)) throw notFound('动态不存在或已删除');
@@ -116,8 +153,7 @@ export function postDetail(db, viewer, id) {
 
 export function createPost(db, user, body) {
   const text = str(body?.text, '内容', { min: 1, max: 500 });
-  const images = strArray(body?.images ?? [], '图片', { maxItems: 9, maxLen: 500 });
-  if (images.some((url) => !/^(https?:\/\/|\/uploads\/)/.test(url))) throw invalid('图片地址不正确，请先上传');
+  const images = parseImages(body?.images, { max: 9 }); // 存相对路径 /uploads/…，返回时拼成绝对地址
   const eventId = int(body?.eventId, '关联的局', { min: 1, optional: true });
   const visibility = oneOf(body?.visibility ?? 'public', '谁能看到', ['public', 'event']);
   if (eventId) {

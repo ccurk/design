@@ -277,6 +277,105 @@ const TASK_VERB = { 早餐: '吃早餐', 夜市: '逛夜市', 咖啡: '喝咖啡
 /** 「池子里同样想{喝咖啡}的人」 */
 export const taskVerb = (task) => TASK_VERB[task] || task;
 
+// ---- v0.3：标签、插画、谁可以报名、最晚退出时间、轮播图链接、时间窗（docs/changes-v0.3.md）----
+
+/** 插画 key（design/illustrations/<key>.svg，复制在 admin/illustrations/）*/
+export const ILLUSTRATIONS = [
+  { key: 'sunrise', label: '苍山日出' },
+  { key: 'mountain', label: '山路徒步' },
+  { key: 'cycling', label: '洱海骑行' },
+  { key: 'lake', label: '洱海' },
+  { key: 'coffee', label: '咖啡' },
+  { key: 'reading', label: '读书' },
+  { key: 'food', label: '吃饭' },
+  { key: 'boardgame', label: '桌游' },
+  { key: 'carpool', label: '拼车' },
+  { key: 'oldtown', label: '古城' },
+];
+export const illustrationUrl = (key) => (ILLUSTRATIONS.some((x) => x.key === key) ? `illustrations/${key}.svg` : null);
+export const illustrationLabel = (key) => (ILLUSTRATIONS.find((x) => x.key === key) || { label: '' }).label;
+
+/** 新建标签时插画的默认值（按分类）；服务端没收到 cover 时也会按分类给 */
+export const CATEGORY_COVER = { outdoor: 'mountain', food: 'food', coffee: 'coffee', game: 'boardgame', carpool: 'carpool', other: 'oldtown' };
+
+/** 谁可以报名（genderLimit） */
+export const GENDER_LIMITS = [
+  { key: 'any', label: '不限' },
+  { key: 'female', label: '只限女生' },
+  { key: 'male', label: '只限男生' },
+];
+
+/** 最晚退出时间：开始前几小时 */
+export const EXIT_BEFORE_HOURS = [2, 6, 12, 24, 48];
+
+/** 标签的写法（和服务端一样：NFKC、合并连续空白、去首尾空格）；长度按字符算 */
+export const normalizeTag = (name) => String(name || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
+export const tagLength = (name) => [...normalizeTag(name)].length;
+export const TAG_MAX = 8;
+
+/** 轮播图点了去哪（link 的写法同通知的 link，另加 square / create / feed / rules） */
+export const BANNER_LINKS = [
+  { key: 'none', label: '不跳转' },
+  { key: 'event', label: '某个局' },
+  { key: 'square', label: '广场' },
+  { key: 'create', label: '发起局' },
+  { key: 'feed', label: '动态' },
+  { key: 'rules', label: '社区公约' },
+];
+
+/** link → { kind, id? } */
+export function parseLink(link) {
+  if (!link) return { kind: 'none' };
+  const m = /^event:(\d+)$/.exec(link);
+  if (m) return { kind: 'event', id: Number(m[1]) };
+  if (['square', 'create', 'feed', 'rules'].includes(link)) return { kind: link };
+  return { kind: 'other', raw: link };
+}
+
+/** 「点了去：局「苍山看日出」」这一类说明；titleOf(id) 给出局的标题 */
+export function linkText(link, titleOf = () => '') {
+  const l = parseLink(link);
+  if (l.kind === 'none') return '不跳转';
+  if (l.kind === 'event') {
+    const t = titleOf(l.id);
+    return t ? `局「${t}」` : `局 #${l.id}`;
+  }
+  if (l.kind === 'other') return link;
+  return BANNER_LINKS.find((x) => x.key === l.kind).label;
+}
+
+// 意向的时间窗（docs/changes-v0.3.md B）：自定义时间段，或时间段对应的窗
+const SLOT_WINDOW = { morning: ['05:00', '12:00'], afternoon: ['12:00', '18:00'], evening: ['18:00', '23:00'], allday: ['05:00', '23:00'] };
+const toMin = (hhmm) => {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  return h * 60 + m;
+};
+export function intentWindow(i) {
+  if (i.timeFrom && i.timeTo) return [i.timeFrom, i.timeTo];
+  if (i.relaxTime) return SLOT_WINDOW.allday;
+  return SLOT_WINDOW[i.slot] || SLOT_WINDOW.allday;
+}
+/** 两个时间窗重叠多少分钟 */
+export function overlapMinutes(a, b) {
+  return Math.max(0, Math.min(toMin(a[1]), toMin(b[1])) - Math.max(toMin(a[0]), toMin(b[0])));
+}
+
+/**
+ * 有人填了具体时间段时，方案卡片上写「大家都有空：14:00–16:30」。
+ * 接口的 windowLabel 在这种时候是「14:00–16:30」，只用时间段（「下午」）时就是时间段本身（卡片上已经有了，不再写）。
+ */
+export function windowText(p) {
+  const w = String(p.windowLabel || '');
+  if (w.startsWith('大家')) return w;
+  return /\d{1,2}:\d{2}/.test(w) ? `大家都有空：${w}` : '';
+}
+
+/** 某个时间点在北京时间的「HH:MM」 */
+export function hhmm(iso) {
+  const p = bj(iso);
+  return p ? `${p.hh}:${p.mm}` : '';
+}
+
 // ---- 其他 ----
 
 /** 用户上传的图片 / 头像地址：只放行 http(s) 和本站相对路径，防止 javascript: 之类的链接 */

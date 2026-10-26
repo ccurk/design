@@ -9,7 +9,7 @@
  *  5. wx.navigateTo/redirectTo/reLaunch/switchTab 的 url、<navigator url>、data-url、所有 '/pages/...' 字面量
  *     都指向真实页面；tab 页只能用 switchTab（或 reLaunch）
  *  6. WXML / JS / JSON / WXSS 里引用的 /assets/... 文件都存在
- *  7. 调用的接口路径（和方法）都在 docs/api.md 里
+ *  7. 调用的接口路径（和方法）都在 docs/api.md 或 docs/changes-v0.3.md 里；v0.3 删除的接口（如 /aa/items）不能再用
  *  8. WXML 里 bind/catch 的事件处理函数在对应 .js 里有定义
  *  9. 用到的 dz-* 组件都已注册；wx:for 都带 wx:key
  */
@@ -19,6 +19,8 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS = path.resolve(ROOT, '..', 'docs', 'api.md');
+// 新一轮改动约定：后端合并进 api.md 之前，这里的接口也算数
+const CHANGE_DOCS = ['changes-v0.3.md'].map((f) => path.resolve(ROOT, '..', 'docs', f)).filter((f) => fs.existsSync(f));
 const SKIP_DIRS = new Set(['node_modules', 'miniprogram_npm', '.git']);
 
 const errors = [];
@@ -224,27 +226,39 @@ for (const f of [...appFiles('.wxml'), ...appFiles('.js'), ...appFiles('.json'),
 const norm = (p) => p.split('?')[0].replace(/\$\{[^}]*\}/g, ':p').replace(/:\w+/g, ':p').replace(/\/+$/, '');
 const docRoutes = new Set();
 const docPaths = new Set();
+const removed = []; // 约定里写明删除的接口（路径片段）
+function parseRoutes(segment) {
+  const tokens = [...segment.matchAll(/`([^`]+)`/g)].map((x) => x[1].trim());
+  let prev = null;
+  for (const tok of tokens) {
+    const full = tok.match(/^(GET|POST|PUT|PATCH|DELETE)\s+(\/api\/\S+)/);
+    if (full) {
+      prev = { method: full[1], path: norm(full[2]) };
+    } else if (prev && /^\/[\w:-]+$/.test(tok)) {
+      // 「`POST /api/x/:id/approve` · `/reject`」这种简写：替换最后一段
+      prev = { method: prev.method, path: prev.path.replace(/\/[^/]+$/, '') + norm(tok) };
+    } else continue;
+    docRoutes.add(prev.method + ' ' + prev.path);
+    docPaths.add(prev.path);
+  }
+}
 if (!fs.existsSync(DOCS)) {
   fail(DOCS, '找不到 docs/api.md，无法核对接口');
 } else {
   for (const line of read(DOCS).split('\n')) {
-    if (!line.startsWith('|')) continue;
-    const cell = line.split('|')[1] || '';
-    const tokens = [...cell.matchAll(/`([^`]+)`/g)].map((x) => x[1].trim());
-    let prev = null;
-    for (const tok of tokens) {
-      const full = tok.match(/^(GET|POST|PUT|PATCH|DELETE)\s+(\/api\/\S+)/);
-      if (full) {
-        prev = { method: full[1], path: norm(full[2]) };
-      } else if (prev && /^\/[\w:-]+$/.test(tok)) {
-        // 「`POST /api/x/:id/approve` · `/reject`」这种简写：替换最后一段
-        prev = { method: prev.method, path: prev.path.replace(/\/[^/]+$/, '') + norm(tok) };
-      } else continue;
-      docRoutes.add(prev.method + ' ' + prev.path);
-      docPaths.add(prev.path);
+    if (line.startsWith('|')) parseRoutes(line.split('|')[1] || '');
+  }
+}
+for (const file of CHANGE_DOCS) {
+  for (const line of read(file).split('\n')) {
+    // 表格取第一列，列表 / 段落取整行
+    parseRoutes(line.startsWith('|') ? line.split('|')[1] || '' : line);
+    if (/接口删除|不再使用/.test(line)) {
+      for (const x of line.matchAll(/`(\/[\w/:-]+)`/g)) removed.push(norm(x[1]));
     }
   }
 }
+const isRemoved = (p) => removed.some((r) => p.endsWith(r) || p.includes(r + '/'));
 const METHOD = { get: 'GET', post: 'POST', put: 'PUT', patch: 'PATCH', del: 'DELETE' };
 let apiCount = 0;
 for (const f of appFiles('.js')) {
@@ -260,7 +274,8 @@ for (const f of appFiles('.js')) {
     seen.add(m.index + m[0].indexOf(m[2]));
     apiCount++;
     if (m[1] === 'patch') fail(f, `wx.request 不支持 PATCH，请改用 PUT：${route}`);
-    if (!docRoutes.has(route)) fail(f, `接口不在 docs/api.md 里：${route}`);
+    if (isRemoved(norm(lit))) fail(f, `接口已在新约定里删除：${route}`);
+    else if (!docRoutes.has(route)) fail(f, `接口不在 docs/api.md / 改动约定里：${route}`);
   }
   // send('POST', '/api/...')
   const send = /\bsend\(\s*'(GET|POST|PUT|PATCH|DELETE)'\s*,\s*'(\/api\/[^']*)'/g;
@@ -269,7 +284,7 @@ for (const f of appFiles('.js')) {
     apiCount++;
     const route = m[1] + ' ' + norm(m[2]);
     if (m[1] === 'PATCH') fail(f, `wx.request 不支持 PATCH，请改用 PUT：${route}`);
-    if (!docRoutes.has(route)) fail(f, `接口不在 docs/api.md 里：${route}`);
+    if (!docRoutes.has(route)) fail(f, `接口不在 docs/api.md / 改动约定里：${route}`);
   }
   // 其余 /api 字面量（如上传地址）只核对路径
   const any = /(['"`])(\/api\/[^'"`]*)\1/g;
@@ -277,7 +292,20 @@ for (const f of appFiles('.js')) {
     if (seen.has(m.index)) continue;
     apiCount++;
     const p = norm(m[2]);
-    if (!docPaths.has(p)) fail(f, `接口路径不在 docs/api.md 里：${p}`);
+    if (isRemoved(p)) fail(f, `接口已在新约定里删除：${p}`);
+    else if (!docPaths.has(p)) fail(f, `接口路径不在 docs/api.md / 改动约定里：${p}`);
+  }
+}
+
+// 页面 / 组件里调用的 api.xxx() 都要在 utils/api.js 里定义
+const apiFile = path.join(ROOT, 'utils', 'api.js');
+if (fs.existsSync(apiFile)) {
+  const apiNames = new Set([...read(apiFile).matchAll(/^\s{2}(\w+):\s*\(/gm)].map((x) => x[1]));
+  for (const f of appFiles('.js')) {
+    if (f === apiFile) continue;
+    for (const x of read(f).matchAll(/\bapi\s*\.(\w+)\s*\(/g)) {
+      if (!apiNames.has(x[1])) fail(f, `调用了 utils/api.js 里没有的接口函数 api.${x[1]}()`);
+    }
   }
 }
 
@@ -320,7 +348,7 @@ const summary = [
   `${Object.keys(wxmlTags).length} 个 wxml`,
   `${navCount} 处跳转`,
   `${assetCount} 处资源引用`,
-  `${apiCount} 处接口调用（文档里 ${docRoutes.size} 个接口）`,
+  `${apiCount} 处接口调用（文档里 ${docRoutes.size} 个接口${CHANGE_DOCS.length ? '，含改动约定' : ''}）`,
   `${handlerCount} 个事件绑定`
 ].join('，');
 console.log('检查范围：' + summary);

@@ -1,7 +1,8 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="detail" />
 
 <dz-empty wx:elif="{{error}}" title="看不到这个撮合结果" desc="{{error}}" icon="/assets/icons/sparkle-primary.svg">
-  <view class="btn btn-sm btn-primary" bindtap="goHome">回首页</view>
+  <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="retry">重新加载</view>
+  <view class="btn btn-sm btn-ghost" hover-class="pressed" bindtap="goHome">回首页</view>
 </dz-empty>
 
 <view wx:else class="page">
@@ -16,7 +17,7 @@
   </view>
 
   <view class="body card-lg">
-    <dz-cover variant="match" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+    <dz-cover variant="match" image="{{event.cover}}" cover-key="{{event.coverKey}}" category="{{event.category}}" task="{{event.tag || event.task}}" title="{{event.title}}" />
     <view class="col gap-10">
       <view class="t-18 w8">{{event.title}}</view>
       <view class="facts">
@@ -31,6 +32,10 @@
         <view class="fact">
           <image class="ico-16" src="/assets/icons/wallet-gray.svg" />
           <text>{{feeText}}</text>
+        </view>
+        <view wx:if="{{exitText}}" class="fact">
+          <image class="ico-16" src="/assets/icons/hourglass-gray.svg" />
+          <text>最晚 {{exitText}} 前可以退出</text>
         </view>
       </view>
     </view>
@@ -56,7 +61,7 @@
 
   <view class="actions">
     <block wx:if="{{myStatus === 'invited'}}">
-      <view class="btn btn-primary {{busy ? 'disabled' : ''}}" hover-class="pressed" bindtap="accept">加入这个局</view>
+      <view class="btn btn-primary" hover-class="pressed" bindtap="accept">加入这个局</view>
       <view class="row gap-10">
         <view class="btn btn-sm btn-outline flex1" hover-class="pressed" bindtap="openDetail">看看详情</view>
         <view class="btn btn-sm btn-outline flex1" hover-class="pressed" bindtap="decline">
@@ -68,7 +73,14 @@
     </block>
     <block wx:elif="{{myStatus === 'joined'}}">
       <view wx:if="{{event.chatOpen}}" class="btn btn-primary" hover-class="pressed" bindtap="openGroup">进入群聊</view>
-      <view wx:else class="btn btn-primary disabled">已加入 · 等大家确认</view>
+      <view wx:else class="wait card">
+        <view class="row between">
+          <text class="t-15 w7">已加入 · 还差 {{remaining}} 人成群</text>
+          <text class="t-13 c-2">{{fillPct}}%</text>
+        </view>
+        <view class="progress"><view class="progress-bar" style="width: {{fillPct}}%;"></view></view>
+        <text class="t-12 c-2">人齐了第一时间通知你，群聊会自动建好</text>
+      </view>
       <view class="btn btn-sm btn-outline" hover-class="pressed" bindtap="openDetail">看看详情</view>
     </block>
     <block wx:else>
@@ -81,3 +93,5 @@
     </view>
   </view>
 </view>
+
+<dz-join-sheet show="{{joinShow}}" info="{{joinInfo}}" busy="{{joinBusy}}" result="{{joinResult}}" share="{{false}}" bindclose="closeJoin" bindconfirm="confirmJoin" bindchat="joinChat" />

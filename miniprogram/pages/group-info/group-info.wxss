@@ -30,3 +30,14 @@
 .bottom-pad {
   height: calc(60rpx + env(safe-area-inset-bottom));
 }
+.leave-off {
+  color: var(--faint);
+  border-color: var(--hairline);
+}
+.leave-reason {
+  margin: 16rpx 40rpx 0;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--text-2);
+  text-align: right;
+}

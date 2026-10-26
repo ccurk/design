@@ -190,8 +190,10 @@ describe('撮合引擎', () => {
     const ta = await s.login(a);
     const tb = await s.login(b);
     const ia = await s.ok('POST', '/api/intents', { token: ta, body: { task: '骑行', when: '2026-11-01', slot: 'afternoon' } });
-    assert.equal(ia.title, '周日 · 骑行');
+    assert.equal(ia.title, '周日下午 · 骑行');
     assert.equal(ia.slotLabel, '下午');
+    assert.equal(ia.timeLabel, '下午');
+    assert.deepEqual([ia.timeFrom, ia.timeTo], [null, null]);
     await s.ok('POST', '/api/intents', { token: tb, body: { task: '骑行', when: '2026-11-01', slot: 'afternoon' } });
     const detail = await s.ok('GET', `/api/intents/${ia.id}`, { token: ta });
     assert.equal(detail.similarCount, 1);

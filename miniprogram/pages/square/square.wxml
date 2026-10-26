@@ -6,33 +6,42 @@
         <image class="ico-16" src="/assets/icons/plus-white.svg" />
         <text>发起</text>
       </view>
-      <view class="icon-btn" hover-class="pressed" bindtap="goSearch" aria-label="搜索">
+      <view class="round-btn" hover-class="pressed" bindtap="goSearch" aria-role="button" aria-label="搜索">
         <image class="ico-22" src="/assets/icons/search-ink.svg" />
       </view>
     </view>
   </view>
   <view class="sub">大理 · 这周的局，看到合适的直接加入</view>
 
-  <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="cats">
-    <view class="cats-inner">
-      <view wx:for="{{cats}}" wx:key="value" class="chip cat {{cat === item.value ? 'dark-on' : ''}}" data-value="{{item.value}}" bindtap="pickCat" aria-role="tab" aria-selected="{{cat === item.value}}">{{item.label}}</view>
-    </view>
-  </scroll-view>
-
-  <view class="list">
-    <dz-event-card wx:for="{{events}}" wx:key="id" event="{{item}}" />
+  <!-- 吸顶标签栏 -->
+  <view id="filters" class="filters">
+    <scroll-view scroll-x enhanced="{{true}}" show-scrollbar="{{false}}" scroll-with-animation="{{true}}" scroll-into-view="{{tagView}}" class="tags">
+      <view class="tags-inner">
+        <view id="t-all" class="tab {{tag === '' ? 'on' : ''}}" data-value="" data-index="-all" bindtap="pickTag" aria-role="tab" aria-selected="{{tag === ''}}">全部</view>
+        <view wx:for="{{tags}}" wx:key="*this" id="t{{index}}" class="tab {{tag === item ? 'on' : ''}}" data-value="{{item}}" data-index="{{index}}" bindtap="pickTag" aria-role="tab" aria-selected="{{tag === item}}">{{item}}</view>
+      </view>
+    </scroll-view>
   </view>
 
-  <view wx:if="{{loading && !events.length}}" class="loading">加载中…</view>
-  <dz-empty wx:elif="{{!events.length}}" title="{{error ? '暂时加载不出来' : '这里暂时没有局'}}" desc="{{error ? error : '可以自己发起一个，或者回首页说出想做的事，让平台帮你凑人。'}}" icon="/assets/icons/compass-primary.svg">
-    <view wx:if="{{error}}" class="btn btn-sm btn-primary" bindtap="refresh">再试一次</view>
-    <block wx:else>
-      <view class="btn btn-sm btn-primary" bindtap="goCreate">发起一个局</view>
-      <view class="btn btn-ghost" bindtap="goHome">让平台帮我撮合</view>
-    </block>
-  </dz-empty>
-  <view wx:elif="{{loadingMore}}" class="load-more">加载中…</view>
-  <view wx:elif="{{!nextCursor}}" class="load-more">这周的局就这些了</view>
+  <view class="list">
+    <dz-skeleton wx:if="{{loading}}" type="cards" count="2" />
+
+    <dz-empty wx:elif="{{error && !events.length}}" title="暂时加载不出来" desc="{{error}}" icon="/assets/icons/compass-primary.svg">
+      <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="retry">再试一次</view>
+    </dz-empty>
+
+    <dz-empty wx:elif="{{!events.length}}" title="{{tag ? '还没有「' + tag + '」的局' : '这里暂时没有局'}}" desc="可以自己发起一个，或者回首页说出想做的事，让平台帮你凑人。" icon="/assets/icons/compass-primary.svg">
+      <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="goCreate">发起一个局</view>
+      <view class="btn btn-ghost" hover-class="pressed" bindtap="goHome">让平台帮我撮合</view>
+    </dz-empty>
+
+    <view wx:else class="cards {{switching ? 'dim' : ''}}">
+      <dz-event-card wx:for="{{events}}" wx:key="id" event="{{item}}" />
+      <view wx:if="{{loadingMore}}" class="load-more">加载中…</view>
+      <view wx:elif="{{moreError}}" class="load-more more-retry" hover-class="pressed" bindtap="loadMore">没加载出来，点一下重试</view>
+      <view wx:elif="{{!nextCursor}}" class="load-more">这周的局就这些了</view>
+    </view>
+  </view>
 
   <view class="tab-space"></view>
 </view>

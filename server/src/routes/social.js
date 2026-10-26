@@ -14,7 +14,8 @@ import { body, pid } from './util.js';
 const IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
 export const MAX_UPLOAD = 5 * 1024 * 1024;
 
-function uploader(dir) {
+/** multer：只收图片（jpg / png / gif / webp），≤ 5MB，字段名 file；文件名随机 */
+export function uploader(dir) {
   fs.mkdirSync(dir, { recursive: true });
   return multer({
     storage: multer.diskStorage({
@@ -29,6 +30,12 @@ function uploader(dir) {
       else cb(invalid('只能上传图片（jpg / png / gif / webp）'));
     },
   });
+}
+
+/** 上传结果：绝对地址（提交回来时绝对 / 相对都接受，库里存相对路径） */
+export function uploadResult(req, config) {
+  if (!req.file) throw invalid('请选择要上传的图片（字段名 file）');
+  return { url: `${config.publicBaseUrl}/uploads/${req.file.filename}` };
 }
 
 export function socialRoutes({ db, config }) {
@@ -51,10 +58,7 @@ export function socialRoutes({ db, config }) {
   r.post('/reports', auth, (req, res) => res.json(createReport(db, req.user, body(req))));
 
   const upload = uploader(config.uploadDir);
-  r.post('/upload', auth, upload.single('file'), (req, res) => {
-    if (!req.file) throw invalid('请选择要上传的图片（字段名 file）');
-    res.json({ url: `${config.publicBaseUrl}/uploads/${req.file.filename}` });
-  });
+  r.post('/upload', auth, upload.single('file'), (req, res) => res.json(uploadResult(req, config)));
 
   r.get('/inbox', auth, (req, res) => res.json(inbox(db, req.user)));
   r.post('/notices/read-all', auth, (req, res) => res.json(markAllRead(db, req.user.id)));

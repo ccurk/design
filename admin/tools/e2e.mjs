@@ -6,10 +6,12 @@
 //   baseUrl 默认 http://localhost:3100，password 默认 admin123
 //
 // 注意：会改数据！请对着一个刚 seed 过的测试数据库跑（步骤见 admin/README.md）。
-// 测试前会用开发接口（/api/auth/dev-login，只有非生产环境才有）造两条待审动态和一个能被撮合的意向，
-// 也会用它以用户身份看通知（检查「给 TA 的说明」「提醒」「撤销记录」的通知内容）。
+// 测试前会用开发接口（/api/auth/dev-login，只有非生产环境才有）造几条待审动态（有一条带照片）和几个能被撮合的意向，
+// 也会用它以用户身份看通知（检查「给 TA 的说明」「提醒」「撤销记录」的通知内容）、报名局。
+// 上传用的测试图片是脚本自己画的 PNG，不需要额外的文件。
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -47,6 +49,69 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 /** 把一段文字变成「包含这段文字」的正则（按钮的名字里还有别的字时用） */
 const has = (s) => new RegExp(String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+// ---- 测试图片：画一张小 PNG（天空、太阳、两座山），不依赖任何图片库 ----
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (const b of buf) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([len, body, crc]);
+}
+/** colors：[天空, 太阳, 远山, 近山]，每个是 [r, g, b] */
+function scenePng(w, h, [sky, sun, far, near]) {
+  const rows = [];
+  for (let y = 0; y < h; y++) {
+    const row = Buffer.alloc(1 + w * 3); // 每行开头一个字节的过滤方式（0 = 不过滤）
+    for (let x = 0; x < w; x++) {
+      let c = sky;
+      if ((x - w * 0.62) ** 2 + (y - h * 0.4) ** 2 < (h * 0.16) ** 2) c = sun;
+      if (y > h * 0.45 + Math.abs(x - w * 0.3) * 0.7) c = far;
+      if (y > h * 0.62 + Math.abs(x - w * 0.78) * 0.45) c = near;
+      row.set(c, 1 + x * 3);
+    }
+    rows.push(row);
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; // 8 位
+  ihdr[9] = 2; // RGB
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(Buffer.concat(rows))),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+const IMG = {
+  banner: { name: 'e2e-banner.png', mimeType: 'image/png', buffer: scenePng(480, 240, [[124, 202, 227], [255, 210, 122], [46, 74, 92], [25, 53, 67]]) },
+  photo1: { name: 'e2e-photo-1.png', mimeType: 'image/png', buffer: scenePng(300, 200, [[252, 239, 217], [247, 190, 149], [130, 160, 120], [70, 110, 80]]) },
+  photo2: { name: 'e2e-photo-2.png', mimeType: 'image/png', buffer: scenePng(300, 200, [[228, 242, 248], [255, 255, 255], [30, 132, 184], [25, 53, 67]]) },
+  notImage: { name: 'e2e-notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') },
+};
+
+/** 以用户身份上传一张图片（POST /api/upload）→ 图片地址 */
+async function uploadAs(token, file) {
+  const form = new FormData();
+  form.append('file', new Blob([file.buffer], { type: file.mimeType }), file.name);
+  const res = await fetch(`${BASE}/api/upload`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || !data.url) throw new Error(`上传失败：${res.status} ${JSON.stringify(data)}`);
+  return data.url;
+}
 
 /** 发请求，不管成败都返回 { status, data } */
 async function httpRaw(method, url, { body, token } = {}) {
@@ -128,6 +193,15 @@ function assert(cond, message) {
   if (!cond) throw new Error(message);
 }
 
+/** 北京时间今天往后 n 天的日期 YYYY-MM-DD */
+function addDaysBJ(n) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  return new Date(Date.parse(`${today}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+}
+/** 北京时间的「HH:MM」 */
+const bjHHMM = (iso) =>
+  new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
 /** 和界面上一样的「比昨天 +5」「和前 7 天一样」 */
 function compare(diff, than, unit = '') {
   if (!diff) return `和${than}一样`;
@@ -191,7 +265,8 @@ async function main() {
     if (!fx.coffee) throw new Error('七七提交意向后没有配出「咖啡」方案');
     // 两条会被系统拦下的动态（联系方式、广告）
     const lizi = (await http('POST', '/api/auth/dev-login', { body: {} })).token;
-    fx.post1 = await http('POST', '/api/posts', { token: lizi, body: { text: 'E2E 待审动态一：周末想去才村拍晚霞，想一起的加我 vx：e2e_lizi_01', images: [], visibility: 'public' } });
+    fx.postImages = [await uploadAs(lizi, IMG.photo1), await uploadAs(lizi, IMG.photo2)];
+    fx.post1 = await http('POST', '/api/posts', { token: lizi, body: { text: 'E2E 待审动态一：周末想去才村拍晚霞，想一起的加我 vx：e2e_lizi_01', images: fx.postImages, visibility: 'public' } });
     fx.post2 = await http('POST', '/api/posts', { token: lizi, body: { text: 'E2E 待审动态二：帮朋友代购面膜，私聊有优惠', images: [], visibility: 'public' } });
     if (fx.post1.status !== 'pending' || fx.post2.status !== 'pending') throw new Error('测试动态没有进入待审核');
     fx.reports = (await aget('/api/admin/reports')).items;
@@ -205,6 +280,28 @@ async function main() {
     }
     fx.pendingEvent = (await aget('/api/admin/events?status=pending_review')).items[0];
     if (!fx.pendingEvent) throw new Error('没有待审核的用户局——请先用 seed 重置测试数据库');
+
+    // v0.3：轮播图、热门标签、一次声明的 AA（seed 数据）
+    fx.banners = (await aget('/api/admin/banners')).items;
+    if (fx.banners.length !== 3) throw new Error(`seed 里应该有 3 张轮播图，实际 ${fx.banners.length} 张——请先用 seed 重置测试数据库`);
+    fx.hot = (await aget('/api/admin/tags?scope=hot')).items;
+    if (fx.hot.length !== 10 || fx.hot[0].name !== '看日出') throw new Error('seed 里应该是 10 个默认热门标签，第一个是「看日出」');
+    fx.walkTag = (await aget('/api/admin/tags?scope=all&days=30')).items.find((t) => t.name === '徒步');
+    if (!fx.walkTag || fx.walkTag.hot) throw new Error('「徒步」应该是不在热门里的默认标签');
+    fx.sunrise = (await aget(`/api/admin/events?q=${encodeURIComponent('苍山看日出')}`)).items.find((e) => e.status === 'formed');
+    if (!fx.sunrise) throw new Error('没有已成局的「苍山看日出」——请先用 seed 重置测试数据库');
+    fx.sunriseDetail = await aget(`/api/admin/events/${fx.sunrise.id}`);
+    if (!fx.sunriseDetail.aa || !fx.sunriseDetail.aa.bill) throw new Error('「苍山看日出」应该有一笔记好的 AA（seed 数据）');
+
+    // 小满、木木后天都想拍照，各自填了具体时间段 → 配出一个「大家都有空：14:30–17:00」的方案
+    fx.photoDay = addDaysBJ(2);
+    for (const [who, from, to] of [['小满', '14:00', '17:00'], ['木木', '14:30', '18:00']]) {
+      const token = (await http('POST', '/api/auth/dev-login', { body: { userId: await userId(who) } })).token;
+      await http('POST', '/api/intents', { token, body: { task: '拍照', when: fx.photoDay, timeFrom: from, timeTo: to, area: '古城', sizeMin: 2, sizeMax: 4 } });
+    }
+    fx.photo = (await aget('/api/admin/proposals')).items.find((p) => p.task === '拍照');
+    if (!fx.photo) throw new Error('小满、木木提交了带时间段的「拍照」意向，但没有配出方案');
+    assert(fx.photo.windowLabel === '14:30–17:00', `「拍照」方案的 windowLabel 应该是 14:30–17:00，实际 ${fx.photo.windowLabel}`);
   });
 
   const { chromium } = await loadPlaywright();
@@ -215,6 +312,7 @@ async function main() {
 
   // 控制台报错、脚本异常、失败的请求都算问题。只有 allowing([...]) 包起来的那几步里，故意触发的状态码不算
   const problems = [];
+  const notes = []; // 不算失败、但要告诉跑测试的人的事（比如接口少了某个字段）
   const allowed = new Set();
   let closing = false;
   async function allowing(statuses, fn) {
@@ -310,7 +408,7 @@ async function main() {
 
     // ---- 手机宽度：每一页都不能横向滚动（宽表格在自己的框里滚） ----
 
-    await step('390px 宽度：五个页面（含展开的详情、表单、申诉证据）都没有横向滚动', async () => {
+    await step('390px 宽度：六个页面（含展开的详情、表单、申诉证据、轮播图和标签）都没有横向滚动', async () => {
       await expectText(page.locator('.kpi').first(), '今日新用户');
       await noHorizontalScroll('概览');
       await shot('m-dashboard');
@@ -340,9 +438,9 @@ async function main() {
       await expectCount(page.locator('table.table--events tbody tr td:nth-child(7)'), (n) => n > 0);
       await page.getByRole('button', { name: '发起平台局' }).click();
       await page.locator('#n-title').waitFor();
-      await page.locator('table.table--events tbody tr td:nth-child(7) button').first().click();
-      await page.locator('#ev-detail-title').waitFor();
-      await noHorizontalScroll('局管理（表单 + 详情）');
+      await page.getByRole('button', { name: `查看 ${fx.sunrise.title}` }).click();
+      await page.locator('#event-detail .aa-box').waitFor();
+      await noHorizontalScroll('局管理（表单 + 详情：照片、AA）');
       await shot('m-events');
 
       await goto('users');
@@ -356,6 +454,23 @@ async function main() {
       await page.locator('article.appeal .evidence').first().waitFor();
       await noHorizontalScroll('用户与信用（申诉和证据）');
       await shot('m-appeals');
+
+      await goto('content');
+      await expectText(h1(), '内容运营');
+      await expectCount(page.locator('.banner-row'), fx.banners.length);
+      await page.getByRole('button', { name: '添加轮播图' }).click();
+      await page.locator('#banner-form').waitFor();
+      await page.getByRole('group', { name: '点了去哪' }).getByRole('button', { name: '某个局' }).click();
+      await page.getByRole('searchbox', { name: '搜局的标题或地点' }).waitFor();
+      const searchH = await page.locator('#banner-form .search').evaluate((el) => el.getBoundingClientRect().height);
+      assert(searchH < 64, `添加轮播图里的搜索框被撑高了（${Math.round(searchH)}px）`);
+      await noHorizontalScroll('内容运营（轮播图 + 添加表单）');
+      await shot('m-content-banners');
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+      await page.getByRole('tab', { name: /热门标签/ }).click();
+      await expectCount(page.locator('.tag-row'), (n) => n >= fx.hot.length);
+      await noHorizontalScroll('内容运营（热门标签）');
+      await shot('m-content-tags');
     });
 
     await page.setViewportSize({ width: 1440, height: 1000 });
@@ -535,6 +650,34 @@ async function main() {
       await shot('d-matching');
     });
 
+    await step('撮合池：有人填了具体时间段 → 卡片写「大家都有空」、成员写各自的时间，集合时间默认是大家都有空的开始；成员这时已经有局 → 确认被拦，原因写在表单里', async () => {
+      await page.getByRole('tab', { name: /待确认/ }).click();
+      const card = proposalCard(fx.photo.title);
+      await card.waitFor();
+      await expectText(card.locator('.proposal__window'), `大家都有空：${fx.photo.windowLabel}`);
+      for (const m of fx.photo.members) {
+        await expectText(card.locator('.member', { hasText: m.user.nickname }).locator('.tags'), m.timeLabel);
+      }
+      await card.getByRole('button', { name: '确认成局' }).click();
+      const want = bjHHMM(fx.photo.defaultStartAt);
+      await until(async () => (await card.getByLabel('开始时间').inputValue()) === want, `集合时间默认是 ${want}`);
+      // 小满刚报名了同一时间的一个平台局 → 再确认，她的时间就重叠了
+      const clash = await http('POST', '/api/admin/events', {
+        token: adminToken,
+        body: { title: 'E2E 同一时间的平台局', tag: '随便走走', startAt: new Date(`${fx.photoDay}T15:00:00+08:00`).toISOString(), durationMin: 120, place: '古城', capacity: 6, feeType: 'free' },
+      });
+      const xm = (await http('POST', '/api/auth/dev-login', { body: { userId: await userId('小满') } })).token;
+      await http('POST', `/api/events/${clash.eventId}/join`, { token: xm, body: {} });
+      await allowing([409], async () => {
+        await card.getByRole('button', { name: /^发出邀请/ }).click();
+        await expectText(card.locator('.form-error'), '时间重叠了');
+      });
+      await expectText(card.locator('.form-error'), '小满');
+      await expectCount(proposalCard(fx.photo.title), 1); // 方案还在待确认里，可以调整成员或退回
+      await shot('d-matching-window');
+      await card.getByRole('button', { name: '先不发' }).click();
+    });
+
     // ---- 审核与举报 ----
 
     const reportTitle = `${fx.report.targetUser.nickname} 在「${fx.report.context.eventTitle}」群聊`;
@@ -587,10 +730,22 @@ async function main() {
       await expectText(h1(), '审核与举报');
     });
 
-    await step('审核：动态待审——一条通过，一条不通过（必须选原因）', async () => {
+    await step('审核：动态待审——照片是缩略图、点开看大图；一条通过，一条不通过（必须选原因）', async () => {
       await page.getByRole('tab', { name: /动态待审/ }).click();
       await page.getByRole('button', { name: /E2E 待审动态一/ }).click();
       await expectText(page.locator('.detail blockquote'), 'E2E 待审动态一');
+      const thumbs = page.locator('.detail .thumbs .thumb');
+      await expectCount(thumbs, fx.postImages.length);
+      await thumbs.first().click();
+      const dialog = page.getByRole('dialog');
+      await expectAttr(dialog, 'aria-label', `栗子 的动态照片，第 1 张，共 ${fx.postImages.length} 张`);
+      const big = await dialog.locator('img').getAttribute('src');
+      assert(big && big.includes(fx.postImages[0].split('/uploads/')[1]), `大图不是第一张照片：${big}`);
+      await page.keyboard.press('ArrowLeft'); // 第一张往左 → 最后一张
+      await expectAttr(dialog, 'aria-label', `栗子 的动态照片，第 ${fx.postImages.length} 张，共 ${fx.postImages.length} 张`);
+      await shot('d-moderation-lightbox');
+      await dialog.getByRole('button', { name: '关闭大图' }).click();
+      await expectCount(page.getByRole('dialog'), 0);
       await page.getByRole('button', { name: '通过，发出来' }).click();
       await expectBanner('已通过');
       await expectText(page.locator('.done-box'), '已通过');
@@ -659,14 +814,31 @@ async function main() {
       await expectCount(eventRows(), (n) => n > 3);
     });
 
-    await step('局管理：查看详情（时间、地点、成员、群聊、AA）；邀请中的撮合局能看到进度、提醒还没回复的人', async () => {
-      await page.getByRole('button', { name: '查看 周六清晨 · 苍山看日出' }).click();
+    await step('局管理：查看详情（时间、地点、成员、群聊、AA：谁记的、一共多少、每笔转账的状态）；邀请中的撮合局能看到进度、提醒还没回复的人', async () => {
+      await page.getByRole('button', { name: `查看 ${fx.sunrise.title}` }).click();
       const detail = page.locator('#event-detail');
-      await expectText(detail.locator('#ev-detail-title'), '周六清晨 · 苍山看日出');
-      await expectText(detail, '大理古城南门');
-      await expectText(detail, '成员 5/5');
-      await expectText(detail, '暖宝宝');
-      await expectText(detail, 'AA 2 笔 ¥150');
+      const d = fx.sunriseDetail;
+      await expectText(detail.locator('#ev-detail-title'), fx.sunrise.title);
+      await expectText(detail, d.event.place);
+      await expectText(detail, `成员 ${d.members.filter((m) => m.status === 'joined').length}/${d.event.capacity}`);
+      await expectText(detail.locator('.chat-box'), d.messages[d.messages.length - 1].text.slice(0, 12));
+      if (d.event.images && d.event.images.length) await expectCount(detail.locator('.thumbs .thumb'), d.event.images.length);
+      // AA：一个人一次记下总花费，其他人平摊转给 TA
+      const { bill, transfers } = d.aa;
+      await expectText(detail.locator('.aa-box__title'), `${bill.payer.nickname} 记的 AA：共 ¥${bill.amount}${bill.note ? `（${bill.note}）` : ''}`);
+      await expectText(detail.locator('.aa-box'), `每人 ¥${d.aa.each}`);
+      if (Array.isArray(transfers)) {
+        await expectCount(detail.locator('.aa-list__row'), transfers.length);
+        const TRANSFER = { pending: '还没转', paid: '说已转，等确认', confirmed: '已确认收到' };
+        for (const t of transfers) {
+          const row = detail.locator('.aa-list__row', { hasText: `${t.from.nickname} → ${t.to.nickname}` });
+          await expectText(row, `¥${t.amount}`);
+          await expectText(row, TRANSFER[t.status]);
+        }
+      } else {
+        notes.push('GET /api/admin/events/:id 的 aa 里没有 transfers，局详情看不到每笔转账的状态');
+      }
+      await shot('d-events-aa');
       await page.getByRole('button', { name: `查看 ${newTitle}` }).click();
       await expectText(detail.locator('#ev-detail-title'), newTitle);
       await expectText(detail.locator('.invite-box'), `0 人已加入，${fx.hike.members.length} 人还没回复`);
@@ -677,19 +849,39 @@ async function main() {
     });
 
     const platformTitle = 'E2E 平台局 · 洱海边散步';
-    await step('局管理：发起平台局，出现在列表里', async () => {
+    let platformEvent;
+    await step('局管理：发起平台局（标签、只限女生、最晚退出时间、两张照片、详细地址，时间精确到分钟）→ 列表和详情里都对，照片点开看大图', async () => {
       await page.getByRole('button', { name: '发起平台局' }).click();
       await expectAttr(page.getByRole('button', { name: '发起平台局' }), 'aria-expanded', 'true');
       const form = page.locator('#new-event');
       await form.getByRole('button', { name: '发布到广场' }).click();
       await expectText(form.getByRole('alert'), '标题、日期、开始时间和地点都要填');
       await form.getByLabel('标题', { exact: true }).fill(platformTitle);
-      await form.getByRole('group', { name: '分类' }).getByRole('button', { name: '户外' }).click();
-      await form.getByLabel('开始时间').fill('09:30');
+      // 标签：先点一个热门标签，再改成自己写的，最后又点回热门的（自己写的要清掉）
+      const tags = form.getByRole('group', { name: /^标签/ });
+      await tags.getByRole('button', { name: '骑行', exact: true }).click();
+      await expectAttr(tags.getByRole('button', { name: '骑行', exact: true }), 'aria-pressed', 'true');
+      await form.getByLabel('或者自己写').fill('湖边散步');
+      await expectAttr(tags.getByRole('button', { name: '骑行', exact: true }), 'aria-pressed', 'false');
+      await expectText(form, '这个局的标签：湖边散步');
+      await tags.getByRole('button', { name: '随便走走', exact: true }).click();
+      await expectText(form, '这个局的标签：随便走走');
+      await form.getByLabel('开始时间').fill('09:37');
       await form.getByLabel('地点', { exact: true }).fill('才村码头');
+      await form.getByLabel(/详细地址/).fill('大理市才村码头');
       await form.getByLabel(/集合点/).fill('码头入口');
       await form.getByRole('button', { name: '多一个名额' }).click();
       await form.getByRole('button', { name: '免费' }).click();
+      await form.getByRole('group', { name: '谁可以报名' }).getByRole('button', { name: '只限女生' }).click();
+      const exit = form.getByRole('group', { name: '最晚退出时间' });
+      await expectAttr(exit.getByRole('button', { name: '开始前 24 小时' }), 'aria-pressed', 'true'); // 默认
+      await exit.getByRole('button', { name: '开始前 6 小时' }).click();
+      await expectText(form.locator('#n-exit-hint'), '前可以退出');
+      // 照片：不是图片的文件在本地就挡掉，不发请求；两张 PNG 上传
+      await form.locator('input[type=file]').setInputFiles(IMG.notImage);
+      await expectText(form.locator('.uploader .form-error'), '不是 jpg / png / gif / webp 图片');
+      await form.locator('input[type=file]').setInputFiles([IMG.photo1, IMG.photo2]);
+      await expectCount(form.locator('.uploader .thumb'), 2, 15000);
       await form.getByLabel(/介绍/).fill('E2E 测试创建的平台局，沿着洱海慢慢走。');
       await shot('d-events-create');
       await form.getByRole('button', { name: '发布到广场' }).click();
@@ -697,10 +889,36 @@ async function main() {
       await expectText(page.locator('#ev-detail-title'), platformTitle);
       const row = eventRows().filter({ hasText: platformTitle });
       await expectCount(row, 1);
+      await expectText(row.locator('td:nth-child(1)'), '随便走走');
+      await expectText(row.locator('td:nth-child(1)'), '只限女生');
       await expectText(row.locator('td:nth-child(5)'), '平台');
       await expectText(row.locator('td:nth-child(4)'), '0/7');
-      const created = (await aget('/api/admin/events?source=platform')).items.find((e) => e.title === platformTitle);
-      if (!created || created.status !== 'open' || created.feeLabel !== '免费') throw new Error(`接口里的平台局不对：${JSON.stringify(created)}`);
+      platformEvent = (await aget('/api/admin/events?source=platform')).items.find((e) => e.title === platformTitle);
+      const ev = (await aget(`/api/admin/events/${platformEvent.id}`)).event;
+      const startHHMM = bjHHMM(ev.startAt);
+      assert(ev.status === 'open' && ev.feeLabel === '免费', `接口里的平台局不对：${ev.status} ${ev.feeLabel}`);
+      assert(startHHMM === '09:37', `开始时间应该是 09:37（精确到分钟），实际 ${startHHMM}`);
+      assert(ev.tag === '随便走走', `标签应该是「随便走走」，实际 ${ev.tag}`);
+      assert(ev.genderLimit === 'female' && ev.genderLabel === '只限女生', `谁可以报名不对：${ev.genderLimit} ${ev.genderLabel}`);
+      assert(Date.parse(ev.startAt) - Date.parse(ev.exitDeadline) === 6 * 3600 * 1000, `最晚退出时间应该是开始前 6 小时：${ev.exitDeadline}`);
+      assert(ev.images && ev.images.length === 2 && ev.images.every((u) => /\/uploads\//.test(u)), `照片不对：${JSON.stringify(ev.images)}`);
+      assert(ev.location && ev.location.address === '大理市才村码头', `地址不对：${JSON.stringify(ev.location)}`);
+      assert(platformEvent.cover === ev.images[0], `列表里的封面应该是第一张照片：${platformEvent.cover}`);
+      // 详情：谁可以报名、最晚退出时间、地址；照片点开看大图
+      const detail = page.locator('#event-detail');
+      await expectText(detail, '只限女生');
+      await expectText(detail, `${bjHHMM(ev.exitDeadline)} · 之前可以退出`);
+      await expectText(detail, '大理市才村码头');
+      await detail.locator('.thumbs .thumb').nth(1).click();
+      const dialog = page.getByRole('dialog');
+      await expectAttr(dialog, 'aria-label', `「${platformTitle}」的照片，第 2 张，共 2 张`);
+      await page.keyboard.press('ArrowRight');
+      await expectAttr(dialog, 'aria-label', `「${platformTitle}」的照片，第 1 张，共 2 张`);
+      await shot('d-events-lightbox');
+      await page.keyboard.press('Escape');
+      await expectCount(page.getByRole('dialog'), 0);
+      const focused = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('aria-label'));
+      assert(focused === `看大图：「${platformTitle}」的照片 2`, `关掉大图后焦点应该回到缩略图，实际在「${focused}」`);
     });
 
     await step('局管理：取消一个有人报名的局（必须选原因），通知成员', async () => {
@@ -717,6 +935,138 @@ async function main() {
       await expectText(detail, '这个局已取消，只能查看');
       await expectText(eventRows().filter({ hasText: '洱海西岸骑行' }).locator('td:nth-child(6)'), '已取消');
       await shot('d-events');
+    });
+
+    // ---- 内容运营 ----
+
+    const bannerTitle = 'E2E 轮播 · 洱海边散步';
+    const homeBanners = async () => (await http('GET', '/api/home')).banners;
+    await step('内容运营 · 首页轮播：列表和接口一致；点开看大图；添加一张（上传图片、链接到刚发起的平台局），小程序首页马上有', async () => {
+      await nav(/^内容运营/).click();
+      await expectText(h1(), '内容运营');
+      await expectAttr(page.getByRole('tab', { name: /首页轮播/ }), 'aria-selected', 'true');
+      const rows = page.locator('.banner-row');
+      await expectCount(rows, fx.banners.length);
+      for (const [i, b] of fx.banners.entries()) await expectText(rows.nth(i).locator('.banner-row__title'), b.title);
+      const linked = fx.banners.find((b) => /^event:\d+$/.test(b.link || ''));
+      if (linked) await expectText(rows.nth(fx.banners.indexOf(linked)), /点了去：局「.+」/);
+      // 点开看大图，Esc 关掉，焦点回到图片上
+      await rows.first().locator('.banner-row__img').click();
+      await expectAttr(page.getByRole('dialog'), 'aria-label', `轮播图「${fx.banners[0].title}」，第 1 张，共 1 张`);
+      await page.keyboard.press('Escape');
+      await expectCount(page.getByRole('dialog'), 0);
+      // 添加：没传图不能保存
+      await page.getByRole('button', { name: '添加轮播图' }).click();
+      const form = page.locator('#banner-form');
+      await form.getByRole('button', { name: '添加', exact: true }).click();
+      await expectText(form.locator('.form-error'), '先上传一张图片');
+      await form.locator('input[type=file]').setInputFiles(IMG.banner);
+      await expectCount(form.locator('.thumb'), 1, 15000);
+      await form.getByLabel('标题', { exact: true }).fill(bannerTitle);
+      await form.getByLabel(/副标题/).fill('周日上午，沿着洱海慢慢走');
+      await form.getByRole('group', { name: '点了去哪' }).getByRole('button', { name: '某个局' }).click();
+      await form.getByRole('searchbox', { name: '搜局的标题或地点' }).fill('E2E 平台局');
+      await form.getByRole('button', { name: has(platformTitle) }).click();
+      await expectText(form.locator('.picked'), `已选：局「${platformTitle}」`);
+      await shot('d-content-banner-form');
+      await form.getByRole('button', { name: '添加', exact: true }).click();
+      await expectBanner(`已添加轮播图「${bannerTitle}」，排在第 ${fx.banners.length + 1} 张`);
+      await expectCount(rows, fx.banners.length + 1);
+      await expectText(rows.last(), `点了去：局「${platformTitle}」`);
+      const added = (await aget('/api/admin/banners')).items.find((b) => b.title === bannerTitle);
+      fx.addedBanner = added;
+      assert(added && added.link === `event:${platformEvent.id}` && added.enabled && /\/uploads\//.test(added.image), `接口里的轮播图不对：${JSON.stringify(added)}`);
+      assert((await homeBanners()).some((b) => b.title === bannerTitle), '小程序首页（GET /api/home）里没有新加的轮播图');
+    });
+
+    await step('内容运营 · 首页轮播：关掉展示（首页就不出现）、上移、编辑、删除（要确认）', async () => {
+      const rows = page.locator('.banner-row');
+      const row = () => rows.filter({ hasText: bannerTitle });
+      await row().getByRole('switch').click();
+      await expectBanner(`「${bannerTitle}」已从首页撤下`);
+      await expectText(row(), '已关闭');
+      assert(!(await homeBanners()).some((b) => b.title === bannerTitle), '关掉展示后小程序首页还有这张轮播图');
+      await row().getByRole('button', { name: `把「${bannerTitle}」上移` }).click();
+      await expectBanner(`已把「${bannerTitle}」上移到第 ${fx.banners.length} 张`);
+      let ids = (await aget('/api/admin/banners')).items.map((b) => b.id);
+      assert(ids.indexOf(fx.addedBanner.id) === fx.banners.length - 1, `上移后顺序不对：${ids.join(',')}`);
+      await expectText(rows.nth(fx.banners.length - 1), bannerTitle);
+      await row().getByRole('button', { name: `编辑「${bannerTitle}」` }).click();
+      const form = page.locator('#banner-form');
+      await expectText(form.locator('#bf-title'), '编辑轮播图');
+      await form.getByLabel(/副标题/).fill('E2E 改过的副标题');
+      await form.getByRole('button', { name: '保存', exact: true }).click();
+      await expectBanner(`已保存轮播图「${bannerTitle}」`);
+      await expectText(row(), 'E2E 改过的副标题');
+      const edited = (await aget('/api/admin/banners')).items.find((b) => b.id === fx.addedBanner.id);
+      assert(edited.subtitle === 'E2E 改过的副标题' && edited.link === `event:${platformEvent.id}` && !edited.enabled, `编辑后接口里的轮播图不对：${JSON.stringify(edited)}`);
+      await row().getByRole('button', { name: `删掉「${bannerTitle}」` }).click();
+      await expectText(row().locator('.banner-row__ask'), '删了不能恢复');
+      await shot('d-content-banners');
+      await row().getByRole('button', { name: '确定删除' }).click();
+      await expectBanner(`已删掉轮播图「${bannerTitle}」`);
+      await expectCount(rows, fx.banners.length);
+      ids = (await aget('/api/admin/banners')).items.map((b) => b.id);
+      assert(!ids.includes(fx.addedBanner.id), '删掉后接口里还有这张轮播图');
+    });
+
+    const newTag = 'E2E露营';
+    const hotNames = async () => (await aget('/api/admin/tags?scope=hot')).items.map((t) => t.name);
+    await step('内容运营 · 热门标签：添加（审核不过、太长都写在输入框下面）→ 排在最后，小程序拿到的热门标签也变了', async () => {
+      await page.getByRole('tab', { name: /热门标签/ }).click();
+      const hotRows = page.locator('section[aria-labelledby="hot-title"] .tag-row');
+      await expectCount(hotRows, fx.hot.length);
+      for (const [i, t] of fx.hot.entries()) await expectText(hotRows.nth(i).locator('.tag-row__name'), t.name);
+      const input = page.getByLabel(/^标签/);
+      const submit = page.getByRole('button', { name: '加到热门', exact: true });
+      await allowing([422], async () => {
+        await input.fill('代购');
+        await submit.click();
+        await expectText(page.locator('#nt-err'), '这个标签不能用');
+      });
+      await allowing([400], async () => {
+        await input.fill('洱海边露营看星星啊');
+        await submit.click();
+        await expectText(page.locator('#nt-err'), '最多 8 个字');
+      });
+      await expectAttr(input, 'aria-invalid', 'true');
+      await input.fill(newTag);
+      await page.getByRole('group', { name: '分类' }).getByRole('button', { name: '户外' }).click();
+      await page.getByRole('group', { name: /^插画/ }).getByRole('button', { name: '洱海', exact: true }).click();
+      await submit.click();
+      await expectBanner(`已把「${newTag}」加到热门，排在第 ${fx.hot.length + 1} 个`);
+      await expectCount(hotRows, fx.hot.length + 1);
+      await expectText(hotRows.last().locator('.tag-row__name'), newTag);
+      const created = (await aget('/api/admin/tags?scope=hot')).items.find((t) => t.name === newTag);
+      assert(created && created.category === 'outdoor' && created.cover === 'lake', `新标签不对：${JSON.stringify(created)}`);
+      const pub = (await http('GET', '/api/tags/hot')).items.map((t) => t.name);
+      assert(pub[pub.length - 1] === newTag, `小程序的热门标签（GET /api/tags/hot）最后一个应该是新加的：${pub.join('、')}`);
+    });
+
+    await step('内容运营 · 热门标签：上移、移出热门（可以撤销）、从「大家最近在用的标签」加到热门', async () => {
+      const hotRows = page.locator('section[aria-labelledby="hot-title"] .tag-row');
+      await page.getByRole('button', { name: `把「${newTag}」上移` }).click();
+      await expectBanner(`已把「${newTag}」上移到第 ${fx.hot.length} 个`);
+      let names = await hotNames();
+      assert(names.indexOf(newTag) === fx.hot.length - 1, `上移后顺序不对：${names.join('、')}`);
+      await expectText(hotRows.nth(fx.hot.length - 1).locator('.tag-row__name'), newTag);
+      const dropped = fx.hot[2].name; // 骑行
+      await page.getByRole('button', { name: `把「${dropped}」移出热门` }).click();
+      await expectBanner(`已把「${dropped}」移出热门`);
+      names = await hotNames();
+      assert(!names.includes(dropped), `移出后热门里还有「${dropped}」`);
+      await banner().getByRole('button', { name: '撤销' }).click();
+      await expectBanner(`已把「${dropped}」放回热门`);
+      names = await hotNames();
+      assert(names[2] === dropped, `撤销后「${dropped}」应该回到第 3 个：${names.join('、')}`);
+      // 大家最近在用的标签：「徒步」不是热门，加进来排在最后
+      const recent = page.locator('section[aria-labelledby="recent-title"]');
+      await recent.getByRole('button', { name: `把「${fx.walkTag.name}」加到热门` }).click();
+      await expectBanner(`已把「${fx.walkTag.name}」加到热门`);
+      names = await hotNames();
+      assert(names[names.length - 1] === fx.walkTag.name, `「${fx.walkTag.name}」应该排在热门最后：${names.join('、')}`);
+      await expectText(recent.locator('.tag-row', { hasText: fx.walkTag.name }), `热门第 ${names.length} 个`);
+      await shot('d-content-tags');
     });
 
     // ---- 用户与信用 ----
@@ -847,6 +1197,7 @@ async function main() {
       if (problems.length) throw new Error(`发现 ${problems.length} 个问题：\n    ${problems.join('\n    ')}`);
     });
 
+    if (notes.length) console.log(`\n注意：\n  ${notes.join('\n  ')}`);
     console.log(`\n全部通过：${stepNo} 步，用时 ${((Date.now() - t0) / 1000).toFixed(1)} 秒${shotsDir ? `，截图在 ${shotsDir}` : ''}`);
   } catch (e) {
     if (shotsDir) await page.screenshot({ path: path.join(shotsDir, 'failure.png'), fullPage: true }).catch(() => {});

@@ -1,10 +1,10 @@
 // 撮合引擎：从撮合池里按提交时间贪心组队 → 生成建议（proposals），并处理补邀和自动成局。
 import { clock } from '../clock.js';
-import { categoryOfTask } from '../constants.js';
+import { defaultDurationForTask } from '../constants.js';
 import { json } from '../db.js';
 import { conflict, invalid, notFound } from '../errors.js';
 import { oneOf } from '../validate.js';
-import { bjDate, slotLabel, weekdayName } from '../time.js';
+import { bjDate, fmtHHMM, slotLabel, weekdayName } from '../time.js';
 import { backfillInvitingEvents, confirmProposal, openPool } from './invites.js';
 import {
   canJoinGroup,
@@ -12,11 +12,15 @@ import {
   groupBounds,
   isIntentExpired,
   planGroup,
+  proposalPlan,
   proposalTitle,
   scoreGroup,
+  windowLabel,
 } from './matchRules.js';
+import { firstOverlap } from './overlap.js';
 import { getSetting } from './settings.js';
-import { intentView } from './intentFormat.js';
+import { intentTimeLabel, intentView } from './intentFormat.js';
+import { tagCategory, tagKey } from './tags.js';
 import { allBlockPairs, getUser, isNewUser, userBrief } from './users.js';
 
 /** 过期处理：open 意向过了日期 → expired；待确认建议过了日期 → expired（意向一起过期） */
@@ -40,10 +44,15 @@ function expireStale(db, now) {
   return expired;
 }
 
-const comboKey = (task, date, userIds) => `${task}|${date}|${[...userIds].sort((a, b) => a - b).join(',')}`;
+const comboKey = (task, date, userIds) => `${tagKey(task)}|${date}|${[...userIds].sort((a, b) => a - b).join(',')}`;
 
-/** 贪心组队：按提交时间，从每个还没分组的意向开始，依次吸收兼容的人，直到人数上限 */
-export function buildGroups(pool, blocks) {
+const isValidGroup = (group) => group.length >= 2 && group.length >= groupBounds(group).min;
+
+/**
+ * 贪心组队：按提交时间，从每个还没分组的意向开始，依次吸收兼容的人，直到人数上限。
+ * settle(group) 给组排时间（可以去掉排不进的人），返回 { group, plan }；返回 null 时这组不成，组里的人留给后面的组。
+ */
+export function buildGroups(pool, blocks, settle = (group) => ({ group, plan: null })) {
   const used = new Set();
   const groups = [];
   for (let i = 0; i < pool.length; i++) {
@@ -57,11 +66,33 @@ export function buildGroups(pool, blocks) {
       group.push(c);
       if (group.length >= groupBounds(group).max) break;
     }
-    if (group.length < 2 || group.length < groupBounds(group).min) continue;
-    groups.push(group);
-    group.forEach((g) => used.add(g.id));
+    if (!isValidGroup(group)) continue;
+    const settled = settle(group);
+    if (!settled) continue;
+    groups.push(settled);
+    settled.group.forEach((g) => used.add(g.id));
   }
   return groups;
+}
+
+/**
+ * 排时间：选日期和集合时刻；时间上和已加入的局重叠的人先跳过（留在撮合池里），
+ * 剩下的人重新排，直到没人冲突；人数不够了这组就不成。
+ */
+function settleGroup(db, group, now, rejected) {
+  let members = group;
+  for (;;) {
+    const plan = planGroup(members, now);
+    if (!plan) return null;
+    const duration = defaultDurationForTask(members[0].task);
+    const busy = members.filter((m) => firstOverlap(db, m.user_id, plan.startAt, duration));
+    if (!busy.length) {
+      if (rejected.has(comboKey(members[0].task, plan.date, members.map((g) => g.user_id)))) return null;
+      return { group: members, plan };
+    }
+    members = members.filter((m) => !busy.includes(m));
+    if (!isValidGroup(members)) return null;
+  }
 }
 
 function createProposal(db, group, plan, blocks) {
@@ -69,7 +100,7 @@ function createProposal(db, group, plan, blocks) {
   const task = group[0].task;
   const id = db.insert('proposals', {
     task,
-    category: group[0].category || categoryOfTask(task),
+    category: group[0].category || tagCategory(db, task),
     date: plan.date,
     slot: plan.slot,
     area: group[0].area,
@@ -109,10 +140,8 @@ export function runMatching(db) {
     const backfilled = backfillInvitingEvents(db, pool, used);
 
     const created = [];
-    for (const group of buildGroups(pool.filter((i) => !used.has(i.id)), blocks)) {
-      const plan = planGroup(group, now);
-      if (!plan) continue;
-      if (rejected.has(comboKey(group[0].task, plan.date, group.map((g) => g.user_id)))) continue;
+    const settle = (group) => settleGroup(db, group, now, rejected);
+    for (const { group, plan } of buildGroups(pool.filter((i) => !used.has(i.id)), blocks, settle)) {
       created.push(createProposal(db, group, plan, blocks));
     }
 
@@ -149,6 +178,7 @@ export function proposalView(db, p) {
     .map((id) => db.get('SELECT * FROM intents WHERE id = ?', id))
     .filter(Boolean);
   const bounds = intents.length ? groupBounds(intents) : { min: 2, max: 2 };
+  const plan = proposalPlan(p, intents);
   return {
     id: p.id,
     title: p.title,
@@ -158,6 +188,10 @@ export function proposalView(db, p) {
     dateLabel: weekdayName(p.date),
     slot: p.slot,
     slotLabel: slotLabel(p.slot, p.task),
+    // 大家时间窗的交集；有人用了自定义时间段时 windowLabel 是「14:00–16:30」，否则是时间段
+    window: { from: fmtHHMM(plan.window[0]), to: fmtHHMM(plan.window[1]) },
+    windowLabel: windowLabel(plan, p),
+    defaultStartAt: plan.startAt.toISOString(), // 确认表单里集合时间的默认值
     area: p.area,
     score: p.score,
     reasons: json.parse(p.reasons, []),
@@ -179,6 +213,7 @@ export function proposalView(db, p) {
         isNew: isNewUser(db, u.id),
         intentId: i.id,
         intentCreatedAt: i.created_at,
+        timeLabel: intentTimeLabel(i),
       };
     }),
   };
@@ -301,6 +336,9 @@ export function listPoolIntents(db, status = 'open') {
         dateTo: i.date_to,
         slot: i.slot,
         slotLabel: view.slotLabel,
+        timeFrom: view.timeFrom,
+        timeTo: view.timeTo,
+        timeLabel: view.timeLabel,
         area: i.area,
         sizeMin: i.size_min,
         sizeMax: i.size_max,

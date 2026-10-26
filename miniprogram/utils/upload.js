@@ -2,11 +2,12 @@
 const config = require('../config');
 const request = require('./request');
 
-function uploadOne(filePath, retried) {
+// onProgress(0–100) 可选
+function uploadOne(filePath, onProgress, retried) {
   return request.ensureLogin().then(
     () =>
       new Promise((resolve, reject) => {
-        wx.uploadFile({
+        const task = wx.uploadFile({
           url: config.baseURL + '/api/upload',
           filePath,
           name: 'file',
@@ -20,7 +21,7 @@ function uploadOne(filePath, retried) {
             }
             if (res.statusCode === 401 && !retried) {
               request.setToken('');
-              request.login().then(() => uploadOne(filePath, true)).then(resolve, reject);
+              request.login().then(() => uploadOne(filePath, onProgress, true)).then(resolve, reject);
               return;
             }
             if (res.statusCode === 200 && body && body.url) resolve(body.url);
@@ -28,6 +29,7 @@ function uploadOne(filePath, retried) {
           },
           fail: () => reject(request.makeError('NETWORK', '图片上传失败，检查一下网络'))
         });
+        if (onProgress && task && task.onProgressUpdate) task.onProgressUpdate((p) => onProgress(p.progress));
       })
   );
 }
@@ -74,4 +76,4 @@ function pickAndUpload(count) {
   });
 }
 
-module.exports = { pickAndUpload, uploadOne };
+module.exports = { pickAndUpload, uploadOne, choose };

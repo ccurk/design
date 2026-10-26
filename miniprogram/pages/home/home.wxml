@@ -1,56 +1,209 @@
 <view class="page">
-  <view class="loc">
-    <image class="ico-16" src="/assets/icons/pin-gray.svg" />
-    <text>大理 · 古城</text>
+  <view class="top">
+    <view class="loc">
+      <image class="ico-16" src="/assets/icons/pin-gray.svg" />
+      <text>大理 · 古城</text>
+    </view>
+    <view class="top-search" hover-class="pressed" bindtap="goSearch" aria-role="button" aria-label="搜索">
+      <image class="ico-16" src="/assets/icons/search-gray.svg" />
+      <text>搜索局、地点</text>
+    </view>
   </view>
 
   <view class="intro">
     <view class="h1-lg">今天想做点什么？</view>
     <view class="lead">说出来就好，搭子我们帮你找。</view>
-    <view class="lead lead-2">不用发帖，也不用先开口。</view>
   </view>
 
-  <view class="form card-lg">
-    <view class="col gap-8">
-      <view class="label">想做的事</view>
-      <view class="chips">
-        <view wx:for="{{tasks}}" wx:key="*this" class="chip {{task === item ? 'on' : ''}}" data-value="{{item}}" bindtap="pickTask" aria-role="radio" aria-checked="{{task === item}}">{{item}}</view>
-      </view>
-    </view>
-    <view class="col gap-8">
-      <view class="label">什么时候</view>
-      <view class="chips">
-        <view wx:for="{{whens}}" wx:key="value" class="chip {{when === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickWhen" aria-role="radio" aria-checked="{{when === item.value}}">{{item.label}}</view>
-      </view>
-    </view>
-    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="pressed" bindtap="submit">
-      <text>帮我撮合 · {{whenLabel}}{{task}}</text>
-      <image class="ico-18" src="/assets/icons/sparkle-white.svg" />
-    </view>
-    <view class="row between">
-      <view class="row gap-6 t-13 c-2">
-        <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
-        <text>意向只有你自己看得到</text>
-      </view>
-      <view class="link" hover-class="pressed" bindtap="goCreate">
-        <text>自己发起一个局</text>
-        <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
-      </view>
-    </view>
-  </view>
+  <dz-skeleton wx:if="{{loading}}" type="home" />
 
-  <view wx:if="{{intents.length}}" class="mine">
-    <view class="section-label">正在为你撮合</view>
-    <view wx:for="{{intents}}" wx:key="id" class="intent" hover-class="pressed" data-index="{{index}}" bindtap="openIntent">
-      <dz-cover variant="tile" size="40" kind="intent" />
-      <view class="flex1 col gap-2">
-        <text class="t-15 w7 ellipsis">{{item.title}}</text>
-        <text class="t-13 c-2 ellipsis">{{item.sub}}</text>
+  <block wx:else>
+    <view wx:if="{{error}}" class="err">
+      <image class="ico-16" src="/assets/icons/alert-gray.svg" />
+      <text class="flex1">首页内容没加载出来：{{error}}</text>
+      <view class="err-retry" hover-class="pressed" bindtap="retry">重试</view>
+    </view>
+
+    <!-- 轮播图（后台维护） -->
+    <view wx:if="{{banners.length}}" class="banner-wrap">
+      <swiper class="banner" autoplay="{{banners.length > 1}}" circular="{{banners.length > 1}}" interval="4500" duration="400" indicator-dots="{{banners.length > 1}}" indicator-color="rgba(255,255,255,0.45)" indicator-active-color="#FFFFFF">
+        <swiper-item wx:for="{{banners}}" wx:key="id">
+          <view class="banner-item" hover-class="pressed" data-index="{{index}}" bindtap="onBanner" aria-role="link" aria-label="{{item.title}}">
+            <image class="banner-img" src="{{item.failed ? item.fallback : item.image}}" mode="aspectFill" data-index="{{index}}" binderror="onBannerError" />
+            <view class="banner-shade"></view>
+            <view class="banner-text">
+              <text class="banner-title">{{item.title}}</text>
+              <text wx:if="{{item.subtitle}}" class="banner-sub">{{item.subtitle}}</text>
+            </view>
+          </view>
+        </swiper-item>
+      </swiper>
+    </view>
+
+    <!-- 分类宫格 + 主按钮 -->
+    <view class="pick card-lg">
+      <view class="pick-head">
+        <text class="pick-title">想做的事</text>
+        <text class="pick-hint">点一个，帮你找搭子</text>
       </view>
-      <text class="pill {{item.pillClass}}">{{item.pill}}</text>
+      <view class="grid">
+        <view wx:for="{{grid}}" wx:key="name" class="grid-item" hover-class="pressed" data-index="{{index}}" bindtap="onGrid" aria-role="button" aria-label="{{item.name}}">
+          <view wx:if="{{item.kind === 'tag'}}" class="grid-tile {{task === item.name ? 'on' : ''}}">
+            <image class="grid-img" src="{{item.src}}" mode="aspectFill" />
+          </view>
+          <view wx:elif="{{item.kind === 'more'}}" class="grid-tile grid-more">
+            <image class="ico-24" src="/assets/icons/grid-ink.svg" />
+          </view>
+          <view wx:else class="grid-tile grid-add">
+            <image class="ico-24" src="/assets/icons/plus-ink.svg" />
+          </view>
+          <text class="grid-name {{task === item.name ? 'w8' : ''}}">{{item.name}}</text>
+        </view>
+      </view>
+      <view class="btn btn-primary cta" hover-class="pressed" bindtap="openMatch">
+        <text class="cta-text">{{cta}}</text>
+        <image class="ico-18" src="/assets/icons/sparkle-white.svg" />
+      </view>
+      <view class="row between">
+        <view class="row gap-6 t-12 c-2">
+          <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+          <text>意向只有你自己看得到</text>
+        </view>
+        <view class="link" hover-class="pressed" bindtap="goCreate">
+          <text>自己发起一个局</text>
+          <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 最近一周的人气 -->
+    <view wx:if="{{stats}}" class="proof">
+      <view wx:if="{{proofUsers.length}}" class="stack">
+        <view wx:for="{{proofUsers}}" wx:key="id" class="stack-item tight">
+          <dz-avatar user="{{item}}" size="22" ring="{{true}}" />
+        </view>
+      </view>
+      <view class="proof-text">近 7 天 <text class="proof-num">{{stats.weekPeople}}</text> 人在这里约到搭子，成群 <text class="proof-num">{{stats.weekFormed}}</text> 个局</view>
+    </view>
+
+    <!-- 正在为你撮合 -->
+    <view wx:if="{{intents.length}}" class="sec">
+      <view class="sec-head">
+        <text class="sec-title">正在为你撮合</text>
+      </view>
+      <view class="mine">
+        <view wx:for="{{intents}}" wx:key="id" class="intent" hover-class="pressed" data-index="{{index}}" bindtap="openIntent">
+          <dz-cover variant="tile" size="44" cover-key="{{item.cover}}" />
+          <view class="flex1 col gap-2">
+            <text class="t-15 w7 ellipsis">{{item.title}}</text>
+            <text class="t-13 c-2 ellipsis">{{item.sub}}</text>
+          </view>
+          <text class="pill {{item.pillClass}}">{{item.pill}}</text>
+          <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 大家最近在玩（带图的动态） -->
+    <view wx:if="{{highlights.length}}" class="sec">
+      <view class="sec-head">
+        <text class="sec-title">大家最近在玩</text>
+        <view class="link" hover-class="pressed" bindtap="goFeed">
+          <text>去动态</text>
+          <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+        </view>
+      </view>
+      <scroll-view class="hscroll" scroll-x enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="hrow">
+          <view wx:for="{{highlights}}" wx:key="postId" class="hl" hover-class="pressed" data-id="{{item.postId}}" bindtap="openHighlight">
+            <image class="hl-img" src="{{item.image}}" mode="aspectFill" lazy-load />
+            <view class="hl-body">
+              <text class="hl-text">{{item.text || item.eventTitle}}</text>
+              <view class="hl-user">
+                <dz-avatar user="{{item.user}}" size="18" />
+                <text class="hl-name">{{item.user.nickname}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 还差人的局 -->
+    <view wx:if="{{featured.length}}" class="sec">
+      <view class="sec-head">
+        <text class="sec-title">这些局还差人</text>
+        <view class="link" hover-class="pressed" bindtap="goSquare">
+          <text>去广场</text>
+          <image class="ico-14" src="/assets/icons/chevron-right-ink.svg" />
+        </view>
+      </view>
+      <scroll-view class="hscroll" scroll-x enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="hrow">
+          <view wx:for="{{featured}}" wx:key="id" class="fe">
+            <dz-event-card event="{{item}}" compact="{{true}}" />
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 自己发起 -->
+    <view class="create" hover-class="pressed" bindtap="goCreate">
+      <image class="create-img" src="/assets/covers/oldtown.svg" mode="aspectFill" />
+      <view class="flex1 col gap-4">
+        <text class="t-16 w8">没找到合适的？</text>
+        <text class="t-13 c-2 lh-15">自己发起一个局，定好时间地点，等人来加入</text>
+      </view>
       <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
     </view>
-  </view>
+  </block>
 
   <view class="tab-space"></view>
 </view>
+
+<!-- 约搭子：想做的事 + 哪天 + 几点 →「帮我选择 · …」 -->
+<dz-sheet show="{{matchShow}}" title="约个搭子" actions="{{false}}" bindclose="closeMatch">
+  <view class="ms">
+    <view class="ms-tag" hover-class="pressed" bindtap="openTags" aria-role="button" aria-label="换一个想做的事">
+      <image class="ms-tag-img" src="{{taskSrc}}" mode="aspectFill" />
+      <view class="flex1 col">
+        <text class="ms-mini">想做的事</text>
+        <text class="ms-tag-name">{{task || '选一个'}}</text>
+      </view>
+      <text class="ms-change">换一个</text>
+      <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+
+    <view class="ms-label">哪天</view>
+    <view class="chips">
+      <view wx:for="{{whens}}" wx:key="value" class="chip chip-sm {{when === item.value ? 'on' : ''}} {{item.value === 'today' && todayClosed ? 'off' : ''}}" data-value="{{item.value}}" bindtap="pickWhen" aria-role="radio" aria-checked="{{when === item.value}}">{{item.label}}</view>
+      <view class="chip chip-sm {{pickedDate ? 'on' : ''}}" bindtap="openDate" aria-role="button">
+        <image class="ico-16 ms-ico" src="/assets/icons/calendar-ink.svg" />
+        <text>{{pickedDateLabel || '选日期'}}</text>
+      </view>
+    </view>
+
+    <view class="ms-label">几点</view>
+    <view class="chips">
+      <view wx:for="{{slots}}" wx:key="value" class="chip chip-sm {{slot === item.value ? 'on' : ''}} {{item.off ? 'off' : ''}}" data-value="{{item.value}}" data-off="{{item.off}}" bindtap="pickSlot" aria-role="radio" aria-checked="{{slot === item.value}}" aria-disabled="{{item.off}}">{{item.label}}</view>
+      <view class="chip chip-sm {{slot === 'custom' ? 'on' : ''}}" bindtap="openRange" aria-role="button">
+        <image class="ico-16 ms-ico" src="/assets/icons/clock-ink.svg" />
+        <text>{{slot === 'custom' ? timeFrom + '–' + timeTo : '指定时间'}}</text>
+      </view>
+    </view>
+
+    <view class="ms-note">
+      <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+      <text>意向只有你自己看得到。配到时间合得来的人，第一时间通知你。</text>
+    </view>
+  </view>
+  <view slot="footer" class="ms-foot">
+    <view class="btn btn-primary btn-block {{submitting ? 'disabled' : ''}}" hover-class="{{submitting ? 'none' : 'pressed'}}" bindtap="submit">
+      <text class="cta-text">{{submitting ? '正在提交…' : cta}}</text>
+    </view>
+  </view>
+</dz-sheet>
+
+<dz-tag-sheet show="{{tagShow}}" tags="{{tags}}" value="{{task}}" custom="{{tagCustom}}" bindclose="closeTags" bindconfirm="onTag" />
+<dz-date-sheet show="{{dateShow}}" title="选个日期" value="{{pickedDate}}" days="{{30}}" bindclose="closeDate" bindconfirm="onDate" />
+<dz-timerange-sheet show="{{rangeShow}}" from="{{rangeFrom}}" to="{{rangeTo}}" bindclose="closeRange" bindconfirm="onRange" />

@@ -1,0 +1,25 @@
+<dz-sheet show="{{show}}" title="{{title}}" confirm-text="确定这个地点" confirm-disabled="{{!name}}" z-index="1100" bindclose="onClose" bindconfirm="onConfirm">
+  <view class="pl">
+    <view class="pl-field">
+      <image class="ico-18" src="/assets/icons/pin-gray.svg" />
+      <input class="pl-input" value="{{name}}" placeholder="写下集合地点，比如：大理古城南门" placeholder-class="ph" maxlength="40" confirm-type="done" bindinput="onInput" bindconfirm="onConfirm" />
+    </view>
+    <view wx:if="{{loc && loc.address}}" class="pl-addr">
+      <image class="ico-14" src="/assets/icons/check-primary.svg" />
+      <text class="flex1 ellipsis">已在地图上选好 · {{loc.address}}</text>
+      <text class="pl-clear" bindtap="clearLoc">不要定位</text>
+    </view>
+    <view class="pl-label">大理常用地点</view>
+    <view class="chips">
+      <view wx:for="{{spots}}" wx:key="*this" class="chip pl-spot {{name === item ? 'on' : ''}}" data-name="{{item}}" bindtap="pickSpot" aria-role="radio" aria-checked="{{name === item}}">{{item}}</view>
+    </view>
+    <view class="pl-map" hover-class="pressed" bindtap="openMap" aria-role="button">
+      <image class="ico-20" src="/assets/icons/map-primary.svg" />
+      <view class="flex1 col">
+        <text class="t-15 w7">在地图上选</text>
+        <text class="t-12 c-2">选好后点地图右上角的「确定」，再回到这里确认</text>
+      </view>
+      <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
+  </view>
+</dz-sheet>

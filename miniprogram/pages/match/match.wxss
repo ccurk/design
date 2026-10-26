@@ -70,3 +70,9 @@
   font-size: 26rpx;
   color: var(--text-2);
 }
+.wait {
+  padding: 28rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}

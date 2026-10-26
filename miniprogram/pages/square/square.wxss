@@ -8,7 +8,7 @@
   font-size: 28rpx;
   gap: 8rpx;
 }
-.icon-btn {
+.round-btn {
   width: 88rpx;
   height: 88rpx;
   border-radius: 999rpx;
@@ -21,24 +21,58 @@
   font-size: 28rpx;
   color: var(--text-2);
 }
-.cats {
-  margin-top: 28rpx;
+/* 吸顶：不跟着列表滑走 */
+.filters {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-top: 20rpx;
+  padding: 12rpx 0 16rpx;
+  background: var(--ground);
+}
+.tags {
   width: 100%;
   white-space: nowrap;
 }
-.cats-inner {
+.tags-inner {
   display: inline-flex;
   gap: 16rpx;
   padding: 0 40rpx;
 }
-.cat {
+/* 选中前后尺寸完全一致，点选时不跳动 */
+.tab {
   flex-shrink: 0;
+  height: 80rpx;
+  padding: 0 30rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--ink);
   font-size: 28rpx;
   font-weight: 700;
+  line-height: 78rpx;
+  box-sizing: border-box;
+}
+.tab.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #FFFFFF;
 }
 .list {
-  padding: 32rpx 32rpx 0;
+  min-height: 100vh;
+  padding: 16rpx 32rpx 0;
+}
+.cards {
   display: flex;
   flex-direction: column;
   gap: 28rpx;
+  transition: opacity 0.15s;
+}
+.cards.dim {
+  opacity: 0.5;
+}
+.more-retry {
+  min-height: 88rpx;
+  color: var(--primary);
+  font-weight: 700;
 }

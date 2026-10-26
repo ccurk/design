@@ -1,0 +1,57 @@
+:host {
+  display: block;
+}
+.aa {
+  padding: 0 40rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+.aa-label {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #5B5F68;
+}
+.aa-amount {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  height: 128rpx;
+  padding: 0 32rpx;
+  border-radius: 32rpx;
+  border: 2rpx solid #193543;
+}
+.aa-amount.bad {
+  border-color: #B42318;
+}
+.aa-yen {
+  font-size: 44rpx;
+  font-weight: 800;
+}
+.aa-input {
+  flex: 1;
+  height: 120rpx;
+  font-size: 56rpx;
+  font-weight: 800;
+}
+.aa-each {
+  font-size: 26rpx;
+  color: #3D4048;
+}
+.aa-quick {
+  min-height: 72rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+}
+.aa-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+  padding-top: 4rpx;
+  font-size: 24rpx;
+  line-height: 1.55;
+  color: #5B5F68;
+}
+.aa-note .ico-14 {
+  margin-top: 4rpx;
+}

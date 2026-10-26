@@ -131,7 +131,7 @@ describe('#3 delete_content 通知作者', () => {
     const ta = await s.login(author);
     const post = await s.ok('POST', '/api/posts', { token: ta, body: { text: '今天的洱海好安静', images: [] } });
     const comment = await s.ok('POST', `/api/posts/${post.id}/comments`, { token: ta, body: { text: '私聊我有更好玩的' } });
-    const { eventId, memberToken } = await smallEvent(reporter, author);
+    const { eventId, memberToken } = await smallEvent(reporter, author, { capacity: 2 }); // 满员成群，群聊才开
     const msg = await s.ok('POST', `/api/events/${eventId}/messages`, { token: memberToken, body: { text: '回头私下找我' } });
     const ev2 = await s.ok('POST', '/api/events', {
       token: ta,
@@ -186,7 +186,7 @@ describe('#4 #5 举报列表：真实状态 + 上下文', () => {
     const ta = await s.login(author);
     const post = await s.ok('POST', '/api/posts', { token: ta, body: { text: '凌晨爬起来真的值，一路上没人尬聊，刚刚好。', images: [] } });
     const comment = await s.ok('POST', `/api/posts/${post.id}/comments`, { token: ta, body: { text: '下次带上我' } });
-    const { eventId, hostToken } = await smallEvent(author, reporter); // 作者发起，举报人是成员
+    const { eventId, hostToken } = await smallEvent(author, reporter, { capacity: 2 }); // 作者发起，举报人是成员；满员成群
     const msg = await s.ok('POST', `/api/events/${eventId}/messages`, { token: hostToken, body: { text: '回头私下找我' } });
     for (const [targetType, targetId] of [
       ['message', msg.id],

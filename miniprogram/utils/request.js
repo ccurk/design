@@ -1,4 +1,4 @@
-// wx.request 的 Promise 封装：自动登录、带 Bearer token、401 时重新登录一次、失败时 toast error.message。
+// wx.request 的 Promise 封装：自动登录、带 Bearer token、401 时重新登录一次、失败时提示 error.message。
 const config = require('../config');
 
 // token 按登录方式分开存：改了 devLogin / devUserId 后会自动换身份重新登录
@@ -45,6 +45,22 @@ function fromResponse(res) {
 function toast(message) {
   if (!message) return;
   wx.showToast({ title: message, icon: 'none', duration: 2200 });
+}
+
+// 短提示用 toast；长的（比如时间重叠、过了最晚退出时间）用弹窗，免得被截断
+const TITLES = { CONFLICT: '暂时不行', CONTENT_BLOCKED: '内容没通过审核', RESTRICTED: '账号受限中', VALIDATION: '再检查一下' };
+function showError(err) {
+  const message = (err && err.message) || '出了点问题，稍后再试';
+  const code = err && err.code;
+  if (message.length <= 24 && code !== 'CONFLICT') {
+    toast(message);
+    return;
+  }
+  let title = TITLES[code] || '提示';
+  if (/重叠|已经有局/.test(message)) title = '时间冲突了';
+  else if (/最晚退出/.test(message)) title = '不能退出了';
+  else if (/标签/.test(message) && code === 'CONTENT_BLOCKED') title = '换个标签吧';
+  wx.showModal({ title, content: message, showCancel: false, confirmText: '知道了', confirmColor: '#193543' });
 }
 
 function send(method, path, data, withAuth) {
@@ -103,7 +119,7 @@ function onLogin(fn) {
 }
 
 /**
- * opts.silent：失败时不 toast（轮询等场景）
+ * opts.silent：失败时不提示（轮询，或页面自己处理错误）
  */
 function request(method, path, data, opts) {
   const options = opts || {};
@@ -121,7 +137,7 @@ function request(method, path, data, opts) {
       const e = err && err.isApiError ? err : makeError('INTERNAL', '出了点问题，稍后再试');
       if (!options.silent && !e.toasted) {
         e.toasted = true;
-        toast(e.message);
+        showError(e);
       }
       throw e;
     });
@@ -140,5 +156,6 @@ module.exports = {
   getToken,
   setToken,
   toast,
+  showError,
   makeError
 };

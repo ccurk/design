@@ -1,6 +1,3 @@
 <view class="cover" style="{{boxStyle}}">
-  <image wx:if="{{full}}" class="cover-full" src="{{src}}" mode="aspectFill" style="{{imgStyle}}" />
-  <view wx:else class="cover-center" style="{{innerStyle}}">
-    <image class="cover-art" src="{{src}}" mode="aspectFit" style="{{imgStyle}}" />
-  </view>
+  <image class="cover-img" src="{{src}}" mode="aspectFill" lazy-load="{{isPhoto}}" binderror="onError" />
 </view>

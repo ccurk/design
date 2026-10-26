@@ -208,6 +208,11 @@ page button.native-btn::after {
   background: var(--accent);
   border-color: var(--accent);
 }
+.chip.off {
+  background: var(--ground);
+  border-color: var(--ground);
+  color: var(--faint);
+}
 .chip.dark-on {
   background: var(--primary);
   border-color: var(--primary);

@@ -1,8 +1,18 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="list" count="5" />
 
 <view wx:elif="{{closed}}" class="closed">
   <dz-empty title="{{closedTitle}}" desc="{{closedDesc}}" icon="/assets/icons/chat-primary.svg">
-    <view class="btn btn-sm btn-primary" bindtap="openDetail">看看局详情</view>
+    <view wx:if="{{closedProgress}}" class="closed-progress">
+      <view class="progress"><view class="progress-bar" style="width: {{closedProgress.pct}}%;"></view></view>
+      <text class="t-12 c-2">{{closedProgress.text}}</text>
+    </view>
+    <button wx:if="{{closedShare}}" class="native-btn" open-type="share" hover-class="none">
+      <view class="btn btn-sm btn-primary" hover-class="pressed">
+        <image class="ico-16" src="/assets/icons/share-white.svg" />
+        <text>邀请朋友</text>
+      </view>
+    </button>
+    <view class="btn btn-sm {{closedShare ? 'btn-outline' : 'btn-primary'}}" hover-class="pressed" bindtap="openDetail">看看局详情</view>
   </dz-empty>
 </view>
 
@@ -19,6 +29,16 @@
       <text class="task-text">{{task.text}}</text>
     </view>
     <view class="task-btn {{task.done ? 'done' : ''}}" hover-class="{{task.done ? 'none' : 'pressed'}}" bindtap="onTask" aria-role="button" aria-checked="{{task.done}}">{{task.button}}</view>
+  </view>
+
+  <view wx:if="{{aa.show}}" class="aa-card {{aa.done ? 'aa-done' : ''}}" hover-class="pressed" bindtap="openAA" aria-role="link">
+    <view class="aa-ico"><image class="ico-18" src="/assets/icons/wallet-ink.svg" /></view>
+    <view class="flex1 col gap-2">
+      <text class="aa-title ellipsis">{{aa.title}}</text>
+      <text class="aa-text ellipsis">{{aa.text}}</text>
+    </view>
+    <view wx:if="{{aa.button}}" class="aa-btn">{{aa.button}}</view>
+    <image wx:else class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
   </view>
 
   <scroll-view scroll-y enhanced class="msgs" scroll-into-view="{{intoView}}" bindtap="closePanels">
@@ -64,7 +84,7 @@
   <view wx:if="{{showPlus}}" class="plus">
     <view class="plus-item" hover-class="pressed" bindtap="openAA">
       <view class="plus-ico"><image class="ico-24" src="/assets/icons/wallet-ink.svg" /></view>
-      <text>AA 记账</text>
+      <text>AA</text>
     </view>
     <view class="plus-item" hover-class="pressed" bindtap="sharePhoto">
       <view class="plus-ico"><image class="ico-24" src="/assets/icons/image-ink.svg" /></view>

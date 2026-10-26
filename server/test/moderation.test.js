@@ -44,7 +44,7 @@ describe('审核接入', () => {
     tokens = await Promise.all(ids.map((u) => s.login(u)));
     const ev = await s.ok('POST', '/api/events', {
       token: tokens[0],
-      body: { title: '洱海骑行', category: 'outdoor', startAt: '2026-10-31T06:00:00.000Z', place: '才村码头', capacity: 4, feeType: 'split' },
+      body: { title: '洱海骑行', category: 'outdoor', startAt: '2026-10-31T06:00:00.000Z', place: '才村码头', capacity: 2, feeType: 'split' },
     });
     eventId = ev.id;
     await s.ok('POST', `/api/events/${eventId}/join`, { token: tokens[1] });

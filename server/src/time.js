@@ -176,3 +176,55 @@ export function rangeLabel(dateFrom, dateTo, now = clock.now()) {
 export function bjDayRange(dateStr) {
   return [bjDateTime(dateStr).toISOString(), bjDateTime(addDays(dateStr, 1)).toISOString()];
 }
+
+// ---- 时间窗：北京时间当天的第几分钟（05:00 = 300）----
+
+/** 时间段对应的窗：上午 05:00–12:00、下午 12:00–18:00、晚上 18:00–23:00、全天 05:00–23:00 */
+export const SLOT_WINDOWS = { morning: [300, 720], afternoon: [720, 1080], evening: [1080, 1380], allday: [300, 1380] };
+/** 自定义时间段的范围：05:00 ≤ 开始 < 结束 ≤ 23:59 */
+export const EARLIEST_MINUTE = 300;
+export const LATEST_MINUTE = 23 * 60 + 59;
+
+/** "HH:MM" → 分钟；格式不对返回 null */
+export function parseHHMM(value) {
+  if (typeof value !== 'string') return null;
+  const m = value.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/** 分钟 → "HH:MM" */
+export function fmtHHMM(minutes) {
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/** 「14:00–16:30」 */
+export function rangeText(from, to) {
+  return `${fmtHHMM(from)}–${fmtHHMM(to)}`;
+}
+
+/** 某个时间点是北京时间当天的第几分钟 */
+export function bjMinuteOfDay(date) {
+  const p = bjParts(date);
+  return p.hour * 60 + p.minute;
+}
+
+/** 按开始时刻推出时间段（自定义时间段只用它来起标题） */
+export function slotOfMinute(minute) {
+  if (minute < 720) return 'morning';
+  if (minute < 1080) return 'afternoon';
+  return 'evening';
+}
+
+/** 局的时间段：「10月31日 05:50–09:50」；跨天时写出结束日期 */
+export function eventRangeLabel(start, end) {
+  const s = new Date(start);
+  const e = new Date(end);
+  return bjDate(s) === bjDate(e) ? `${fullDateLabel(s)}–${hhmm(e)}` : `${fullDateLabel(s)}–${fullDateLabel(e)}`;
+}
+
+/** 去掉标题里表示时间的前缀：「周六清晨 · 苍山看日出」→「苍山看日出」；「桌游夜 · 新手友好」→「桌游夜」 */
+export function shortTitle(title) {
+  const parts = String(title).split(/\s*·\s*/);
+  if (parts.length > 1 && /^(周|今天|明天|后天|本周|下周|这周|\d+月)/.test(parts[0])) return parts[1];
+  return parts[0];
+}

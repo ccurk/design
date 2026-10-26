@@ -1,4 +1,4 @@
-// 局信息：成员、AA 入口、免打扰、举报、退出（24 小时内退出提示临时鸽）
+// 局信息：成员、AA 入口（一次声明的那笔）、免打扰、举报、退出（过了最晚退出时间变灰并写明原因）
 const api = require('../../utils/api');
 const format = require('../../utils/format');
 const native = require('../../utils/native');
@@ -14,7 +14,9 @@ Page({
     aaText: '',
     muted: false,
     isHost: false,
-    canLeave: true
+    showLeave: true,
+    leaveOff: false,
+    leaveReason: ''
   },
 
   onLoad(query) {
@@ -30,29 +32,42 @@ Page({
   },
 
   load() {
-    return api
-      .eventInfo(this.id)
-      .then((res) => {
+    return Promise.all([api.eventInfo(this.id), api.aa(this.id, { silent: true }).catch(() => null)])
+      .then(([res, aa]) => {
         const ev = res.event || {};
         const members = res.members || [];
         const me = members.filter((m) => m.isMe)[0];
         const isHost = !!(me && me.role === 'host' && ev.source === 'user');
-        const aa = res.aa || {};
-        let aaText = '还没记账';
-        if (Number(aa.each) > 0) aaText = '每人 ¥' + format.money(aa.each) + (aa.openTransfers ? ' · ' + aa.openTransfers + ' 笔待转' : ' · 已结清');
+        const live = ev.phase !== 'ended' && ev.status !== 'cancelled';
         this.setData({
           loading: false,
           error: '',
           event: ev,
           when: [format.mdhm(ev.startAt), ev.place].filter(Boolean).join(' · '),
           members,
-          aaText,
+          aaText: this.aaText(aa, res.aa),
           muted: !!res.muted,
           isHost,
-          canLeave: ev.phase !== 'ended' && ev.status !== 'cancelled'
+          showLeave: live,
+          leaveOff: !isHost && ev.canLeave === false,
+          leaveReason: !isHost && ev.canLeave === false ? ev.leaveBlockedReason || '已过最晚退出时间，不能退出了' : ''
         });
       })
       .catch((err) => this.setData({ loading: false, error: err.message }));
+  },
+
+  // 「阿野 垫付 ¥150 · 2 笔待转」
+  aaText(aa, fallback) {
+    if (aa && aa.bill) {
+      const b = aa.bill;
+      const who = b.mine ? '我' : (b.payer && b.payer.nickname) || '';
+      const open = (aa.transfers || []).filter((t) => t.status !== 'confirmed').length;
+      return who + ' 垫付 ¥' + format.money(b.amount) + (open ? ' · ' + open + ' 笔待转' : ' · 已结清');
+    }
+    if (aa) return '还没人记';
+    const f = fallback || {};
+    if (Number(f.each) > 0) return '每人 ¥' + format.money(f.each) + (f.openTransfers ? ' · ' + f.openTransfers + ' 笔待转' : ' · 已结清');
+    return '还没人记';
   },
 
   openDetail() {
@@ -100,13 +115,15 @@ Page({
         });
       return;
     }
-    const within = format.hoursUntil(ev.startAt) < 24;
+    if (this.data.leaveOff) {
+      wx.showModal({ title: '不能退出了', content: this.data.leaveReason, showCancel: false, confirmText: '知道了', confirmColor: '#193543' });
+      return;
+    }
+    const deadline = ev.exitDeadlineLabel || (ev.exitDeadline ? format.mdhm(ev.exitDeadline) : '');
     native
       .confirm({
         title: '确定退出这个局吗？',
-        content: within
-          ? '离开场不到 24 小时了，现在退出会记一次「临时鸽」。名额会让给候补的人。'
-          : '现在退出不影响信用，名额会让给候补的人。开场前 24 小时内退出，会记一次「临时鸽」。',
+        content: (deadline ? '最晚退出时间是 ' + deadline + '，过了就不能退了。' : '') + '退出后名额会让给别人。',
         confirmText: '确定退出',
         cancelText: '再想想',
         confirmColor: '#B42318'

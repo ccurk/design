@@ -102,7 +102,9 @@ describe('后台管理', () => {
     users.forEach((u) => makeIntent(s.db, u, { task: '桌游', slot: 'evening' }));
     const pool = await s.ok('GET', '/api/admin/intents?status=open', { token: admin });
     assert.equal(pool.items.length, 3);
-    assert.equal(pool.items[0].title, '周六 · 桌游');
+    assert.equal(pool.items[0].title, '周六晚上 · 桌游');
+    assert.equal(pool.items[0].timeLabel, '晚上');
+    assert.equal(pool.items[0].timeFrom, null);
     assert.equal(pool.items[0].waitingHours, 0);
     const run = await s.ok('POST', '/api/admin/match/run', { token: admin });
     assert.equal(run.created, 1);

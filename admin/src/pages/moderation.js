@@ -455,9 +455,7 @@ export default {
         <div class="stack-8">
           <span class="label">举报人补充</span>
           <p class="body-text">{{ current.detail || '（没有补充说明）' }}</p>
-          <div v-if="imagesOf(current).length" class="shots">
-            <a v-for="(u, i) in imagesOf(current)" :key="i" :href="u" target="_blank" rel="noopener noreferrer" class="shot"><img :src="u" :alt="'举报截图 ' + (i + 1)" loading="lazy"></a>
-          </div>
+          <Thumbs :images="imagesOf(current)" label="举报截图" />
         </div>
         <div v-if="current.targetUser" class="person-card">
           <Avatar :user="current.targetUser" :size="40" />
@@ -516,9 +514,7 @@ export default {
         </div>
         <div class="stack-8">
           <blockquote class="quote">{{ current.text }}</blockquote>
-          <div v-if="imagesOf(current).length" class="shots">
-            <a v-for="(u, i) in imagesOf(current)" :key="i" :href="u" target="_blank" rel="noopener noreferrer" class="shot"><img :src="u" :alt="'动态照片 ' + (i + 1)" loading="lazy"></a>
-          </div>
+          <Thumbs :images="imagesOf(current)" :label="current.author.nickname + ' 的动态照片'" />
           <span class="small muted">{{ postFrom(current) }}</span>
         </div>
         <div class="person-card">
@@ -563,13 +559,14 @@ export default {
         <div class="stack-8">
           <div class="meta-row"><span class="pill pill--warn">{{ flagText(current.flags, '自动标记') }}</span><span class="small muted">{{ fmt.ago(current.createdAt) }}提交</span></div>
           <h2 id="mod-detail-title" class="detail-title" tabindex="-1">{{ current.title }}</h2>
-          <span class="body-text">{{ fmt.dateTime(current.startAt) }} · {{ current.place }} · 最多 {{ current.capacity }} 人 · {{ current.feeLabel }}</span>
+          <span class="body-text">{{ fmt.dateTime(current.startAt) }} · {{ current.place }} · 最多 {{ current.capacity }} 人 · {{ current.feeLabel }}{{ current.tag ? ' · 标签「' + current.tag + '」' : '' }}{{ current.genderLabel ? ' · ' + current.genderLabel : '' }}</span>
         </div>
         <div class="stack-8">
           <span class="label">发起人写的介绍</span>
           <LoadState v-if="!eventDetail" compact :loading="!s.detailError" :error="s.detailError" @retry="loadEventDetail" />
           <template v-else>
             <blockquote class="quote">{{ eventDetail.event.description || '（没有写介绍）' }}</blockquote>
+            <Thumbs :images="eventDetail.event.images || []" :label="'「' + current.title + '」的照片'" />
             <span v-if="eventDetail.event.meetingPoint" class="small muted">集合点：{{ eventDetail.event.meetingPoint }}</span>
           </template>
         </div>

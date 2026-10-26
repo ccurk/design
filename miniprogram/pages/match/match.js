@@ -2,6 +2,7 @@
 const api = require('../../utils/api');
 const format = require('../../utils/format');
 const native = require('../../utils/native');
+const request = require('../../utils/request');
 const session = require('../../utils/session');
 
 const KNOWN_TASKS = ['看日出', '爬山', '徒步', '骑行', '随便走走', '吃饭', '吃早餐', '早餐', '逛夜市', '夜市', '喝咖啡', '咖啡', '读书', '玩桌游', '桌游', '拼车'];
@@ -11,7 +12,6 @@ Page({
   data: {
     loading: true,
     error: '',
-    busy: false,
     event: null,
     others: [],
     commonPoints: [],
@@ -24,7 +24,14 @@ Page({
     readyText: '',
     fullText: '',
     deadlineText: '',
-    stateText: ''
+    exitText: '',
+    stateText: '',
+    remaining: 0,
+    fillPct: 0,
+    joinShow: false,
+    joinInfo: {},
+    joinBusy: false,
+    joinResult: null
   },
 
   onLoad(query) {
@@ -37,9 +44,14 @@ Page({
   },
 
   load() {
-    return Promise.all([api.match(this.eventId), session.loadMe().catch(() => null)])
+    return Promise.all([api.match(this.eventId, { silent: true }), session.loadMe().catch(() => null)])
       .then(([res, me]) => this.render(res, me))
-      .catch((err) => this.setData({ loading: false, error: err.message }));
+      .catch((err) => this.setData({ loading: false, error: (err && err.message) || '网络不太好' }));
+  },
+
+  retry() {
+    this.setData({ loading: true, error: '' });
+    this.load();
   },
 
   render(res, me) {
@@ -53,7 +65,7 @@ Page({
     const headline = task && ev.startAt ? format.weekday(ev.startAt) + format.daypart(ev.startAt) + '，一起' + task : ev.title;
 
     let fullText;
-    if (myStatus === 'joined') fullText = ev.chatOpen ? '人齐了，群已经建好' : '等其他人确认，满员自动建群';
+    if (myStatus === 'joined') fullText = ev.chatOpen ? '人齐了，群已经建好' : '还差 ' + left + ' 人，人齐了自动建群';
     else if (left <= 1) fullText = '你加入即满员，自动建群';
     else fullText = '还有 ' + (left - 1) + ' 人在确认，满员自动建群';
 
@@ -79,26 +91,55 @@ Page({
       readyText: joined + ' 人已就位',
       fullText,
       deadlineText: res.deadline && myStatus === 'invited' ? '请在 ' + format.mdhm(res.deadline) + ' 前确认，过时视为放弃（不扣分）' : '',
-      stateText
+      exitText: ev.exitDeadlineLabel || (ev.exitDeadline ? format.mdhm(ev.exitDeadline) : ''),
+      stateText,
+      remaining: left,
+      fillPct: ev.capacity ? Math.min(100, Math.round((joined / ev.capacity) * 100)) : 0
     });
   },
 
+  // 「加入这个局」和局详情的「加入」走同一个确认弹窗
   accept() {
-    if (this.data.busy) return;
-    this.setData({ busy: true });
+    const d = this.data;
+    this.setData({
+      joinShow: true,
+      joinResult: null,
+      joinInfo: { title: d.event.title, when: d.timeText, place: d.placeText, fee: d.feeText, exit: d.exitText }
+    });
+  },
+
+  closeJoin() {
+    const done = !!this.data.joinResult;
+    this.setData({ joinShow: false });
+    if (done) this.load();
+  },
+
+  confirmJoin() {
+    if (this.data.joinBusy) return;
+    this.setData({ joinBusy: true });
     api
-      .acceptMatch(this.eventId)
+      .acceptMatch(this.eventId, { silent: true })
       .then((res) => {
-        if (res.eventStatus === 'formed') {
-          wx.showToast({ title: '满员啦，群已建好', icon: 'none' });
-          setTimeout(() => wx.redirectTo({ url: '/pages/group/group?id=' + this.eventId }), 600);
-          return null;
-        }
-        wx.showToast({ title: '已加入，等大家确认', icon: 'none' });
-        return this.load();
+        this.setData({
+          joinBusy: false,
+          joinResult: {
+            formed: !!res.formed || res.eventStatus === 'formed',
+            remaining: typeof res.remaining === 'number' ? res.remaining : 0,
+            myStatus: res.myStatus
+          }
+        });
+        this.load();
       })
-      .catch(() => {})
-      .then(() => this.setData({ busy: false }));
+      .catch((err) => {
+        this.setData({ joinBusy: false, joinShow: false });
+        request.showError(err);
+        this.load();
+      });
+  },
+
+  joinChat() {
+    this.setData({ joinShow: false });
+    wx.redirectTo({ url: '/pages/group/group?id=' + this.eventId });
   },
 
   decline() {

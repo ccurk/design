@@ -3,13 +3,14 @@ import { computed, createApp, nextTick, onBeforeUnmount, onMounted, watch } from
 import { auth, clearToken } from './src/api.js';
 import { go, hrefOf, PAGES, route, setGuard, startRouter } from './src/router.js';
 import { refreshBadges } from './src/store.js';
-import { html, registerUi } from './src/ui.js';
+import { closeLightbox, html, registerUi } from './src/ui.js';
 import LoginPage from './src/pages/login.js';
 import DashboardPage from './src/pages/dashboard.js';
 import MatchingPage from './src/pages/matching.js';
 import ModerationPage from './src/pages/moderation.js';
 import EventsPage from './src/pages/events.js';
 import UsersPage from './src/pages/users.js';
+import ContentPage from './src/pages/content.js';
 
 const PAGE_COMPONENTS = {
   dashboard: DashboardPage,
@@ -17,6 +18,7 @@ const PAGE_COMPONENTS = {
   moderation: ModerationPage,
   events: EventsPage,
   users: UsersPage,
+  content: ContentPage,
 };
 const TITLES = {
   login: '登录',
@@ -25,6 +27,7 @@ const TITLES = {
   moderation: '审核与举报',
   events: '局管理',
   users: '用户与信用',
+  content: '内容运营',
 };
 const BADGE_REFRESH_MS = 60 * 1000;
 
@@ -49,6 +52,7 @@ const App = {
     watch(
       () => route.name,
       (name) => {
+        closeLightbox();
         document.title = `${TITLES[name] || '运营后台'} · 活动搭子运营后台`;
         if (name !== 'login') refreshBadges();
         if (first) {
@@ -99,7 +103,8 @@ const App = {
   <main class="main">
     <component :is="page" :key="route.name" />
   </main>
-</div>`,
+</div>
+<Lightbox />`,
 };
 
 startRouter();

@@ -208,3 +208,59 @@ page {
   align-items: center;
   justify-content: center;
 }
+
+/* 顶部 AA 卡片 */
+.aa-card {
+  flex-shrink: 0;
+  margin: 16rpx 32rpx 0;
+  padding: 16rpx 20rpx 16rpx 16rpx;
+  border-radius: 32rpx;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.aa-ico {
+  flex-shrink: 0;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 22rpx;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.aa-done .aa-ico {
+  background: var(--stone);
+}
+.aa-title {
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.aa-text {
+  font-size: 24rpx;
+  color: var(--text-2);
+}
+.aa-btn {
+  flex-shrink: 0;
+  min-height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: var(--primary);
+  color: #FFFFFF;
+  font-size: 24rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+.closed-progress {
+  width: 360rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  padding-bottom: 12rpx;
+}
+.closed-progress .progress {
+  width: 100%;
+}

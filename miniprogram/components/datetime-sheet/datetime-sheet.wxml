@@ -1,0 +1,22 @@
+<dz-sheet show="{{show}}" title="{{title}}" confirm-disabled="{{!!error}}" z-index="{{zIndex}}" bindclose="onClose" bindconfirm="onConfirm">
+  <view class="pk">
+    <view class="pk-summary">{{summary}}</view>
+    <view class="pk-head">
+      <text class="pk-col-wide">日期</text>
+      <text class="pk-col">时</text>
+      <text class="pk-col">分</text>
+    </view>
+    <picker-view wx:if="{{alive}}" class="pk-view" indicator-style="height: 88rpx;" indicator-class="pk-indicator" value="{{pick}}" bindchange="onChange">
+      <picker-view-column class="pk-col-wide">
+        <view wx:for="{{dates}}" wx:key="date" class="pk-item">{{item.label}}</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view wx:for="{{hours}}" wx:key="*this" class="pk-item">{{item}}</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view wx:for="{{minutes}}" wx:key="*this" class="pk-item">{{item}}</view>
+      </picker-view-column>
+    </picker-view>
+    <view class="pk-error">{{error}}</view>
+  </view>
+</dz-sheet>

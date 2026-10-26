@@ -1,65 +1,84 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="list" count="3" />
 
-<dz-empty wx:elif="{{error}}" title="打不开 AA 记账" desc="{{error}}" icon="/assets/icons/wallet-ink.svg">
-  <view class="btn btn-sm btn-primary" bindtap="goBack">返回</view>
+<dz-empty wx:elif="{{error}}" title="打不开 AA" desc="{{error}}" icon="/assets/icons/wallet-ink.svg">
+  <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="retry">重新加载</view>
+  <view class="btn btn-sm btn-ghost" hover-class="pressed" bindtap="goBack">返回</view>
 </dz-empty>
 
 <view wx:else class="page">
   <view class="tip mx-16 mt-8">
     <image class="ico-16" src="/assets/icons/shield-check-body.svg" />
-    <text>平台不经手钱，只帮大家算清楚。钱在微信里直接转。</text>
+    <text>每个局只记一笔：垫钱的人一次记下总花费，大家平摊转给他。平台不经手钱。</text>
   </view>
 
-  <view class="sum">
-    <text class="sum-title">{{title}} · {{memberCount}} 人平摊</text>
-    <view class="sum-row">
-      <text class="sum-total">¥{{total}}</text>
-      <text class="sum-each">每人 ¥{{each}}</text>
+  <!-- 还没有人记 -->
+  <view wx:if="{{!bill}}" class="blank card">
+    <view class="blank-mark"><image class="ico-34" src="/assets/icons/wallet-ink.svg" /></view>
+    <view class="blank-title">还没有人记 AA</view>
+    <view class="blank-text">谁先垫了钱（车费、门票、饭钱），就由谁把总数一次记下。记下后不能再加，所以最好等花完再记。</view>
+    <view wx:if="{{canDeclare}}" class="btn btn-md btn-primary btn-block" hover-class="pressed" bindtap="openDeclare">
+      <image class="ico-18" src="/assets/icons/plus-white.svg" />
+      <text>我垫了钱，记一笔</text>
     </view>
+    <view wx:else class="blank-note">加入这个局的人才能记账。</view>
   </view>
 
-  <view class="items">
-    <view wx:for="{{items}}" wx:key="id" class="item" hover-class="{{item.mine ? 'pressed' : 'none'}}" data-index="{{index}}" bindtap="onItem">
-      <view class="flex1 col gap-2">
-        <text class="t-15 w5">{{item.name}}</text>
-        <text class="t-12 c-2">{{item.payerText}}</text>
-      </view>
-      <text class="t-16 w8">¥{{item.amountText}}</text>
-    </view>
-    <view wx:if="{{!items.length && !adding}}" class="items-empty">还没有记账。谁先垫付了，就记一笔。</view>
-
-    <view wx:if="{{adding}}" class="form">
-      <text class="form-label">花在哪</text>
-      <input class="field field-sm" value="{{name}}" placeholder="比如：早餐" placeholder-class="ph" maxlength="20" bindinput="onName" />
-      <text class="form-label">金额（元）</text>
-      <input class="field field-sm" type="digit" value="{{amount}}" placeholder="0" placeholder-class="ph" bindinput="onAmount" />
-      <view class="btn btn-xs btn-primary save-btn {{saving ? 'disabled' : ''}}" hover-class="pressed" bindtap="save">记下这笔（我垫付的）</view>
-      <view class="cancel-add" hover-class="pressed" bindtap="cancelAdd">先不记了</view>
-    </view>
-    <view wx:else class="add" hover-class="pressed" bindtap="startAdd">
-      <image class="ico-16" src="/assets/icons/plus-ink.svg" />
-      <text>记一笔</text>
-    </view>
-  </view>
-
-  <block wx:if="{{transfers.length}}">
-    <view class="section-label settle-label">谁该转给谁</view>
-    <view class="list-card mx-16">
-      <view wx:for="{{transfers}}" wx:key="key" class="transfer">
-        <view class="flex1 t-15">
-          <text class="w7">{{item.fromName}}</text>
-          <text class="c-2"> → </text>
-          <text>{{item.toName}}</text>
+  <!-- 已经记了 -->
+  <block wx:else>
+    <view class="bill">
+      <view class="bill-top">
+        <dz-avatar user="{{bill.payer}}" size="40" />
+        <view class="flex1 col">
+          <text class="bill-who">{{bill.payerName}} 垫付</text>
+          <text class="bill-time">{{bill.time}} 记下</text>
         </view>
-        <text class="t-15 w8">¥{{item.amountText}}</text>
+        <view wx:if="{{bill.editable}}" class="bill-manage" hover-class="pressed" bindtap="manage" aria-role="button" aria-label="修改或撤回">
+          <image class="ico-16" src="/assets/icons/edit-ink.svg" />
+          <text>修改</text>
+        </view>
+      </view>
+      <view class="bill-row">
+        <text class="bill-total">¥{{total}}</text>
+        <text class="bill-each">{{memberCount}} 人平摊 · 每人 ¥{{each}}</text>
+      </view>
+      <view wx:if="{{bill.note}}" class="bill-note">包含：{{bill.note}}</view>
+      <view wx:if="{{bill.mine && !bill.editable}}" class="bill-lock">
+        <image class="ico-14" src="/assets/icons/lock-gray.svg" />
+        <text>已经有人转账，这笔不能再改了</text>
+      </view>
+    </view>
+
+    <view wx:if="{{myTodo}}" class="todo">
+      <image class="ico-18" src="/assets/icons/alert-gray.svg" />
+      <text class="flex1">{{myTodo}}，在微信里转完点「我已转账」。</text>
+    </view>
+
+    <view class="section-label settle-label">谁转给谁</view>
+    <view wx:if="{{transfers.length}}" class="list-card mx-16">
+      <view wx:for="{{transfers}}" wx:key="key" class="transfer {{index ? 'divider-top' : ''}}">
+        <dz-avatar user="{{item.from}}" size="32" />
+        <view class="flex1 col">
+          <view class="t-15 ellipsis">
+            <text class="w7">{{item.fromName}}</text>
+            <text class="c-2"> 转给 </text>
+            <text>{{item.toName}}</text>
+          </view>
+          <text class="t-13 c-2">¥{{item.amountText}}</text>
+        </view>
         <view wx:if="{{item.action === 'pay'}}" class="btn btn-xs btn-primary" hover-class="pressed" data-index="{{index}}" bindtap="pay">我已转账</view>
         <view wx:elif="{{item.action === 'confirm'}}" class="btn btn-xs btn-primary" hover-class="pressed" data-index="{{index}}" bindtap="confirmPaid">确认收到</view>
         <text wx:else class="pill {{item.pillClass}}">{{item.statusText}}</text>
       </view>
     </view>
-    <view class="settle-note">转完点「我已转账」，对方确认后就清账。</view>
+    <view wx:else class="settle-note">只有记账人自己，不用转账。</view>
+    <view wx:if="{{settled}}" class="settle-done">
+      <image class="ico-16" src="/assets/icons/check-primary.svg" />
+      <text>大家已经两清了</text>
+    </view>
+    <view wx:else class="settle-note">转完点「我已转账」，对方确认收到后就清账。</view>
   </block>
-  <view wx:elif="{{items.length}}" class="settle-note">大家已经两清了。</view>
 
   <view class="bottom-pad"></view>
 </view>
+
+<dz-aa-sheet show="{{sheet}}" editing="{{editing}}" amount="{{bill ? bill.amount : 0}}" note="{{bill ? bill.note : ''}}" member-count="{{memberCount}}" busy="{{busy}}" bindclose="closeSheet" bindconfirm="onSheetConfirm" />

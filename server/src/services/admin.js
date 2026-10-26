@@ -189,7 +189,14 @@ export function adminEventDetail(db, id) {
       leftAt: m.left_at,
     })),
     messages,
-    aa: { total: aa.total, each: aa.each, itemCount: aa.items.length },
+    aa: {
+      total: aa.total,
+      each: aa.each,
+      itemCount: aa.bill ? 1 : 0, // 兼容旧字段：v0.3 起每个局最多一笔
+      bill: aa.bill
+        ? { payer: userBrief(db, aa.bill.payer_id), amount: aa.bill.amount, note: aa.bill.note || null, createdAt: aa.bill.created_at }
+        : null,
+    },
     reports: db
       .all("SELECT * FROM reports WHERE target_type = 'event' AND target_id = ? ORDER BY id DESC", id)
       .map((r) => adminReportView(db, r)),

@@ -1,4 +1,5 @@
-// 定时任务：撮合每 5 分钟；提醒 + 邀请到期每分钟。由 src/index.js 启动，测试里不启动。
+// 定时任务：撮合每 5 分钟；提醒 + 邀请到期 + 最晚退出时间每分钟。由 src/index.js 启动，测试里不启动。
+import { processExitDeadlines } from './services/events.js';
 import { processInviteDeadlines } from './services/invites.js';
 import { runMatching } from './services/matching.js';
 import { runReminders } from './services/reminders.js';
@@ -6,11 +7,12 @@ import { runReminders } from './services/reminders.js';
 export const MATCH_INTERVAL = 5 * 60 * 1000;
 export const MINUTE_INTERVAL = 60 * 1000;
 
-/** 每分钟的任务：邀请到期处理 + 各类提醒 */
+/** 每分钟的任务：邀请到期处理 + 最晚退出时间（成群或取消）+ 各类提醒 */
 export function runMinuteJobs({ db, logger }) {
   const deadlines = processInviteDeadlines(db);
+  const exitDeadlines = processExitDeadlines(db);
   const reminders = runReminders(db, logger);
-  return { deadlines, reminders };
+  return { deadlines, exitDeadlines, reminders };
 }
 
 /** 每 5 分钟的任务：撮合 */
@@ -39,7 +41,7 @@ export function startJobs(ctx, { matchEvery = MATCH_INTERVAL, minuteEvery = MINU
   // 启动时先跑一遍
   safely('minute', () => runMinuteJobs(ctx), logger);
   safely('match', () => runMatchJob(ctx), logger);
-  logger?.info?.('[jobs] 定时任务已启动：撮合每 5 分钟，提醒和邀请到期每分钟');
+  logger?.info?.('[jobs] 定时任务已启动：撮合每 5 分钟，提醒、邀请到期和最晚退出时间每分钟');
   return {
     stop() {
       timers.forEach(clearInterval);
