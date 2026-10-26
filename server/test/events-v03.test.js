@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { clock } from '../src/clock.js';
 import { runMinuteJobs } from '../src/jobs.js';
-import { makeUser, startServer } from './helpers.js';
+import { runMatching } from '../src/services/matching.js';
+import { addCredit, makeIntent, makeUser, startServer } from './helpers.js';
 
 let s;
 const SAT_2PM = '2026-10-31T06:00:00.000Z'; // 北京时间周六 14:00
@@ -206,6 +207,28 @@ describe('最晚退出时间 exitDeadline', () => {
     assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', lonely.id).status, 'cancelled');
   });
 
+  test('早就结束了的 open 局（老库升级）：只改状态，不发通知、不加系统消息', async () => {
+    const [host, a] = [makeUser(s.db), makeUser(s.db)];
+    const old = (title, members) => {
+      const id = s.db.insert('events', {
+        title, category: 'coffee', task: '咖啡', start_at: '2026-10-20T06:00:00.000Z', duration_min: 120, place: '古城',
+        capacity: 4, min_size: 2, source: 'user', creator_id: host, status: 'open', created_at: '2026-10-15T00:00:00.000Z',
+      });
+      for (const u of members) s.db.insert('event_members', { event_id: id, user_id: u, role: u === host ? 'host' : 'member', status: 'joined', joined_at: '2026-10-16T00:00:00.000Z' });
+      return id;
+    };
+    const enough = old('上周的咖啡局', [host, a]);
+    const lonely = old('没人来的咖啡局', [host]);
+    assert.deepEqual(runMinuteJobs({ db: s.db }).exitDeadlines, { formed: 1, cancelled: 1 });
+    const row = s.db.get('SELECT status, formed_at FROM events WHERE id = ?', enough);
+    assert.deepEqual([row.status, row.formed_at], ['formed', '2026-10-19T06:00:00.000Z']);
+    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', lonely).status, 'cancelled');
+    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type IN ('formed', 'event_cancelled')").n, 0);
+    assert.equal(s.db.get('SELECT COUNT(*) AS n FROM messages').n, 0);
+    // 成群的那个照常进入「去评价」
+    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'review'").n, 2);
+  });
+
   test('过了最晚退出时间不再接受报名，广场也不显示', async () => {
     const [th, ta] = await Promise.all([makeUser(s.db), makeUser(s.db)].map((u) => s.login(u)));
     const ev = await createOk(th, { capacity: 5, exitDeadline: '2026-10-28T06:00:00.000Z' });
@@ -217,6 +240,31 @@ describe('最晚退出时间 exitDeadline', () => {
     const r = await s.api('POST', `/api/events/${ev.id}/join`, { token: ta });
     assert.equal(r.status, 409);
     assert.equal(r.body.error.message, '已经截止报名了');
+  });
+
+  test('撮合局：确认时默认 max(开始前 24 小时, 现在 + 30 分钟)；已加入的人过了最晚退出时间不能「换一批」，还没回复的人可以', async () => {
+    clock.set('2026-10-29T02:00:00.000Z'); // 周四 10:00，离周六 05:50 不到 44 小时
+    const users = [1, 2, 3].map(() => makeUser(s.db));
+    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
+    users.forEach((u) => makeIntent(s.db, u));
+    runMatching(s.db);
+    const admin = await s.adminToken();
+    const { items } = await s.ok('GET', '/api/admin/proposals', { token: admin });
+    const bad = await s.api('POST', `/api/admin/proposals/${items[0].id}/confirm`, { token: admin, body: { exitDeadline: '2026-10-31T00:00:00.000Z' } });
+    assert.equal(bad.status, 400); // 晚于开始
+    const { eventId } = await s.ok('POST', `/api/admin/proposals/${items[0].id}/confirm`, { token: admin, body: {} });
+    const tokens = await Promise.all(users.map((u) => s.login(u)));
+    const accepted = await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[0] });
+    assert.equal(accepted.exitDeadline, '2026-10-29T21:50:00.000Z'); // 周五 05:50
+    clock.set('2026-10-29T22:00:00.000Z'); // 周五 06:00：过了最晚退出时间，还在等另外两个人（期限周五 10:00）
+    const message = '已过最晚退出时间（10月30日 05:50），不能退出了';
+    for (const url of [`/api/matches/${eventId}/decline`, `/api/events/${eventId}/leave`]) {
+      const r = await s.api('POST', url, { token: tokens[0] });
+      assert.equal(r.status, 409, url);
+      assert.equal(r.body.error.message, message);
+    }
+    const declined = await s.ok('POST', `/api/matches/${eventId}/decline`, { token: tokens[1] }); // 还没加入的人照常换一批
+    assert.equal(declined.ok, true);
   });
 
   test('需要同意的局：过了最晚退出时间发起人也不能再通过申请', async () => {

@@ -47,7 +47,7 @@
 - **加入的返回值**：`POST /api/events/:id/join` 和 `POST /api/matches/:id/accept` 返回
   `{ myStatus, eventStatus, formed, remaining, memberCount, capacity, exitDeadline }`
   （`formed` = 这次操作后已成群；`remaining` = 还差几人满员）。客户端据此显示「进入群聊」或「已加入，还差 N 人成群，人齐了通知你」。
-- **重叠时间检测**：一个人已加入（joined / applied）的局，时间段 [开始, 开始+时长] 不能和新局重叠。在报名、接受撮合邀请、发起局（发起人自动加入）、发起人通过报名申请时检查，冲突 → 409「和你已加入的「苍山看日出」（10月31日 05:50–09:50）时间重叠了」。撮合引擎排时间时跳过有冲突的成员；后台确认建议时如有成员冲突 → 409 并写明是谁；提交意向时，如果时间窗里已经没有连续 60 分钟的空档 → 409「这个时间你已经有局了：…」。
+- **重叠时间检测**：一个人已加入（joined / applied）的局，时间段 [开始, 开始+时长] 不能和新局重叠。在报名、接受撮合邀请、发起局（发起人自动加入）、发起人通过报名申请时检查，冲突 → 409「和你已加入的「苍山看日出」（10月31日 05:50–09:50）时间重叠了」（发起人通过申请时冲突的是申请人，提示改为「小林 这个时间已经有别的局了，不能通过」，不透露对方的其他局）。撮合引擎排时间时跳过有冲突的成员；后台确认建议时如有成员冲突 → 409 并写明是谁；提交意向时，如果时间窗里已经没有连续 60 分钟的空档 → 409「这个时间你已经有局了：…」。
 - **EventCard** 增加：`tag`、`cover`（第一张图的绝对地址或 null）、`coverKey`（标签的插画 key）、`genderLimit`、`genderLabel`（只限女生 / 只限男生 / null）、`exitDeadline`。
 - **EventDetail** 增加：`images`、`location`、`exitDeadline`、`exitDeadlineLabel`（「10月30日 05:50」）、`canLeave`、`leaveBlockedReason`、`remaining`；`chatOpen` 只在成群后为 true。
 

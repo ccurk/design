@@ -88,7 +88,10 @@ export function coverKeyFor(db, name, category) {
   return row ? coverOf(row) : CATEGORY_COVERS[category] || CATEGORY_COVERS.other;
 }
 
-/** 表是空的就写入默认标签（启动时、seed 时调用） */
+/**
+ * 表是空的就写入默认标签（启动时、seed 时调用）。
+ * 老库第一次升级到 v0.3 时，顺便按已有的意向和局补上 last_used_at（用过但不在默认列表里的标签补一条）。
+ */
 export function ensureDefaultTags(db) {
   if (Number(db.get('SELECT COUNT(*) AS n FROM tags').n) > 0) return false;
   const now = clock.iso();
@@ -105,7 +108,44 @@ export function ensureDefaultTags(db) {
       last_used_at: null,
     });
   }
+  syncTagUsage(db);
   return true;
+}
+
+/**
+ * 按库里已有的意向和用户局 / 平台局补齐标签：每个标签的 last_used_at = 最近一次用到的时间；
+ * 用过但标签表里没有的补一条（hot=0）。演示数据和老库升级时用（平时由 useTag 实时更新）。
+ */
+export function syncTagUsage(db) {
+  const latest = new Map();
+  const rows = [
+    ...db.all('SELECT task, category, created_at FROM intents'),
+    ...db.all("SELECT task, category, created_at FROM events WHERE source IN ('user', 'platform') AND task IS NOT NULL"),
+  ];
+  for (const r of rows) {
+    const key = tagKey(r.task);
+    if (!key) continue;
+    const seen = latest.get(key);
+    if (!seen || r.created_at > seen.at) latest.set(key, { name: normalizeTagName(r.task), category: r.category, at: r.created_at });
+  }
+  for (const [key, use] of latest) {
+    const row = db.get('SELECT * FROM tags WHERE key = ?', key);
+    if (!row) {
+      db.insert('tags', {
+        name: use.name,
+        key,
+        category: CATEGORIES.includes(use.category) ? use.category : categoryOfTask(use.name),
+        cover: null,
+        hot: 0,
+        sort: 0,
+        created_at: use.at,
+        last_used_at: use.at,
+      });
+    } else if (!row.last_used_at || row.last_used_at < use.at) {
+      db.run('UPDATE tags SET last_used_at = ? WHERE id = ?', use.at, row.id);
+    }
+  }
+  return latest.size;
 }
 
 /**
@@ -257,7 +297,8 @@ export function adminUpdateTag(db, id, body = {}) {
   if (body.cover !== undefined) patch.cover = parseCover(body.cover);
   if (body.hot !== undefined) {
     const hot = flag(body.hot, '是否热门');
-    if (hot && !t.hot) patch.sort = nextHotSort(db);
+    if (hot && !t.hot) patch.sort = nextHotSort(db); // 新热门排在最后
+    if (!hot) patch.sort = 0;
     patch.hot = hot ? 1 : 0;
   }
   db.update('tags', t.id, patch);

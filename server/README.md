@@ -10,7 +10,7 @@
 ```bash
 cd server
 npm install
-npm run seed     # 清空数据库并写入演示数据（data/dazi.db）
+npm run seed     # 清空数据库并写入演示数据（data/dazi.db），配图复制进 uploads/
 npm run dev      # 开发模式启动，改代码自动重启（npm start 为普通启动）
 ```
 
@@ -32,9 +32,10 @@ curl -s localhost:3000/api/inbox -H "Authorization: Bearer <token>"
 | --- | --- |
 | `npm start` | 启动服务（含定时任务） |
 | `npm run dev` | 同上，`node --watch` 自动重启 |
-| `npm run seed` | 清空数据库并写入演示数据。生产环境需要加 `-- --force` |
+| `npm run seed` | 清空数据库并写入演示数据，演示配图（`seed-assets/`）复制进上传目录。生产环境需要加 `-- --force` |
 | `npm test` | 单元 + 接口测试（`node:test`，内存数据库，不会动 `data/`） |
 | `npm run smoke` | 内存数据库 + 演示数据，随机端口启动，用 HTTP 走一遍主流程并打印 PASS / FAIL |
+| `node scripts/render-seed-images.mjs [key ...]` | 把 `design/illustrations/*.svg` 渲染成 1200×800 的 PNG 放进 `seed-assets/`（改了插画后跑一次，结果提交到仓库）。需要 Playwright + Chromium（不在依赖里，开发机全局装一份即可；脚本用 CommonJS 的方式加载，全局安装也能找到） |
 
 所有脚本都带 `--no-warnings`，用来屏蔽 `node:sqlite` 的 ExperimentalWarning。
 
@@ -70,28 +71,34 @@ server/
 │   ├── auth.js           用户 token / 后台 token（两套会话表，互不通用）
 │   ├── moderation.js     内容审核 checkText(text) → { ok, reasons }
 │   ├── wechat.js         code2Session / getPhoneNumber / sendSubscribeMessage（占位）
-│   ├── jobs.js           定时任务：撮合每 5 分钟；提醒 + 邀请到期每分钟
-│   ├── seed.js           seed(db)：演示数据（时间相对「现在」生成）
+│   ├── jobs.js           定时任务：撮合每 5 分钟；提醒 + 邀请到期 + 最晚退出时间每分钟
+│   ├── seed.js           seed(db, {uploadDir})：演示数据（时间相对「现在」生成，配图复制进上传目录）
 │   ├── constants.js      分类、任务、破冰话题等常量
+│   ├── urls.js           图片地址：库里存相对路径 /uploads/…，返回时拼成绝对地址
 │   ├── errors.js / validate.js / logger.js
 │   ├── routes/           路由层（只做参数解析，业务在 services/）
 │   │   ├── account.js    登录、我的资料、安全设置、信用记录、他人主页、拉黑
 │   │   ├── matching.js   撮合意向、撮合结果
 │   │   ├── events.js     广场、局、群聊、AA、互评、搜索
 │   │   ├── social.js     动态、举报、上传、消息中心
-│   │   ├── admin.js      /api/admin/*
+│   │   ├── content.js    首页内容 /api/home、热门标签 /api/tags/hot
+│   │   ├── admin.js      /api/admin/*（含标签、轮播图、后台上传）
 │   │   └── dev.js        /api/dev/*（仅非生产环境）
 │   └── services/         业务逻辑
 │       ├── credit.js     信用计算、自动受限
-│       ├── matchRules.js 撮合规则：兼容性、人数、日期、匹配度 / 理由 / 风险
+│       ├── tags.js       标签：规范化 / key、默认标签、用到时自动建、热门列表、后台增删改
+│       ├── matchRules.js 撮合规则：兼容性、时间窗、人数、日期、默认集合时间、匹配度 / 理由 / 风险
 │       ├── matching.js   撮合引擎、建议局（后台）
 │       ├── invites.js    确认成局、邀请、接受 / 换一批、补邀、邀请到期
-│       ├── events.js     局的视图、可见性、广场、报名、退出、轻确认
+│       ├── events.js     局的视图、可见性、广场、发起、报名、退出、最晚退出时间、成群、轻确认
+│       ├── overlap.js    时间重叠检测（报名、发起、接受邀请、确认建议、撮合排时间、提交意向）
+│       ├── home.js / banners.js  首页内容、轮播图
 │       ├── chat.js / aa.js / reviews.js / posts.js / reports.js / appeals.js
 │       ├── intents.js / intentFormat.js / myEvents.js / inbox.js / profile.js
 │       ├── reminders.js  轻确认 / 去评价 / 报平安提醒
 │       └── admin.js / settings.js / notices.js / users.js
-├── scripts/seed.js · scripts/smoke.js
+├── scripts/seed.js · scripts/smoke.js · scripts/render-seed-images.mjs
+├── seed-assets/          演示配图（由 design/illustrations/*.svg 渲染，提交到仓库）
 ├── test/                 node:test 测试（helpers.js 提供内存库 + HTTP 工具）
 ├── data/                 SQLite 数据库（不提交）
 └── uploads/              上传的图片（不提交），通过 /uploads/* 访问
@@ -107,32 +114,37 @@ server/
 - 时间穿越（演示「局结束后」「邀请过期」等场景）：
   - `GET /api/dev/clock` 查看服务端的「现在」
   - `POST /api/dev/clock {now: "2026-11-01T02:00:00Z"}` 跳到某个时间点（之后照常走）；`{advanceMinutes: 90}` 往后拨；`{reset: true}` 回到真实时间
-  - `POST /api/dev/tick {match?: true}` 立刻跑一遍每分钟的定时任务（提醒、邀请到期），`match: true` 时连撮合一起跑
+  - `POST /api/dev/tick {match?: true}` 立刻跑一遍每分钟的定时任务（邀请到期、最晚退出时间、提醒），`match: true` 时连撮合一起跑
 
 演示账号（`npm run seed` 后）：
 
 | userId | 昵称 | 说明 |
 | --- | --- | --- |
-| 1 | 栗子 | 演示主账号：「周六清晨 · 苍山看日出」已成局（群聊 + AA），「桌游夜」待评价，「周日 · 洱海边骑行」撮合中，拉黑了大鹏 |
-| 2–5 | 小满 / 阿野 / 七七 / 木木 | 苍山看日出的同伴；阿野在待确认的爬山建议里；木木有 1 条待处理申诉 |
+| 1 | 栗子 | 演示主账号：「周六清晨 · 苍山看日出」已成群（群聊 + 阿野记的 ¥150 AA，栗子还没转），「桌游夜」待评价，「周日下午 · 洱海边骑行」撮合中，拉黑了大鹏 |
+| 2–5 | 小满 / 阿野 / 七七 / 木木 | 苍山看日出的同伴（阿野是 AA 记账人，木木已经转过）；阿野在待确认的爬山建议里；木木有 1 条待处理申诉 |
 | 6 | 大鹏 | 被举报、受限 7 天，有 2 条待处理举报和 1 个待审核的局 |
 | 7 | 南风 | 也想周日下午骑行（再来 1 个人就能成局） |
 | 8–11 | 小林 / 阿云 / 青青 / 老周 | 撮合池里的人：小林、老周和阿野组成待确认的爬山建议；阿云、青青明天下午想喝咖啡 |
 
-演示数据里的时间都相对「现在」生成（比如苍山看日出永远是下一个周六 05:50），所以任何时候 seed 都是新鲜的。
+演示数据里的时间都相对「现在」生成（比如苍山看日出永远是下一个周六 05:50），所以任何时候 seed 都是新鲜的。另外有 13 个默认标签、3 张首页轮播图、10 条动态（大多带图），每个局都有配图和最晚退出时间。
 
 ## 业务实现要点
 
 - **时间**：接口里的时间点都是 ISO-8601 UTC；「今天」「周六」「上午」等按北京时间（固定 +08:00）计算，与服务器时区无关。
-- **撮合**：提交意向时、后台点「立即撮合」时、以及每 5 分钟各跑一次。先给有人「换一批」的撮合局补邀，再按提交时间贪心组新队。后台退回的组合（同任务、同日期、同一组人）不会再被原样推荐。自动成局打开时，每次撮合都会检查**所有**待确认的建议。
+- **标签**：想做的事和局的标签是同一套自由标签（NFKC、1–8 个字、过内容审核），撮合 / 筛选按 key（拉丁字母小写）比较；用到新标签时自动在 `tags` 表里建一条，热门列表由后台维护。标签表为空时启动会写入 13 个默认标签（老库顺便按已有数据补上「最近一次用到」）。
+- **撮合**：提交意向时、后台点「立即撮合」时、以及每 5 分钟各跑一次。先给有人「换一批」的撮合局补邀，再按提交时间贪心组新队。同标签、同地区、日期重叠、**时间窗交集 ≥ 60 分钟**才能进一组（只用时间段时和以前完全一样）；有人用了自定义时间段时，集合时间取交集开始（取整到 :00 / :30）。排时间时和已加入的局时间重叠的人先跳过。后台退回的组合（同标签、同日期、同一组人）不会再被原样推荐。自动成局打开时，每次撮合都会检查**所有**待确认的建议。
 - **确认成局**：人数要在组里约好的范围内（`minSize` = size_min 的最大值，`maxSize` = size_max 的最小值），确认时校验；后台调整成员可以暂时低于 minSize。局的 `min_size` = minSize。
+- **最晚退出时间与成群**：每个局有 `exit_deadline`（默认 max(开始前 24 小时, 现在 + 30 分钟)）。过了它不能退出、不能报名；用户局 / 平台局到点还没满员就按人数成群或取消（每分钟的定时任务）。满员立即成群；群聊只在成群后开启（所有来源一致）。
+- **时间重叠**：一个人已加入 / 申请中的局时间段不能重叠，报名、发起、接受邀请、通过申请、后台确认、提交意向时都检查（`services/overlap.js`）。
+- **AA**：每个局只有一笔（`aa_bills`），一个成员一次记下总额，其他人平摊转给 TA；有人点过「我已转账」后不能再改。旧的 `aa_items` 不再使用，数据不迁移。
+- **图片**：库里存相对路径 `/uploads/…`，返回时拼上 `PUBLIC_BASE_URL`；提交时绝对 / 相对都接受（按路径识别本站图片，不比较域名），老数据里的绝对地址也会换成当前的 `PUBLIC_BASE_URL`。
 - **邀请期限**：每个被邀请人 min(邀请后 24 小时, 开场前 12 小时)。到期视为放弃（成员 `declined` 并标记 `invite_expired`，后台显示为 `expired`；意向 `expired`）；人够 `min_size` 就成局，否则取消并把意向退回撮合池。后台可以 `POST /api/admin/events/:id/remind` 催还没回复的人。
 - **信用**：按未撤销的 `credit_events` 实时计算；互评每提交一次就重算全组结果（同一人同一局只保留一条记录）。后台撤销记录会通知本人，并自动通过这条记录上待处理的申诉。
 - **账号处理**：受限 / 封禁的原因存在 `users.restricted_reason`（后台的 `restrictedReason`）。封禁不会被降级：对已封禁的账号做限制返回 409「账号已封禁，先解封再处理」。
 - **举报处理**：`note` 只给后台看；`message` 是发给被处理的人的说明（替换默认文案）；删除内容会通知作者。详见 docs/api.md 3.8。
 - **可见性**：撮合局只有成员能看；广场只有 `open` 的用户局 / 平台局；和你有拉黑关系的人发起或参加的局、动态、评论都不会出现在你这里。
-- **通知 `link` 约定**：`match:<eventId>` 撮合成功页、`event:<eventId>` 局详情、`chat:<eventId>` 群聊、`review:<eventId>` 互评、`post:<postId>` 动态、`credit` 我的信用记录，`null` 表示不跳转。
-- **通知 `type`**：`match` `match_reminder` `formed` `match_failed` `attendance` `review` `safe` `event_cancelled` `event_approved` `event_rejected` `application` `application_result` `join` `leave` `post_approved` `post_rejected` `comment` `aa_paid` `aa_confirmed` `report_result` `warning` `content_deleted` `restricted` `unrestricted` `banned` `unbanned` `appeal_result` `credit_revoked`。
+- **通知 `link` 约定**：`match:<eventId>` 撮合成功页、`event:<eventId>` 局详情、`chat:<eventId>` 群聊、`review:<eventId>` 互评、`post:<postId>` 动态、`credit` 我的信用记录，`null` 表示不跳转（首页轮播图另外可以用 `square` / `create` / `feed` / `rules`）。
+- **通知 `type`**：`match` `match_reminder` `formed` `match_failed` `attendance` `review` `safe` `event_cancelled` `event_approved` `event_rejected` `application` `application_result` `join` `leave` `post_approved` `post_rejected` `comment` `aa_bill` `aa_paid` `aa_confirmed` `report_result` `warning` `content_deleted` `restricted` `unrestricted` `banned` `unbanned` `appeal_result` `credit_revoked`。
 - **数据库升级**：启动时会给旧库自动补新加的列（`db.js` 里的 `COLUMN_MIGRATIONS`），不用手动迁移，也不用重新 seed。
 
 ### 对 docs/api.md 的补充（都是向后兼容的新增）
@@ -143,6 +155,7 @@ server/
 - `avatarColor` 按 `id % 4` 依次取 `slate / accent / ink / stone`（与文档示例和设计稿一致：1 栗子 = accent，3 阿野 = stone）；`avatarText` 一般取第一个字，「阿 / 小 / 老 / 大」开头的取第二个字（阿野 → 野，与文档示例一致）。
 - `icebreaker.index` 从 0 开始。
 - 撮合局默认人数上限 = 配到的人数，`min_size` = 组里约好的最少人数（默认 3）。
+- v0.3 的小补充：发起局可以带 `minSize`（到最晚退出时间成群的最少人数，默认 2）；后台确认建议可以带 `exitDeadline`、`location`、`images`；AA 改了 / 撤回了也会通知其他成员（type `aa_bill`）；后台局详情的 `aa` 带 `memberCount`、`bill`、`transfers`；`MyEventCard` 里撮合中的意向卡片也有 `tag` / `coverKey` / `timeLabel`；`GET /api/events?tag=` 可以和 `category` 一起用；后台标签列表默认 `scope=all`。
 - 后台接口的完整字段（`Proposal`、`PoolIntent`、`AdminEventCard`、`AdminMember`、`AdminReport`、`AdminUser`、`AdminAppeal`）和各列表接受的 `?status=` 取值都写在 docs/api.md 第 5 节。
 - 生产环境（`NODE_ENV=production`）没配微信时不会退回开发模式，登录会直接报错，避免任何人用任意 openid 登录。
 
@@ -159,8 +172,10 @@ server/
 ## 测试
 
 ```bash
-npm test         # 110+ 个用例：信用、撮合、邀请流程、局的生命周期、互评结算、AA、审核、举报、鉴权、定时任务、演示数据、后台评审修复（test/admin-review.test.js）、数据库迁移
-npm run smoke    # 主流程冒烟：登录 → 意向 → 撮合 → 确认 → 加入 → 群聊 → AA → 时间穿越 → 互评 → 信用更新
+npm test         # 160+ 个用例：信用、撮合、时间窗（test/intent-time.test.js）、标签（tags）、邀请流程、局的生命周期、
+                 # 谁可以报名 / 图片 / 地点 / 最晚退出时间 / 成群（events-v03）、时间重叠（overlap）、互评结算、AA、
+                 # 首页和轮播图（home）、审核、举报、鉴权、定时任务、演示数据、后台评审修复、数据库迁移
+npm run smoke    # 主流程冒烟：登录 → 首页 → 意向 → 撮合 → 确认 → 加入 → 群聊 → AA → 上传 → 时间穿越 → 互评 → 信用更新
 ```
 
 测试用 `createApp({ db: openDb(':memory:') })` + `app.listen(0)`，通过 `fetch` 走真实 HTTP；时间用 `clock.set()` 固定在北京时间某个周一 10:00，结果不受运行时刻和机器时区影响。

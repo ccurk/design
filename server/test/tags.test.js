@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { clock } from '../src/clock.js';
 import { runMatching } from '../src/services/matching.js';
-import { normalizeTagName, parseTag, tagKey } from '../src/services/tags.js';
+import { openDb } from '../src/db.js';
+import { ensureDefaultTags, normalizeTagName, parseTag, tagKey } from '../src/services/tags.js';
 import { DAY, makeUser, startServer } from './helpers.js';
 
 let s;
@@ -90,6 +91,33 @@ describe('标签：用户添加、撮合按 key 比较', () => {
   });
 });
 
+describe('标签：老库升级', () => {
+  test('标签表是空的才写默认标签，并按已有的意向和局补上 last_used_at；用过的新标签补一条', () => {
+    const db = openDb(':memory:');
+    const u = db.insert('users', { openid: 'old', nickname: '老用户', created_at: '2026-09-01T00:00:00.000Z' });
+    const intent = (task, created_at) =>
+      db.insert('intents', {
+        user_id: u, task, category: 'outdoor', date_from: '2026-09-02', date_to: '2026-09-02', slot: 'morning', area: '古城',
+        status: 'expired', created_at,
+      });
+    intent('看日出', '2026-09-01T01:00:00.000Z');
+    intent('看日出', '2026-09-05T01:00:00.000Z');
+    intent('飞盘', '2026-09-03T01:00:00.000Z');
+    db.insert('events', {
+      title: '桌游局', category: 'game', task: '桌游', start_at: '2026-09-10T12:00:00.000Z', capacity: 4, source: 'user',
+      status: 'formed', created_at: '2026-09-08T00:00:00.000Z',
+    });
+    assert.equal(ensureDefaultTags(db), true);
+    const row = (name) => db.get('SELECT * FROM tags WHERE key = ?', tagKey(name));
+    assert.equal(row('看日出').last_used_at, '2026-09-05T01:00:00.000Z');
+    assert.equal(row('桌游').last_used_at, '2026-09-08T00:00:00.000Z');
+    assert.deepEqual([row('飞盘').hot, row('飞盘').category, row('飞盘').last_used_at], [0, 'outdoor', '2026-09-03T01:00:00.000Z']);
+    assert.equal(row('拍照').last_used_at, null);
+    assert.equal(ensureDefaultTags(db), false); // 已经有标签了就不再动
+    db.close();
+  });
+});
+
 describe('标签：热门列表（后台维护）', () => {
   test('GET /api/tags/hot 不需要登录，按顺序返回 { name, category, cover }', async () => {
     const { items } = await s.ok('GET', '/api/tags/hot');
@@ -157,7 +185,7 @@ describe('标签：热门列表（后台维护）', () => {
       token: admin,
       body: { name: 'Frisbee', category: 'game', cover: 'lake', hot: false },
     });
-    assert.deepEqual([updated.name, updated.category, updated.cover, updated.hot], ['Frisbee', 'game', 'lake', false]);
+    assert.deepEqual([updated.name, updated.category, updated.cover, updated.hot, updated.sort], ['Frisbee', 'game', 'lake', false, 0]);
     const reset = await s.ok('PUT', `/api/admin/tags/${created.id}`, { token: admin, body: { cover: null } });
     assert.equal(reset.cover, 'boardgame'); // game 的默认插画
     const clash = await s.api('PUT', `/api/admin/tags/${created.id}`, { token: admin, body: { name: '桌游' } });

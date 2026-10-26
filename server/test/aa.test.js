@@ -52,7 +52,7 @@ describe('AA：一次声明', () => {
   });
   after(() => s.close());
 
-  test('还没记账：bill 为 null，任何成员都能记；局外人看不到', async () => {
+  test('还没记账：bill 为 null，任何成员都能记；局外人看不到；后台详情也是空账', async () => {
     const aa = await s.ok('GET', `/api/events/${eventId}/aa`, { token: tokens[3] });
     assert.deepEqual(aa, { bill: null, total: 0, each: 0, memberCount: 5, transfers: [], canDeclare: true });
     const outsider = await s.api('GET', `/api/events/${eventId}/aa`, { token: await s.login(makeUser(s.db)) });
@@ -63,6 +63,8 @@ describe('AA：一次声明', () => {
     assert.equal(zero.status, 400);
     const ad = await s.api('POST', `/api/events/${eventId}/aa`, { token: tokens[1], body: { amount: 150, note: '加我微信 aye2024 转账' } });
     assert.equal(ad.status, 422);
+    const detail = await s.ok('GET', `/api/admin/events/${eventId}`, { token: await s.adminToken() });
+    assert.deepEqual(detail.aa, { total: 0, each: 0, memberCount: 5, itemCount: 0, bill: null, transfers: [] });
   });
 
   test('阿野记 ¥150（车费 + 早餐）：5 人每人 ¥30，其他 4 人各转 ¥30 给阿野，并通知其他成员', async () => {
@@ -130,9 +132,22 @@ describe('AA：一次声明', () => {
     const admin = await s.adminToken();
     const detail = await s.ok('GET', `/api/admin/events/${eventId}`, { token: admin });
     assert.equal(detail.aa.total, 150);
+    assert.equal(detail.aa.each, 30);
+    assert.equal(detail.aa.memberCount, 5);
     assert.equal(detail.aa.itemCount, 1);
     assert.equal(detail.aa.bill.payer.id, ids[1]);
     assert.equal(detail.aa.bill.note, '车费 + 早餐');
+    assert.deepEqual(
+      detail.aa.transfers.map((t) => [t.from.id, t.to.id, t.amount, t.status]),
+      [
+        [ids[0], ids[1], 30, 'pending'],
+        [ids[2], ids[1], 30, 'pending'],
+        [ids[3], ids[1], 30, 'confirmed'],
+        [ids[4], ids[1], 30, 'pending'],
+      ],
+    );
+    assert.deepEqual(Object.keys(detail.aa.transfers[0]).sort(), ['amount', 'from', 'status', 'to']);
+    assert.equal(detail.aa.transfers[0].from.nickname, s.db.get('SELECT nickname FROM users WHERE id = ?', ids[0]).nickname);
   });
 });
 

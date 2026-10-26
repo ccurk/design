@@ -712,6 +712,7 @@ export function cancelByHost(db, user, eventId) {
  * 每分钟：用户局 / 平台局到了最晚退出时间还没满员（还是 open）——
  * 已加入人数 ≥ minSize 就成群，不够就取消（原因「没凑齐人」）；两种情况都通知所有人。
  * 成群时还在等发起人同意的申请一并结束（不再接受报名）。
+ * 早就结束了的局（老库升级、服务停了很久）只改状态，不再发通知。
  */
 export function processExitDeadlines(db, now = clock.now()) {
   return db.tx(() => {
@@ -719,7 +720,16 @@ export function processExitDeadlines(db, now = clock.now()) {
     const rows = db.all("SELECT * FROM events WHERE status = 'open' AND source IN ('user', 'platform') ORDER BY start_at, id");
     for (const event of rows) {
       if (!exitDeadlinePassed(event, now)) continue;
-      if (joinedCount(db, event.id) >= Math.max(2, event.min_size)) {
+      const enough = joinedCount(db, event.id) >= Math.max(2, event.min_size);
+      if (phaseOf(event, now) === 'ended') {
+        const patch = enough
+          ? { status: 'formed', formed_at: event.formed_at || exitDeadlineOf(event).toISOString() }
+          : { status: 'cancelled', cancel_reason: '没凑齐人' };
+        db.update('events', event.id, patch);
+        result[enough ? 'formed' : 'cancelled']++;
+        continue;
+      }
+      if (enough) {
         formEvent(db, event, { atDeadline: true });
         closePendingApplications(db, event);
         result.formed++;

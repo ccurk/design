@@ -68,6 +68,10 @@ describe('意向的时间：提交', () => {
     assert.deepEqual([d.title, d.timeLabel, d.slot], ['周六清晨 · 看日出', '清晨', 'morning']);
     const mine = await s.ok('GET', '/api/events/mine?tab=ongoing', { token: tokens[1] });
     assert.equal(mine.items[0].dateLabel, '周日 14:00–17:00');
+    assert.deepEqual(
+      [mine.items[0].tag, mine.items[0].coverKey, mine.items[0].cover, mine.items[0].timeLabel],
+      ['骑行', 'cycling', null, '14:00–17:00'],
+    );
   });
 });
 

@@ -3,6 +3,7 @@ import { clock, DAY } from '../clock.js';
 import { intentTimeLabel, intentTitle } from './intentFormat.js';
 import { similarCount } from './intents.js';
 import { endAt, eventCard, getEvent, joinedCount, phaseOf } from './events.js';
+import { coverKeyFor } from './tags.js';
 import { hasSubmitted } from './reviews.js';
 import { sizeBounds } from './matchRules.js';
 import { rangeLabel } from '../time.js';
@@ -47,11 +48,20 @@ function intentCard(db, intent, now) {
     source: 'matched',
     status: 'matching',
     phase: 'upcoming',
+    tag: intent.task,
+    cover: null,
+    coverKey: coverKeyFor(db, intent.task, intent.category),
+    genderLimit: 'any',
+    genderLabel: null,
+    exitDeadline: null,
     myStatus: 'matching',
     needReview: false,
     reviewed: false,
     intentId: intent.id,
     intentStatus: intent.status,
+    timeFrom: intent.time_from || null,
+    timeTo: intent.time_to || null,
+    timeLabel: intentTimeLabel(intent),
     needMore,
   };
 }

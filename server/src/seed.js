@@ -9,7 +9,7 @@ import { SYSTEM_MESSAGES } from './constants.js';
 import { json, resetDb } from './db.js';
 import { enrichIntent, proposalTitle, scoreGroup } from './services/matchRules.js';
 import { runMatching } from './services/matching.js';
-import { ensureDefaultTags } from './services/tags.js';
+import { ensureDefaultTags, syncTagUsage } from './services/tags.js';
 import { addDays, bjDate, bjDateTime, dayDiff, lastWeekday, nextWeekday, weekdayName } from './time.js';
 
 export const SEED_ASSETS_DIR = path.join(SERVER_DIR, 'seed-assets');
@@ -711,6 +711,9 @@ export function seed(db, { uploadDir = null } = {}) {
     notice('lizi', { type: 'aa_bill', title: 'AA 记账 · 苍山看日出', body: '阿野 记了这个局的 AA：共 ¥150（车费 + 早餐），每人 ¥30，转给阿野', link: `chat:${E.sunrise}`, created_at: ago(2 * HOUR) });
     notice('lizi', { type: 'report_result', title: '你的举报已处理', body: '对方已被限制使用', created_at: ago(DAY) });
     notice('dapeng', { type: 'restricted', title: '账号暂停撮合和报名 7 天', body: '原因：被举报并核实违反社区公约。到期后自动恢复。', link: 'credit', created_at: ago(DAY) });
+
+    // ---- 标签：按上面的意向和局补上「最近一次用到」的时间 ----
+    syncTagUsage(db);
 
     // ---- 跑一次撮合：生成 1 条待后台确认的建议局（爬山）----
     const matching = runMatching(db);

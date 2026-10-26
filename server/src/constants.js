@@ -12,7 +12,7 @@ export const CATEGORY_LABELS = {
 };
 
 export const CATEGORY_TASKS = {
-  outdoor: ['看日出', '爬山', '徒步', '骑行', '随便走走'],
+  outdoor: ['看日出', '爬山', '徒步', '骑行', '随便走走', '拍照'],
   food: ['吃饭', '早餐', '夜市'],
   coffee: ['咖啡', '读书'],
   game: ['桌游'],

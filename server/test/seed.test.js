@@ -140,6 +140,23 @@ describe('演示数据', () => {
       ['看日出', '爬山', '骑行', '咖啡', '吃饭', '桌游', '拼车', '随便走走', '读书', '拍照'],
     );
     assert.equal((await s.ok('GET', '/api/admin/banners', { token: admin })).items.length, 3);
+    // 演示数据里用到的标签有「最近一次」和使用次数
+    const all = await s.ok('GET', '/api/admin/tags?scope=all', { token: admin });
+    const byName = Object.fromEntries(all.items.map((t) => [t.name, t]));
+    assert.equal(all.items[0].name, '看日出');
+    assert.deepEqual([byName['看日出'].useCount, byName['看日出'].recentCount], [5, 5]);
+    assert.ok(byName['看日出'].lastUsedAt);
+    for (const name of ['骑行', '爬山', '咖啡', '读书', '早餐', '夜市', '拼车', '桌游']) {
+      assert.ok(byName[name].lastUsedAt, name);
+      assert.ok(byName[name].useCount > 0, name);
+    }
+    assert.equal(byName['拍照'].lastUsedAt, null); // 没用过的就是 null
+    // 苍山看日出的 AA 在后台详情里有转账明细
+    const detail = await s.ok('GET', `/api/admin/events/${ids.events.sunrise}`, { token: admin });
+    assert.equal(detail.aa.memberCount, 5);
+    assert.equal(detail.aa.transfers.length, 4);
+    assert.ok(detail.aa.transfers.every((t) => t.to.nickname === '阿野' && t.amount === 30));
+    assert.equal(detail.aa.transfers.find((t) => t.from.nickname === '木木').status, 'confirmed');
   });
 
   test('他人主页：阿野履约 98%，与栗子有共同点', async () => {
