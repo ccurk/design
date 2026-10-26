@@ -44,3 +44,6 @@
   color: #15171C;
   font-weight: 700;
 }
+.tab-hidden {
+  display: none;
+}

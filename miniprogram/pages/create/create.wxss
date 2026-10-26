@@ -136,6 +136,11 @@
   font-size: 26rpx;
   color: var(--body);
 }
+.phrase.on {
+  background: #DFF1F7;
+  color: var(--primary);
+  font-weight: 700;
+}
 
 /* 最晚退出时间弹窗 */
 .xs {

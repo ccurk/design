@@ -3,10 +3,10 @@
     <view class="big-title">消息</view>
   </view>
 
-  <view wx:if="{{loading && !loaded}}" class="loading">加载中…</view>
+  <dz-skeleton wx:if="{{loading && !loaded}}" type="list" count="5" />
 
   <dz-empty wx:elif="{{error && !loaded}}" title="暂时加载不出来" desc="{{error}}" icon="/assets/icons/chat-primary.svg">
-    <view class="btn btn-sm btn-primary" bindtap="load">再试一次</view>
+    <view class="btn btn-sm btn-primary" hover-class="pressed" bindtap="load">再试一次</view>
   </dz-empty>
 
   <view wx:else class="body">
@@ -18,7 +18,7 @@
             <view class="act-ico act-accent"><image class="ico-20" src="/assets/icons/clock-ink.svg" /></view>
             <view class="flex1 col gap-2">
               <text class="t-15 w7">{{item.title}}</text>
-              <text class="t-13 c-2">还去吗？提前说不算鸽，确认一下大家心里有数</text>
+              <text class="t-13 c-2">还去吗？确认一下大家心里有数；去不了要在最晚退出时间前说</text>
             </view>
           </view>
           <view wx:if="{{!item.answer}}" class="row gap-8">
@@ -48,7 +48,7 @@
     <view class="section-label">局聊</view>
     <view wx:if="{{chats.length}}" class="list-card">
       <view wx:for="{{chats}}" wx:key="eventId" class="chat-row" hover-class="pressed" data-id="{{item.eventId}}" bindtap="openChat">
-        <dz-cover variant="tile" size="44" category="{{item.category}}" title="{{item.title}}" />
+        <dz-cover variant="tile" size="44" image="{{item.cover}}" cover-key="{{item.coverKey}}" category="{{item.category}}" title="{{item.title}}" />
         <view class="flex1 col gap-3">
           <text class="t-15 w7 ellipsis">{{item.title}}</text>
           <text class="t-13 c-2 ellipsis">{{item.preview}}</text>
@@ -59,7 +59,7 @@
         </view>
       </view>
     </view>
-    <view wx:else class="empty-card">还没有局聊。成局后，群会自动出现在这里。</view>
+    <view wx:else class="empty-card">还没有局聊。人齐成群后，群会自动出现在这里。</view>
 
     <block wx:if="{{notices.length}}">
       <view class="section-label">通知</view>

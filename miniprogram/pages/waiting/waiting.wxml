@@ -1,4 +1,4 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="detail" />
 
 <dz-empty wx:elif="{{error}}" title="没找到这个意向" desc="{{error}}" icon="/assets/icons/sparkle-primary.svg">
   <view class="btn btn-sm btn-primary" bindtap="goHome">回首页</view>
@@ -12,12 +12,13 @@
 
 <view wx:else class="page">
   <view class="head card-lg">
-    <view class="row gap-12">
-      <dz-cover variant="tile" size="48" kind="intent" />
-      <view class="flex1 col gap-2">
-        <view class="t-18 w8">{{intent.title}}</view>
-        <view class="t-13 c-2">{{meta}}</view>
-      </view>
+    <view class="head-cover">
+      <dz-cover variant="wide" cover-key="{{coverKey}}" />
+      <text class="pill pill-white head-pill">{{intent.status === 'proposed' ? '人齐了，正在确认' : '正在撮合'}}</text>
+    </view>
+    <view class="col gap-2">
+      <view class="t-18 w8">{{intent.title}}</view>
+      <view class="t-13 c-2">{{meta}}</view>
     </view>
     <view class="row gap-12">
       <view class="stack shrink0">

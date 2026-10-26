@@ -54,6 +54,9 @@ Page({
         const recent = (res.recentEvents || []).map((e) => ({
           id: e.id,
           title: e.title,
+          cover: e.cover || '',
+          coverKey: e.coverKey || '',
+          category: e.category || '',
           sharedWithMe: !!e.sharedWithMe,
           link: !!e.sharedWithMe || !e.ended,
           sub: [e.dateLabel, e.sharedWithMe ? '和你同一个局' : e.ended ? '已结束' : ''].filter(Boolean).join(' · ')

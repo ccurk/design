@@ -2,6 +2,8 @@
 Component({
   data: {
     selected: 0,
+    // 首页弹窗打开时隐藏，免得盖住弹窗的按钮
+    hidden: false,
     list: [
       { url: '/pages/home/home', text: '撮合', icon: '/assets/icons/people-tab.svg', iconOn: '/assets/icons/people-ink.svg' },
       { url: '/pages/square/square', text: '广场', icon: '/assets/icons/compass-tab.svg', iconOn: '/assets/icons/compass-ink.svg' },

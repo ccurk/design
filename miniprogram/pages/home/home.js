@@ -71,8 +71,24 @@ Page({
     this.load();
   },
 
+  // 有弹窗开着时隐藏底部导航（自定义 tabBar 在页面最上层，会挡住弹窗底部的按钮）
+  syncTabBar() {
+    const d = this.data;
+    const open = d.matchShow || d.tagShow || d.dateShow || d.rangeShow;
+    const tb = typeof this.getTabBar === 'function' && this.getTabBar();
+    if (tb && tb.data && tb.data.hidden !== open) tb.setData({ hidden: open });
+  },
+
+  sheets(patch, cb) {
+    this.setData(patch, () => {
+      this.syncTabBar();
+      if (cb) cb();
+    });
+  },
+
   onShow() {
     nav.setTab(this, 0);
+    this.syncTabBar();
     if (this.loadedOnce) {
       this.loadIntents();
       if (Date.now() - this.loadedAt > 5 * 60 * 1000) this.load(true);
@@ -187,11 +203,11 @@ Page({
     if (!item) return;
     if (item.kind === 'tag') {
       this.useTag(item.name);
-      this.setData({ matchShow: true });
+      this.sheets({ matchShow: true });
     } else if (item.kind === 'more') {
-      this.setData({ matchShow: true, tagShow: true, tagCustom: false });
+      this.sheets({ matchShow: true, tagShow: true, tagCustom: false });
     } else {
-      this.setData({ matchShow: true, tagShow: true, tagCustom: true });
+      this.sheets({ matchShow: true, tagShow: true, tagCustom: true });
     }
   },
 
@@ -200,25 +216,25 @@ Page({
   },
 
   openMatch() {
-    this.setData({ matchShow: true });
+    this.sheets({ matchShow: true });
   },
 
   closeMatch() {
-    this.setData({ matchShow: false, tagShow: false, dateShow: false, rangeShow: false });
+    this.sheets({ matchShow: false, tagShow: false, dateShow: false, rangeShow: false });
   },
 
   // ===== 标签 =====
   openTags() {
-    this.setData({ tagShow: true, tagCustom: false });
+    this.sheets({ matchShow: true, tagShow: true, tagCustom: false });
   },
 
   closeTags() {
-    this.setData({ tagShow: false });
+    this.sheets({ tagShow: false });
   },
 
   onTag(e) {
     this.useTag(e.detail.name);
-    this.setData({ tagShow: false });
+    this.sheets({ tagShow: false });
   },
 
   // ===== 日期 =====
@@ -232,11 +248,11 @@ Page({
   },
 
   openDate() {
-    this.setData({ dateShow: true });
+    this.sheets({ dateShow: true });
   },
 
   closeDate() {
-    this.setData({ dateShow: false });
+    this.sheets({ dateShow: false });
   },
 
   onDate(e) {
@@ -244,7 +260,7 @@ Page({
     const when = date === format.dateStr(0) ? 'today' : date === format.dateStr(1) ? 'tomorrow' : date;
     const [, m, d] = date.split('-').map(Number);
     const isDate = when === date;
-    this.setData({ dateShow: false, when, pickedDate: isDate ? date : '', pickedDateLabel: isDate ? m + '月' + d + '日' : '' }, () => this.buildSlots());
+    this.sheets({ dateShow: false, when, pickedDate: isDate ? date : '', pickedDateLabel: isDate ? m + '月' + d + '日' : '' }, () => this.buildSlots());
   },
 
   // ===== 时间段 =====
@@ -280,11 +296,11 @@ Page({
   },
 
   openRange() {
-    this.setData({ rangeShow: true, rangeFrom: this.data.timeFrom || '14:00', rangeTo: this.data.timeTo || '17:00' });
+    this.sheets({ rangeShow: true, rangeFrom: this.data.timeFrom || '14:00', rangeTo: this.data.timeTo || '17:00' });
   },
 
   closeRange() {
-    this.setData({ rangeShow: false });
+    this.sheets({ rangeShow: false });
   },
 
   onRange(e) {
@@ -293,7 +309,7 @@ Page({
       wx.showToast({ title: '今天这段时间快过完了，换一个吧', icon: 'none' });
       return;
     }
-    this.setData({ rangeShow: false, slot: 'custom', timeFrom: from, timeTo: to }, () => this.updateCta());
+    this.sheets({ rangeShow: false, slot: 'custom', timeFrom: from, timeTo: to }, () => this.updateCta());
   },
 
   // 「帮我选择 · 本周末上午 · 看日出」
@@ -324,7 +340,7 @@ Page({
     api
       .createIntent(body)
       .then((intent) => {
-        this.setData({ matchShow: false });
+        this.sheets({ matchShow: false });
         wx.navigateTo({ url: '/pages/waiting/waiting?id=' + intent.id });
       })
       .catch(() => {})

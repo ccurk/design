@@ -77,7 +77,10 @@ Page({
         const results = (res.items || []).map((ev) => ({
           id: ev.id,
           title: ev.title,
-          catLabel: format.CATEGORY[ev.category] || '其他',
+          tag: ev.tag || ev.task || format.CATEGORY[ev.category] || '',
+          category: ev.category,
+          cover: ev.cover || '',
+          coverKey: ev.coverKey || '',
           meta: [ev.dateLabel, ev.place].filter(Boolean).join(' · '),
           memberCount: ev.memberCount,
           capacity: ev.capacity

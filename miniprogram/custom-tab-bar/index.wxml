@@ -1,4 +1,4 @@
-<view class="tab-bar">
+<view class="tab-bar {{hidden ? 'tab-hidden' : ''}}">
   <view wx:for="{{list}}" wx:key="url" class="tab-item {{selected === index ? 'on' : ''}}" data-index="{{index}}" bindtap="switchTab" aria-role="tab" aria-selected="{{selected === index}}">
     <view class="tab-pill">
       <image class="tab-icon" src="{{selected === index ? item.iconOn : item.icon}}" />

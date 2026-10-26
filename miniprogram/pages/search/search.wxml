@@ -37,10 +37,11 @@
   <view wx:else class="results">
     <view class="count">{{searching ? '正在找…' : '找到 ' + results.length + ' 个局'}}</view>
     <view wx:for="{{results}}" wx:key="id" class="result" hover-class="pressed" data-id="{{item.id}}" bindtap="openEvent">
-      <view class="result-cat">{{item.catLabel}}</view>
+      <dz-cover variant="tile" size="56" image="{{item.cover}}" cover-key="{{item.coverKey}}" category="{{item.category}}" task="{{item.tag}}" title="{{item.title}}" />
       <view class="flex1 col gap-3">
         <text class="t-15 w8 ellipsis">{{item.title}}</text>
         <text class="t-12 c-2 ellipsis">{{item.meta}}</text>
+        <text wx:if="{{item.tag}}" class="t-12 c-primary w7"># {{item.tag}}</text>
       </view>
       <text class="t-13 c-body shrink0">{{item.memberCount}}/{{item.capacity}} 人</text>
     </view>

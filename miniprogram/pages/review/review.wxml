@@ -1,4 +1,4 @@
-<view wx:if="{{loading}}" class="loading">加载中…</view>
+<dz-skeleton wx:if="{{loading}}" type="list" count="4" />
 
 <dz-empty wx:elif="{{error}}" title="现在评价不了" desc="{{error}}" icon="/assets/icons/people-primary.svg">
   <view class="btn btn-sm btn-primary" bindtap="backToMine">回到我的局</view>
@@ -7,7 +7,7 @@
 <view wx:elif="{{!done}}" class="page">
   <view class="form">
     <view class="event">
-      <dz-cover variant="tile" size="52" category="{{event.category}}" task="{{event.task}}" title="{{event.title}}" />
+      <dz-cover variant="tile" size="52" image="{{event.cover}}" cover-key="{{event.coverKey}}" category="{{event.category}}" task="{{event.tag || event.task}}" title="{{event.title}}" />
       <view class="flex1 col gap-3">
         <text class="t-16 w8 ellipsis">{{event.title}}</text>
         <text class="t-12 c-2 ellipsis">{{eventSub}}</text>

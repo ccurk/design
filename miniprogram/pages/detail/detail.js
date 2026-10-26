@@ -14,6 +14,11 @@ const HOST_LINE = {
 };
 
 // 底部栏：mode = action（一个主按钮）| waiting（已加入未成群：进度 + 邀请）
+function deadlinePassed(ev) {
+  const t = ev.exitDeadline ? new Date(ev.exitDeadline).getTime() : 0;
+  return !!t && t <= Date.now();
+}
+
 function computeBar(ev, isHost) {
   const remaining = typeof ev.remaining === 'number' ? ev.remaining : Math.max(0, (ev.capacity || 0) - (ev.memberCount || 0));
   if (ev.status === 'cancelled') return { mode: 'action', label: '已取消', disabled: true };
@@ -27,7 +32,8 @@ function computeBar(ev, isHost) {
   }
   if (ev.myStatus === 'invited') return { mode: 'action', label: '去确认', action: 'match' };
   if (ev.myStatus === 'applied') return { mode: 'action', label: '等发起人同意', disabled: true };
-  if (ev.isFull) return { mode: 'action', label: '已满员', disabled: true };
+  if (ev.isFull || ev.status === 'formed') return { mode: 'action', label: ev.isFull ? '已满员' : '已成群', disabled: true };
+  if (deadlinePassed(ev)) return { mode: 'action', label: '已截止报名', disabled: true };
   if (!ev.canJoin) return { mode: 'action', label: '暂时不能加入', disabled: true };
   return { mode: 'action', label: ev.requireApproval ? '申请加入' : '加入', action: 'join' };
 }
@@ -52,6 +58,7 @@ Page({
     placeSub: '',
     hasMap: false,
     slotText: '',
+    exitPassed: false,
     fillPct: 0,
     bar: { mode: 'action', label: '' },
     canCancel: false,
@@ -117,6 +124,8 @@ Page({
     for (let i = 0; i < Math.min(free, 6); i++) seats.push('s' + i);
     const bar = computeBar(ev, isHost);
     let slotText = ev.isFull ? '已满员' : '还剩 ' + free + ' 个名额';
+    if (ev.status === 'formed' && !ev.isFull) slotText = '已成群 · ' + count + ' 人';
+    else if (!ev.isFull && deadlinePassed(ev)) slotText = '已截止报名 · ' + count + ' 人';
     if (ev.phase === 'ended') slotText = count + ' 人参加了';
     const estimate = ev.feeType === 'aa' && ev.feeEstimate ? 'AA 约 ¥' + format.money(ev.feeEstimate) + '/人' : '';
     const loc = ev.location || null;
@@ -148,6 +157,7 @@ Page({
       placeSub,
       hasMap: !!(loc && loc.latitude && loc.longitude),
       slotText,
+      exitPassed: deadlinePassed(ev),
       fillPct: ev.capacity ? Math.min(100, Math.round((count / ev.capacity) * 100)) : 0,
       bar,
       leave,

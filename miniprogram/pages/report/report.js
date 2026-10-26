@@ -2,7 +2,6 @@
 const api = require('../../utils/api');
 const native = require('../../utils/native');
 const session = require('../../utils/session');
-const upload = require('../../utils/upload');
 
 const REASONS = ['骚扰或不当言行', '色情低俗', '推销 / 拉人头', '涉及金钱交易', '放鸽子 / 恶意爽约', '冒充身份', '其他'];
 const TYPES = ['user', 'event', 'post', 'comment', 'message'];
@@ -14,6 +13,7 @@ Page({
     warn: false,
     detail: '',
     images: [],
+    uploading: false,
     alsoBlock: false,
     showBlock: true,
     submitting: false,
@@ -35,17 +35,8 @@ Page({
     this.setData({ detail: e.detail.value });
   },
 
-  addImage() {
-    const left = 3 - this.data.images.length;
-    if (left <= 0) return;
-    upload.pickAndUpload(left).then((list) => {
-      if (list.length) this.setData({ images: this.data.images.concat(list).slice(0, 3) });
-    });
-  },
-
-  removeImage(e) {
-    const i = e.currentTarget.dataset.index;
-    this.setData({ images: this.data.images.filter((_, j) => j !== i) });
+  onImages(e) {
+    this.setData({ images: e.detail.urls, uploading: e.detail.uploading });
   },
 
   toggleBlock() {
@@ -57,6 +48,10 @@ Page({
     if (!this.data.reason) {
       this.setData({ warn: true });
       wx.showToast({ title: '先选一个原因', icon: 'none' });
+      return;
+    }
+    if (this.data.uploading) {
+      wx.showToast({ title: '截图还在上传，稍等一下', icon: 'none' });
       return;
     }
     if (!this.targetId) {
@@ -71,7 +66,7 @@ Page({
       targetId: this.targetId,
       reason: this.data.reason,
       detail: this.data.detail.trim() || undefined,
-      images: this.data.images.map((i) => i.url),
+      images: this.data.images,
       alsoBlock: this.data.showBlock && this.data.alsoBlock
     };
     api

@@ -70,9 +70,13 @@
           <text class="t-13 c-2">{{feeNote}}</text>
         </view>
       </view>
-      <view wx:if="{{event.exitDeadlineLabel}}" class="info">
+      <view wx:if="{{event.exitDeadlineLabel && event.phase !== 'ended'}}" class="info">
         <view class="info-ico"><image class="ico-20" src="/assets/icons/hourglass-gray.svg" /></view>
-        <view class="flex1 col gap-2">
+        <view wx:if="{{exitPassed}}" class="flex1 col gap-2">
+          <text class="t-15 w7">最晚退出时间已过（{{event.exitDeadlineLabel}}）</text>
+          <text class="t-13 c-2">现在不能退出，也不再接受报名</text>
+        </view>
+        <view wx:else class="flex1 col gap-2">
           <text class="t-15 w7">最晚 {{event.exitDeadlineLabel}} 前可以退出</text>
           <text class="t-13 c-2">到时候人够了自动成群，不够就取消</text>
         </view>
@@ -135,7 +139,7 @@
       <view class="flex1 col gap-6">
         <text class="t-14 w7">已加入 · 还差 {{bar.remaining}} 人成群</text>
         <view class="progress"><view class="progress-bar" style="width: {{fillPct}}%;"></view></view>
-        <text class="t-12 c-2">人齐了第一时间通知你，群聊会自动建好</text>
+        <text class="t-12 c-2">人齐了第一时间通知你</text>
       </view>
       <button class="native-btn" open-type="share" hover-class="none">
         <view class="btn btn-md btn-primary cta" hover-class="pressed">

@@ -3,12 +3,12 @@
     <view wx:for="{{tabs}}" wx:key="value" class="seg-item {{tab === item.value ? 'on' : ''}}" data-value="{{item.value}}" bindtap="pickTab" aria-role="tab" aria-selected="{{tab === item.value}}">{{item.label}} {{counts[item.value]}}</view>
   </view>
 
-  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <dz-skeleton wx:if="{{loading}}" type="list" count="4" />
 
   <view wx:elif="{{lists[tab].length}}" class="list">
     <view wx:for="{{lists[tab]}}" wx:key="key" class="card-row" hover-class="pressed" data-index="{{index}}" bindtap="open">
-      <dz-cover wx:if="{{item.isIntent}}" variant="tile" size="56" kind="intent" />
-      <dz-cover wx:else variant="tile" size="56" category="{{item.category}}" task="{{item.task}}" title="{{item.title}}" />
+      <dz-cover wx:if="{{item.isIntent}}" variant="tile" size="56" cover-key="{{item.coverKey}}" />
+      <dz-cover wx:else variant="tile" size="56" image="{{item.cover}}" cover-key="{{item.coverKey}}" category="{{item.category}}" task="{{item.task}}" title="{{item.title}}" />
       <view class="flex1 col gap-4">
         <text class="t-15 w8 ellipsis">{{item.title}}</text>
         <text class="t-12 c-2 ellipsis">{{item.sub}}</text>

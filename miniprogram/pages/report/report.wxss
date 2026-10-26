@@ -15,53 +15,6 @@
   height: 192rpx;
   border-radius: 32rpx;
 }
-.shots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-.shot,
-.shot-add {
-  position: relative;
-  width: 152rpx;
-  height: 152rpx;
-  border-radius: 32rpx;
-}
-.shot {
-  overflow: hidden;
-  background: var(--stone);
-}
-.shot-img {
-  width: 100%;
-  height: 100%;
-}
-.shot-remove {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 88rpx;
-  height: 88rpx;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-}
-.shot-x {
-  margin: 10rpx;
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 999rpx;
-  background: #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.shot-add {
-  border: 1px dashed var(--faint);
-  background: #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .also {
   display: flex;
   align-items: center;

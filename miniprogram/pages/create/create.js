@@ -24,7 +24,7 @@ function genderLimitOf(g) {
 Page({
   data: {
     fees: FEES,
-    phrases: PHRASES,
+    phrases: PHRASES.map((word) => ({ word, on: false })),
     hotTags: [],
     tag: '',
     customTag: '',
@@ -270,7 +270,12 @@ Page({
 
   // ===== 介绍 + 照片 =====
   onDesc(e) {
-    this.setData({ description: e.detail.value });
+    this.setDesc(e.detail.value);
+  },
+
+  // 已经写进介绍的快捷短语显示为选中
+  setDesc(description) {
+    this.setData({ description, phrases: PHRASES.map((word) => ({ word, on: description.indexOf(word) >= 0 })) });
   },
 
   addPhrase(e) {
@@ -282,7 +287,7 @@ Page({
       wx.showToast({ title: '介绍最多 300 字', icon: 'none' });
       return;
     }
-    this.setData({ description: next });
+    this.setDesc(next);
   },
 
   onImages(e) {

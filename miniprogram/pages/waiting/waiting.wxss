@@ -94,3 +94,12 @@
   flex-direction: column;
   gap: 8rpx;
 }
+.head-cover {
+  position: relative;
+  margin: -16rpx -16rpx 0;
+}
+.head-pill {
+  position: absolute;
+  left: 20rpx;
+  top: 20rpx;
+}

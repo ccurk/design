@@ -7,6 +7,9 @@ const native = require('../../utils/native');
 const NOTICE_ICON = {
   match: '/assets/icons/sparkle-primary.svg',
   matched: '/assets/icons/sparkle-primary.svg',
+  formed: '/assets/icons/people-primary.svg',
+  aa: '/assets/icons/wallet-ink.svg',
+  aa_bill: '/assets/icons/wallet-ink.svg',
   report_result: '/assets/icons/shield-check-gray.svg',
   restricted: '/assets/icons/shield-check-gray.svg',
   appeal_result: '/assets/icons/shield-check-gray.svg',
@@ -70,7 +73,7 @@ Page({
         }));
         this.setData({ loading: false, loaded: true, error: '', actions, chats, notices });
       })
-      .catch((err) => this.setData({ loading: false, error: err.message }));
+      .catch((err) => this.setData({ loading: false, error: (err && err.message) || '网络不太好' }));
   },
 
   attendYes(e) {
@@ -97,11 +100,11 @@ Page({
     const i = e.currentTarget.dataset.index;
     const a = this.data.actions[i];
     if (!a || this.busy) return;
-    const within = format.hoursUntil(a.startAt) < 24;
+    const deadline = a.exitDeadline ? format.mdhm(a.exitDeadline) : '';
     native
       .confirm({
         title: '去不了了？',
-        content: within ? '离开场不到 24 小时了，现在说会记一次「临时鸽」。名额会让给候补的人。' : '提前说不算鸽，名额会让给候补的人。',
+        content: '名额会让给别人。' + (deadline ? '最晚退出时间是 ' + deadline + '，过了就不能退了。' : '过了最晚退出时间就不能退了。'),
         confirmText: '去不了了',
         cancelText: '再想想',
         confirmColor: '#B42318'
@@ -113,11 +116,12 @@ Page({
           .attendance(a.eventId, false)
           .then((res) => {
             const noText = res && res.penalty
-              ? '已帮你退出，名额让给了候补。离开场不到 24 小时，记了一次临时鸽。'
-              : '已帮你退出，名额让给了候补。提前说的，不算鸽。';
+              ? '已帮你退出，名额让给了别人。离开场太近了，记了一次临时鸽。'
+              : '已帮你退出，名额让给了别人。提前说的，不算鸽。';
             this.setData({ ['actions[' + i + '].answer']: 'no', ['actions[' + i + '].answeredAt']: Date.now(), ['actions[' + i + '].noText']: noText });
           })
-          .catch(() => {})
+          // 过了最晚退出时间 → 409，request 会弹窗说明；刷新一下列表
+          .catch(() => this.load())
           .then(() => {
             this.busy = false;
           });

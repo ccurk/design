@@ -82,19 +82,6 @@
   border-radius: 40rpx;
   background: #FFFFFF;
 }
-.result-cat {
-  flex-shrink: 0;
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 28rpx;
-  background: var(--primary);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  font-weight: 800;
-}
 .no-result {
   display: flex;
   align-items: center;

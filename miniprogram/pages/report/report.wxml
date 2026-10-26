@@ -22,17 +22,7 @@
 
     <view class="col gap-8">
       <text class="t-15 w8">截图证据（选填，最多 3 张）</text>
-      <view class="shots">
-        <view wx:for="{{images}}" wx:key="url" class="shot">
-          <image class="shot-img" src="{{item.path}}" mode="aspectFill" />
-          <view class="shot-remove" data-index="{{index}}" catchtap="removeImage" aria-label="移除这张截图">
-            <view class="shot-x"><image class="ico-12" src="/assets/icons/x-bold-ink.svg" /></view>
-          </view>
-        </view>
-        <view wx:if="{{images.length < 3}}" class="shot-add" hover-class="pressed" bindtap="addImage" aria-label="添加截图">
-          <image class="ico-22" src="/assets/icons/plus-gray.svg" />
-        </view>
-      </view>
+      <dz-uploader max="{{3}}" size="{{176}}" add-text="加截图" bindchange="onImages" />
     </view>
 
     <view wx:if="{{showBlock}}" class="also" bindtap="toggleBlock" aria-role="checkbox" aria-checked="{{alsoBlock}}">

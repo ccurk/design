@@ -18,6 +18,7 @@ function mapCard(c, tab, i) {
     return {
       key: 'i' + c.intentId,
       isIntent: true,
+      coverKey: format.tagCover(c.tag || c.task, null, c.category),
       title: c.title,
       sub: [c.dateLabel, c.place ? c.place + '附近出发' : ''].filter(Boolean).join(' · ') || '正在找同频的人',
       pill: c.needMore > 0 ? '撮合中 · 还差 ' + c.needMore + ' 人' : '撮合中',
@@ -30,7 +31,9 @@ function mapCard(c, tab, i) {
     id: c.id,
     title: c.title,
     category: c.category,
-    task: c.task,
+    task: c.tag || c.task,
+    cover: c.cover || '',
+    coverKey: c.coverKey || '',
     sub: [when(c), c.place].filter(Boolean).join(' · '),
     url: '/pages/detail/detail?id=' + c.id
   };
@@ -59,19 +62,13 @@ function mapCard(c, tab, i) {
     card.pill = '等发起人同意';
     card.pillClass = 'pill-pill';
   } else if (c.status === 'formed') {
-    card.pill = '已成局 · ' + count + ' · 去群聊';
+    // 群聊只在成群后开启
+    card.pill = '已成群 · ' + count + ' · 去群聊';
     card.pillClass = 'pill-accent';
     card.url = '/pages/group/group?id=' + c.id;
-  } else if (c.myStatus === 'joined' && c.source !== 'matched' && c.memberCount >= 2) {
-    // 用户局 / 平台局：有第二个人加入后群聊就开了
-    card.pill = '等人中 · ' + count + ' · 去群聊';
-    card.pillClass = 'pill-accent';
-    card.url = '/pages/group/group?id=' + c.id;
-  } else if (c.myStatus === 'joined' && c.source !== 'matched') {
-    card.pill = '等人中 · ' + count;
-    card.pillClass = 'pill-pill';
   } else if (c.myStatus === 'joined') {
-    card.pill = '等大家确认 · ' + count;
+    const left = Math.max(0, (c.capacity || 0) - (c.memberCount || 0));
+    card.pill = '还差 ' + left + ' 人成群 · ' + count;
     card.pillClass = 'pill-pill';
   } else {
     card.pill = '等人中 · ' + count;

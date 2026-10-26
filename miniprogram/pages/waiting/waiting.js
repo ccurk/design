@@ -13,6 +13,7 @@ Page({
     closedTitle: '',
     closedDesc: '',
     intent: null,
+    coverKey: '',
     meta: '',
     seats: [],
     countText: '',
@@ -91,7 +92,7 @@ Page({
         this.render(it);
       })
       .catch((err) => {
-        if (showError) this.setData({ loading: false, error: err.message });
+        if (showError) this.setData({ loading: false, error: (err && err.message) || '网络不太好' });
       });
   },
 
@@ -103,7 +104,8 @@ Page({
     const seats = [];
     for (let i = 0; i < filled; i++) seats.push({ key: 'f' + i, filled: true, alt: i % 2 === 1 });
     for (let j = 0; j < empty; j++) seats.push({ key: 'e' + j, filled: false });
-    const meta = [it.slotLabel || format.SLOT[it.slot], format.sizeLabel(it.sizeMin, it.sizeMax, it.relaxSize), it.area ? it.area + '附近出发' : '']
+    const time = it.relaxTime ? '全天' : it.timeLabel || it.slotLabel || format.SLOT[it.slot];
+    const meta = [time, format.sizeLabel(it.sizeMin, it.sizeMax, it.relaxSize), it.area ? it.area + '附近出发' : '']
       .filter(Boolean)
       .join(' · ');
     const proposed = it.status === 'proposed';
@@ -111,6 +113,7 @@ Page({
       loading: false,
       error: '',
       intent: it,
+      coverKey: format.tagCover(it.task, null, it.category),
       meta,
       seats,
       countText: '已有 ' + count + ' 人同意向',

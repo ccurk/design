@@ -117,7 +117,7 @@
       <view class="label">介绍一下（选填）</view>
       <textarea class="area desc" value="{{description}}" placeholder="想怎么玩、适合什么样的人、要带点什么…" placeholder-class="ph" maxlength="300" bindinput="onDesc" />
       <view class="chips phrases">
-        <view wx:for="{{phrases}}" wx:key="*this" class="phrase" hover-class="pressed" data-word="{{item}}" bindtap="addPhrase" aria-role="button">+ {{item}}</view>
+        <view wx:for="{{phrases}}" wx:key="word" class="phrase {{item.on ? 'on' : ''}}" hover-class="pressed" data-word="{{item.word}}" bindtap="addPhrase" aria-role="button" aria-checked="{{item.on}}">{{item.on ? '✓ ' : '+ '}}{{item.word}}</view>
       </view>
       <view class="box-head">
         <text class="label">照片（选填）</text>

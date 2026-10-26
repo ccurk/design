@@ -11,7 +11,7 @@
   background: #E3E8EC;
 }
 .nc-wait {
-  min-height: 400rpx;
+  min-height: 340rpx;
 }
 .nc-broken {
   height: 260rpx;
