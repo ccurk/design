@@ -1,4 +1,4 @@
-// 他人主页：信用、共同点、最近的局；举报、拉黑（不能私聊）
+// 他人主页：背景图、信用、共同点、最近的局；举报、拉黑（不能私聊）
 const api = require('../../utils/api');
 const native = require('../../utils/native');
 const session = require('../../utils/session');

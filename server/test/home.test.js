@@ -198,4 +198,30 @@ describe('图片地址：存相对路径，返回绝对地址', () => {
     assert.equal(me.avatarUrl, 'https://thirdwx.qlogo.cn/mmopen/abc/132');
     assert.equal((await s.api('PUT', '/api/me', { token, body: { avatarUrl: 'ftp://x/y.png' } })).status, 400);
   });
+
+  test('主页背景图：默认用第一个兴趣的插画；换成自己上传的（存相对路径）；别人看主页也能看到；可以恢复默认', async () => {
+    const u = makeUser(s.db, { interests: ['骑行', '咖啡'] });
+    const token = await s.login(u);
+    let me = await s.ok('GET', '/api/me', { token });
+    assert.equal(me.coverUrl, null);
+    assert.equal(me.coverKey, 'cycling');
+
+    me = await s.ok('PUT', '/api/me', { token, body: { coverUrl: 'http://10.0.0.2:3000/uploads/cover.png' } });
+    assert.equal(me.coverUrl, `${BASE}/uploads/cover.png`);
+    assert.equal(s.db.get('SELECT cover_url FROM users WHERE id = ?', u).cover_url, '/uploads/cover.png');
+
+    const other = await s.login(makeUser(s.db));
+    const profile = await s.ok('GET', `/api/users/${u}`, { token: other });
+    assert.equal(profile.user.coverUrl, `${BASE}/uploads/cover.png`);
+    assert.equal(profile.user.coverKey, 'cycling');
+
+    // 外站图片不收；null 恢复默认
+    assert.equal((await s.api('PUT', '/api/me', { token, body: { coverUrl: 'https://cdn.example.com/x.png' } })).status, 400);
+    me = await s.ok('PUT', '/api/me', { token, body: { coverUrl: null } });
+    assert.equal(me.coverUrl, null);
+
+    // 没有兴趣的人默认洱海
+    const plain = await s.login(makeUser(s.db, { interests: [] }));
+    assert.equal((await s.ok('GET', '/api/me', { token: plain })).coverKey, 'lake');
+  });
 });

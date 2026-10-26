@@ -36,11 +36,11 @@ const USERS = [
   // key, 昵称, 性别, 节奏, 兴趣, 简介, 额外字段
   ['lizi', '栗子', 'female', 'slow', ['看日出', '咖啡', '骑行', '读书'], '慢热，但很靠谱。喜欢清晨和安静的地方。', { phone: '13800001234', phone_verified: 1, emergency_contact: { name: '妈妈', phone: '13800005678' }, days: 40 }],
   ['xiaoman', '小满', 'female', 'slow', ['看日出', '拍照', '咖啡'], '第一次来大理，想看一次苍山日出。', { phone: '13900002345', phone_verified: 1, days: 30 }],
-  ['aye', '阿野', 'male', 'slow', ['爬山', '骑行', '看日出'], '户外爱好者，话不多。爬山会多带暖宝宝和一份早饭。', { phone: '13700003456', phone_verified: 1, id_verified: 1, days: 200 }],
+  ['aye', '阿野', 'male', 'slow', ['爬山', '骑行', '看日出'], '户外爱好者，话不多。爬山会多带暖宝宝和一份早饭。', { phone: '13700003456', phone_verified: 1, id_verified: 1, days: 200, cover: 'mountain' }],
   ['qiqi', '七七', 'female', 'warm', ['看日出', '桌游', '吃饭', '拍照'], '熟了就话多，先听大家聊。', { phone: '13600004567', phone_verified: 1, days: 90 }],
   ['mumu', '木木', 'female', 'open', ['桌游', '咖啡', '看日出', '读书'], '在古城开了家小书店，周末出来玩。', { phone: '13500005678', phone_verified: 1, days: 150 }],
   ['dapeng', '大鹏', 'male', 'open', ['拼车', '吃饭', '夜市'], '到处走走。', { phone: '13300006789', phone_verified: 1, days: 60 }],
-  ['nanfeng', '南风', 'male', 'slow', ['骑行', '读书', '咖啡', '看日出'], '骑车环过三次洱海，慢慢来。', { phone: '15800007890', phone_verified: 1, days: 120 }],
+  ['nanfeng', '南风', 'male', 'slow', ['骑行', '读书', '咖啡', '看日出'], '骑车环过三次洱海，慢慢来。', { phone: '15800007890', phone_verified: 1, days: 120, cover: 'cycling' }],
   ['xiaolin', '小林', 'male', 'warm', ['爬山', '徒步', '拍照'], '刚到大理，想找人一起爬苍山。', { days: 1 }],
   ['ayun', '阿云', 'female', 'slow', ['咖啡', '读书', '瑜伽'], '在大理旅居一个月。', { days: 0 }],
   ['qingqing', '青青', 'female', 'warm', ['咖啡', '拍照', '画画'], '喜欢画画和发呆。', { phone: '18800008901', phone_verified: 1, days: 20 }],
@@ -95,6 +95,7 @@ export function seed(db, { uploadDir = null } = {}) {
         status: 'active',
         settings: json.str({ sameSexOnly: false, checkInReminder: true, profileOpen: true }),
         emergency_contact: extra.emergency_contact ? json.str(extra.emergency_contact) : null,
+        cover_url: extra.cover ? IMG[extra.cover] : null,
         onboarded: 1,
         created_at: ago(extra.days * DAY + 3 * HOUR),
       });

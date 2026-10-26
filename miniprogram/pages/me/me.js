@@ -1,9 +1,10 @@
-// 我的：资料、信用（含信用记录与申诉）、我的局、安全设置、公约、客服
+// 我的：主页背景、资料、信用（含信用记录与申诉）、我的局、安全设置、公约、客服
 const api = require('../../utils/api');
 const format = require('../../utils/format');
 const nav = require('../../utils/nav');
 const native = require('../../utils/native');
 const session = require('../../utils/session');
+const upload = require('../../utils/upload');
 
 const NEGATIVE = ['late', 'cancel_late', 'no_show'];
 const APPEAL_STATE = { pending: '申诉中', approved: '申诉通过', rejected: '申诉未通过' };
@@ -97,6 +98,27 @@ Page({
         })
         .catch(() => {});
     });
+  },
+
+  // 换主页背景：上传后直接保存；已经换过的可以恢复默认插画
+  changeCover() {
+    const me = this.data.me;
+    if (!me || this.coverBusy) return;
+    this.coverBusy = true;
+    upload
+      .pickCover(!!me.coverUrl)
+      .then((res) => {
+        if (!res) return null;
+        return api.updateMe({ coverUrl: res.reset ? null : res.url }).then((next) => {
+          session.setMe(next);
+          this.render(next);
+          wx.showToast({ title: res.reset ? '已恢复默认背景' : '背景换好了', icon: 'none' });
+        });
+      })
+      .catch(() => {}) // 失败时 request 已经提示过
+      .then(() => {
+        this.coverBusy = false;
+      });
   },
 
   edit() {

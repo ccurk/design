@@ -76,4 +76,23 @@ function pickAndUpload(count) {
   });
 }
 
-module.exports = { pickAndUpload, uploadOne, choose };
+// 主页背景：已经有自己的背景时先问「从相册选择 / 恢复默认背景」。
+// 返回 { url }（已上传）、{ reset: true }（恢复默认）或 null（取消 / 上传失败，失败已提示）
+function pickCover(hasCustom) {
+  const ask = hasCustom
+    ? new Promise((resolve) =>
+        wx.showActionSheet({
+          itemList: ['从相册选择', '恢复默认背景'],
+          success: (res) => resolve(res.tapIndex === 1 ? 'reset' : 'pick'),
+          fail: () => resolve(null)
+        })
+      )
+    : Promise.resolve('pick');
+  return ask.then((choice) => {
+    if (choice === 'reset') return { reset: true };
+    if (choice !== 'pick') return null;
+    return pickAndUpload(1).then((list) => (list.length ? { url: list[0].url } : null));
+  });
+}
+
+module.exports = { pickAndUpload, pickCover, uploadOne, choose };

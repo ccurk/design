@@ -14,7 +14,7 @@ if (!fs.existsSync(TEST_PNG)) {
 }
 
 const storage = {};
-const log = { toasts: [], navs: [], modals: [], titles: [], requests: [], bodies: [], subs: [], scrolls: [] };
+const log = { toasts: [], navs: [], modals: [], titles: [], requests: [], bodies: [], subs: [], scrolls: [], navColors: [] };
 const ctl = { modal: true, sheet: 0, prompt: '提前一天在群里说过了', location: 'fail' };
 let inflight = 0;
 
@@ -144,6 +144,10 @@ global.wx = {
   reLaunch: nav('reLaunch'),
   navigateBack: nav('navigateBack'),
   setNavigationBarTitle: (o) => log.titles.push(o.title),
+  setNavigationBarColor: (o) => log.navColors.push(o.frontColor),
+  // iPhone 13 的状态栏和胶囊按钮
+  getWindowInfo: () => ({ statusBarHeight: 47, windowWidth: 390, windowHeight: 844, pixelRatio: 3 }),
+  getMenuButtonBoundingClientRect: () => ({ top: 51, height: 32, width: 87, left: 296, right: 383, bottom: 83 }),
   stopPullDownRefresh() {},
   hideHomeButton() {},
   showShareMenu() {},
@@ -248,6 +252,11 @@ function loadComponent(name, props) {
     if (cb) cb.call(this);
   };
   inst.triggerEvent = (n, detail) => inst.events.push({ name: n, detail: clone(detail) });
+  // IntersectionObserver：记下回调，测试里用 inst._io({ intersectionRatio }) 模拟滚动
+  inst.createIntersectionObserver = () => {
+    const io = { relativeToViewport: (m) => ((inst._ioMargins = m), io), observe: (sel, cb) => ((inst._io = cb), io), disconnect() {} };
+    return io;
+  };
   if (props) inst.setData(props);
   if (def.lifetimes && def.lifetimes.attached) def.lifetimes.attached.call(inst);
   return inst;

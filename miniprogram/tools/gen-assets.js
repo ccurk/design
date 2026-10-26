@@ -24,12 +24,13 @@ const C = {
 // 24×24 线性图标：sw = stroke-width，colors = 需要输出的颜色
 const ICONS = {
   'chevron-right': { sw: 2, body: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', colors: ['muted', 'ink', 'white'] },
+  'chevron-left': { sw: 2, body: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', colors: ['ink', 'white'] },
   pin: { sw: 2, body: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>', colors: ['gray', 'ink'] },
   clock: { sw: 2, body: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', colors: ['gray', 'ink'] },
   wallet: { sw: 1.9, body: '<rect x="3.5" y="6" width="17" height="12.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M15.5 14.5h2"/>', colors: ['gray', 'ink'] },
   people: { sw: 1.9, body: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.1 2.8-5 5.5-5s4.9 1.9 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.8 14.2c2.3.2 4 1.9 4.6 4.8"/>', colors: ['ink', 'tab', 'primary', 'accent', 'gray'] },
   compass: { sw: 1.8, body: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>', colors: ['ink', 'tab', 'primary'] },
-  image: { sw: 1.8, body: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-4.5-4.5-7.5 8"/>', colors: ['ink', 'tab', 'primary'] },
+  image: { sw: 1.8, body: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-4.5-4.5-7.5 8"/>', colors: ['ink', 'tab', 'primary', 'white'] },
   chat: { sw: 1.8, body: '<path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.5z"/>', colors: ['ink', 'tab', 'primary'] },
   user: { sw: 1.9, body: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c.9-3.8 3.9-6 7.5-6s6.6 2.2 7.5 6"/>', colors: ['ink', 'tab', 'white', 'gray'] },
   sparkle: { sw: 2, body: '<path d="M12 3.5l1.9 5 5 1.9-5 1.9-1.9 5-1.9-5-5-1.9 5-1.9z"/>', colors: ['primary', 'white'] },

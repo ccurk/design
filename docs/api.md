@@ -254,7 +254,7 @@
 | `POST /api/auth/dev-login` `{userId?}` | 仅开发环境（`NODE_ENV != production`）。不传 userId 默认登录演示账号「栗子」。返回同上 |
 | `POST /api/auth/phone` `{code}` | 手机号快速验证组件的 code 换手机号（开发模式随机生成）。返回 `{phoneMasked, phoneVerified: true}` |
 | `GET /api/me` | 返回 `Me` |
-| `PUT /api/me` | `{nickname?, bio?, avatarUrl?, gender?, pace?, interests?, onboarded?}` → `Me`；昵称、简介要过内容审核。`avatarUrl` 用 `/api/upload` 返回的地址（绝对 / 相对都行，存相对路径），或其他 http(s) 地址 |
+| `PUT /api/me` | `{nickname?, bio?, avatarUrl?, coverUrl?, gender?, pace?, interests?, onboarded?}` → `Me`；昵称、简介要过内容审核。`avatarUrl` 用 `/api/upload` 返回的地址（绝对 / 相对都行，存相对路径），或其他 http(s) 地址。`coverUrl` 是主页背景图，只收本站上传的图片，传 `null` 恢复默认 |
 | `GET /api/me/safety` · `PUT /api/me/safety` | `{sameSexOnly, checkInReminder, profileOpen, emergencyContact: {name, phone}\|null}`；返回时手机号打码 `phoneMasked`，并附 `blocked: UserBrief[]` |
 | `GET /api/me/credit-events` | 我的信用记录列表 |
 | `POST /api/credit-events/:id/appeal` `{text}` | 申诉 |
@@ -267,15 +267,18 @@
   "bio": "慢热，但很靠谱。", "gender": "female", "pace": "slow", "interests": ["看日出", "咖啡"],
   "phoneVerified": true, "idVerified": false, "status": "active", "onboarded": true,
   "credit": { "rate": 100, "level": "good", "attended": 6, "late": 0, "cancelLate": 0, "noShow": 0, "eventsCount": 6 },
-  "ongoingCount": 2
+  "ongoingCount": 2,
+  "coverUrl": null, "coverKey": "sunrise"
 }
 ```
+
+- `coverUrl`：主页背景图（自己上传的，绝对地址），没设置为 null；`coverKey`：没设置时客户端显示的默认插画（第一个兴趣对应标签的插画，没有兴趣为 `lake`）。
 
 ### 4.2 他人主页、拉黑、不看
 
 | 接口 | 说明 |
 | --- | --- |
-| `GET /api/users/:id` | `{user: UserBrief + {bio, interests, phoneVerified, idVerified}, credit: {...同 Me.credit}, commonPoints: ["都喜欢看日出"], recentEvents: [{id, title, dateLabel, sharedWithMe, ended}], blockedByMe, profileHidden}`。对方关了「同局的人可以看我的主页」且不同局时，`profileHidden=true`，只返回昵称和履约率 |
+| `GET /api/users/:id` | `{user: UserBrief + {bio, interests, phoneVerified, idVerified, coverUrl, coverKey}, credit: {...同 Me.credit}, commonPoints: ["都喜欢看日出"], recentEvents: [{id, title, dateLabel, sharedWithMe, ended}], blockedByMe, profileHidden}`。对方关了「同局的人可以看我的主页」且不同局时，`profileHidden=true`，只返回昵称和履约率 |
 | `POST /api/blocks/:userId` · `DELETE /api/blocks/:userId` | 拉黑 / 移出黑名单 |
 | `POST /api/mutes/:userId` · `DELETE /api/mutes/:userId` | 不看 TA 的动态 / 恢复 |
 

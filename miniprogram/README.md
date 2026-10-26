@@ -102,6 +102,7 @@ npm start        # 默认 http://localhost:3000
 
 - **底部弹窗一家人**：`dz-sheet` 是统一外壳（圆角白底、标题 + 关闭、底部「取消 / 确定」，深湖蓝主按钮）；时间（`dz-datetime-sheet`，精确到分钟）、时间段（`dz-timerange-sheet`）、日期（`dz-date-sheet` 月历）、地点（`dz-place-sheet`：输入框 + 大理常用地点 +「在地图上选」）、标签（`dz-tag-sheet`）、加入确认（`dz-join-sheet`）、AA（`dz-aa-sheet`）都基于它；「谁可以报名」「最晚退出时间」直接用 `dz-sheet` 写在发起页里。不用系统选择器的默认样式。首页弹窗打开时隐藏底部导航，免得挡住按钮。
 - **封面**：`dz-cover` 有照片用第一张，没有用标签的插画（`coverKey` → `assets/covers/<key>.svg`），照片加载失败也退回插画。
+- **主页背景**：「我的」和他人主页用 `dz-profile-cover`，页面是自定义导航栏（`navigationStyle: custom`），背景铺到状态栏下面；自己上传的照片优先，没有就用第一个兴趣的插画。往上滑过背景后出现带名字的顶栏；状态栏在浅色插画上用黑字，照片 / 深色插画上用白字并压暗顶部。「我的」点背景或「更换背景」换图（换过的可以恢复默认），编辑资料里也能换；他人主页左上角有返回，点照片看大图。
 - **加载**：首屏用 `dz-skeleton` 骨架屏（形状接近真实内容）；失败给原因 + 重试；列表都能下拉刷新、触底加载（加载失败点一下重试）；刷新 / 切换筛选时先保留旧列表，回来再替换，不闪不跳。
 - **错误提示**：`utils/request.js` 的 `showError`：短的用 toast；`CONFLICT`（时间重叠、过了最晚退出时间、已经有人记过 AA……）和长消息用弹窗，标题按内容给「时间冲突了」「不能退出了」「换个标签吧」等。
 - **触控**：可点的元素至少 44px（88rpx）。
@@ -116,7 +117,7 @@ npm start        # 默认 http://localhost:3000
 app.js / app.json / app.wxss   启动登录、全局配置、设计令牌（CSS 变量）与通用样式类
 config.js                      运行配置
 custom-tab-bar/                自定义底部导航（选中项：洱海蓝胶囊）
-components/                    dz-avatar 头像 · dz-cover 封面（照片 / 插画）· dz-empty 空状态 · dz-switch 开关 · dz-skeleton 骨架屏
+components/                    dz-avatar 头像 · dz-cover 封面（照片 / 插画）· dz-profile-cover 主页背景 + 顶栏 · dz-empty 空状态 · dz-switch 开关 · dz-skeleton 骨架屏
                                dz-event-card 局卡片 · dz-note-card 瀑布流动态卡片 · dz-uploader 多图上传
                                dz-sheet 底部弹窗外壳 · dz-datetime-sheet / dz-timerange-sheet / dz-date-sheet / dz-place-sheet /
                                dz-tag-sheet / dz-join-sheet / dz-aa-sheet

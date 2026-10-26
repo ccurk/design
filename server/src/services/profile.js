@@ -5,10 +5,11 @@ import { json } from '../db.js';
 import { blocked, invalid } from '../errors.js';
 import { checkAll } from '../moderation.js';
 import { dateLabel } from '../time.js';
-import { storeUrl } from '../urls.js';
+import { absUrl, storeUrl, uploadPath } from '../urls.js';
 import { bool, oneOf, str, strArray } from '../validate.js';
 import { creditOf, effectiveStatus } from './credit.js';
 import { phaseOf } from './events.js';
+import { coverKeyFor } from './tags.js';
 import { ongoingCount } from './myEvents.js';
 import {
   avatarText,
@@ -20,6 +21,15 @@ import {
 } from './users.js';
 
 export const PHONE_RE = /^1[3-9]\d{9}$/;
+
+/** 主页背景：自己上传的图；没传就用第一个兴趣对应的插画（没有兴趣用洱海） */
+function coverFields(db, user) {
+  const first = json.parse(user.interests, [])[0];
+  return {
+    coverUrl: absUrl(db, user.cover_url) ?? null,
+    coverKey: first ? coverKeyFor(db, first, 'outdoor') : 'lake',
+  };
+}
 
 /** Me */
 export function meView(db, user) {
@@ -43,6 +53,7 @@ export function meView(db, user) {
     // 补充字段
     phoneMasked: maskPhone(user.phone),
     restrictedUntil: effectiveStatus(user) === 'restricted' ? user.restricted_until : null,
+    ...coverFields(db, user),
   };
 }
 
@@ -54,6 +65,15 @@ export function updateMe(db, user, body = {}) {
     const url = str(body.avatarUrl, '头像', { max: 500, optional: true });
     if (url && !/^(https?:\/\/|\/uploads\/)/.test(url)) throw invalid('头像地址不正确');
     patch.avatar_url = url ? storeUrl(url) : null; // 本站上传的存相对路径
+  }
+  if (body.coverUrl !== undefined) {
+    // 只收本站上传的图片；传 null / 空串恢复默认背景
+    if (body.coverUrl === null || body.coverUrl === '') patch.cover_url = null;
+    else {
+      const p = uploadPath(body.coverUrl);
+      if (!p) throw invalid('背景图地址不正确，请先上传');
+      patch.cover_url = p;
+    }
   }
   if (body.gender !== undefined) patch.gender = oneOf(body.gender, '性别', ['female', 'male', 'unknown']);
   if (body.pace !== undefined) patch.pace = oneOf(body.pace, '社交节奏', ['slow', 'warm', 'open']);
@@ -176,6 +196,8 @@ export function publicProfile(db, viewer, targetId) {
         interests: [],
         phoneVerified: false,
         idVerified: false,
+        coverUrl: null,
+        coverKey: 'lake',
       },
       credit: { rate: credit.rate },
       creditNote: null,
@@ -213,6 +235,7 @@ export function publicProfile(db, viewer, targetId) {
       interests: json.parse(target.interests, []),
       phoneVerified: Boolean(target.phone_verified),
       idVerified: Boolean(target.id_verified),
+      ...coverFields(db, target),
     },
     credit,
     creditNote: creditNote(db, target.id, credit, now),

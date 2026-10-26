@@ -1,0 +1,17 @@
+<view class="pc" style="height: {{coverH}}px;">
+  <image wx:if="{{src}}" class="pc-img" src="{{src}}" mode="aspectFill" binderror="onImgError" bindtap="onTapCover" />
+  <view wx:if="{{dark}}" class="pc-shade" style="height: {{navH + 48}}px;"></view>
+  <view wx:if="{{editable}}" class="pc-edit" hover-class="pressed" catchtap="onChange" aria-role="button">
+    <image class="ico-14" src="/assets/icons/image-white.svg" />
+    <text>更换背景</text>
+  </view>
+  <view class="pc-sentinel"></view>
+</view>
+
+<view class="pc-bar {{solid ? 'on' : ''}}" style="height: {{navH}}px;">
+  <view class="pc-bar-bg"></view>
+  <view class="pc-title ellipsis" style="top: {{capTop}}px; height: {{capH}}px; line-height: {{capH}}px; left: {{titleInset}}px; right: {{titleInset}}px;">{{title}}</view>
+  <view wx:if="{{back}}" class="pc-back {{solid ? 'flat' : dark ? 'on-dark' : 'on-light'}}" style="top: {{capTop}}px; left: {{capSide}}px; width: {{capH}}px; height: {{capH}}px;" hover-class="pressed" bindtap="goBack" aria-role="button" aria-label="返回">
+    <image class="pc-back-ico" src="{{dark && !solid ? '/assets/icons/chevron-left-white.svg' : '/assets/icons/chevron-left-ink.svg'}}" />
+  </view>
+</view>

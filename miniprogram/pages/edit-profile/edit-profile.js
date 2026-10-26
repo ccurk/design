@@ -1,5 +1,6 @@
-// 编辑资料：头像（选图上传）、昵称、简介、兴趣、社交节奏、性别。昵称 / 简介会过内容审核。
+// 编辑资料：头像、主页背景（选图上传）、昵称、简介、兴趣、社交节奏、性别。昵称 / 简介会过内容审核。
 const api = require('../../utils/api');
+const format = require('../../utils/format');
 const session = require('../../utils/session');
 const upload = require('../../utils/upload');
 
@@ -21,6 +22,10 @@ Page({
     loading: true,
     preview: null,
     avatarUrl: null,
+    coverUrl: null,
+    coverChanged: false,
+    coverSrc: '',
+    coverNote: '',
     nickname: '',
     bio: '',
     tags: [],
@@ -32,23 +37,58 @@ Page({
   },
 
   onLoad() {
+    session.loadHotTags().then((tags) => {
+      this.hotTags = tags;
+      this.refreshCover();
+    });
     session
       .loadMe(true)
       .then((me) => {
         const picked = me.interests || [];
         const extra = picked.filter((t) => TAGS.indexOf(t) < 0);
+        // 服务端按已保存的第一个兴趣算好的插画，第一个兴趣没变时直接用
+        this.savedFirst = picked[0] || '';
+        this.savedKey = me.coverKey || '';
         this.setData({
           loading: false,
           preview: me,
           avatarUrl: me.avatarUrl || null,
+          coverUrl: me.coverUrl || null,
           nickname: me.nickname || '',
           bio: me.bio || '',
           tags: TAGS.concat(extra).map((label) => ({ label, on: picked.indexOf(label) >= 0 })),
           pace: me.pace || 'slow',
           gender: me.gender || 'unknown'
         });
+        this.refreshCover();
       })
-      .catch(() => this.setData({ loading: false, preview: {}, tags: TAGS.map((label) => ({ label, on: false })) }));
+      .catch(() => {
+        this.setData({ loading: false, preview: {}, tags: TAGS.map((label) => ({ label, on: false })) });
+        this.refreshCover();
+      });
+  },
+
+  // 背景预览：上传的照片；没有就是第一个兴趣对应的插画（和服务端同一个规则，没选兴趣是洱海）
+  refreshCover() {
+    if (this.data.coverUrl) {
+      this.setData({ coverSrc: format.imageUrl(this.data.coverUrl), coverNote: '用的是你上传的照片' });
+      return;
+    }
+    const first = (this.data.tags.filter((t) => t.on)[0] || {}).label || '';
+    let key = 'lake';
+    if (first) key = first === this.savedFirst && this.savedKey ? this.savedKey : format.tagCover(first, this.hotTags, 'outdoor');
+    this.setData({
+      coverSrc: format.coverSrc(key),
+      coverNote: first ? '默认用第一个兴趣「' + first + '」的插画' : '默认是洱海插画，选了兴趣会换成对应的'
+    });
+  },
+
+  changeCover() {
+    upload.pickCover(!!this.data.coverUrl).then((res) => {
+      if (!res) return;
+      this.setData({ coverUrl: res.reset ? null : res.url, coverChanged: true });
+      this.refreshCover();
+    });
   },
 
   changeAvatar() {
@@ -75,6 +115,7 @@ Page({
       return;
     }
     this.setData({ ['tags[' + i + '].on']: on });
+    this.refreshCover();
   },
 
   pickPace(e) {
@@ -100,6 +141,7 @@ Page({
       interests: this.data.tags.filter((t) => t.on).map((t) => t.label)
     };
     if (this.data.avatarUrl) body.avatarUrl = this.data.avatarUrl;
+    if (this.data.coverChanged) body.coverUrl = this.data.coverUrl;
     this.setData({ saving: true });
     api
       .updateMe(body)

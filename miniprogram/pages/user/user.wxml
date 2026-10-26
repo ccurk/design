@@ -1,3 +1,5 @@
+<dz-profile-cover image="{{user.coverUrl || ''}}" cover-key="{{user.coverKey || ''}}" title="{{user.nickname || ''}}" back />
+
 <view wx:if="{{loading}}" class="loading">加载中…</view>
 
 <dz-empty wx:elif="{{error}}" title="看不到这个人的主页" desc="{{error}}" icon="/assets/icons/user-ink.svg">
@@ -6,19 +8,19 @@
 
 <view wx:else class="page">
   <view class="head">
-    <view class="row gap-16">
-      <dz-avatar user="{{user}}" size="72" />
-      <view class="col gap-8">
-        <view class="name">{{user.nickname}}</view>
-        <view wx:if="{{!hidden && (user.idVerified || user.phoneVerified)}}" class="row wrap gap-6">
-          <view wx:if="{{user.idVerified}}" class="pill pill-white c-primary">
-            <image class="ico-12" src="/assets/icons/check-primary.svg" />
-            <text>已实名</text>
-          </view>
-          <view wx:if="{{user.phoneVerified}}" class="pill pill-white c-primary">
-            <image class="ico-12" src="/assets/icons/check-primary.svg" />
-            <text>手机已验证</text>
-          </view>
+    <view class="row head-top">
+      <view class="avatar-ring"><dz-avatar user="{{user}}" size="80" /></view>
+    </view>
+    <view class="col gap-8">
+      <view class="name">{{user.nickname}}</view>
+      <view wx:if="{{!hidden && (user.idVerified || user.phoneVerified)}}" class="row wrap gap-6">
+        <view wx:if="{{user.idVerified}}" class="pill pill-white c-primary">
+          <image class="ico-12" src="/assets/icons/check-primary.svg" />
+          <text>已实名</text>
+        </view>
+        <view wx:if="{{user.phoneVerified}}" class="pill pill-white c-primary">
+          <image class="ico-12" src="/assets/icons/check-primary.svg" />
+          <text>手机已验证</text>
         </view>
       </view>
     </view>

@@ -66,6 +66,7 @@
   "usingComponents": {
     "dz-avatar": "/components/avatar/avatar",
     "dz-cover": "/components/cover/cover",
+    "dz-profile-cover": "/components/profile-cover/profile-cover",
     "dz-empty": "/components/empty/empty",
     "dz-switch": "/components/switch/switch",
     "dz-event-card": "/components/event-card/event-card",

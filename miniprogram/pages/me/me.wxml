@@ -1,10 +1,12 @@
 <view class="page">
+  <dz-profile-cover image="{{me.coverUrl || ''}}" cover-key="{{me.coverKey || ''}}" title="{{me.nickname || ''}}" editable="{{!!me}}" bindchange="changeCover" />
+
   <view wx:if="{{!me}}" class="loading">{{error || '加载中…'}}</view>
 
   <block wx:else>
     <view class="head">
-      <view class="row between">
-        <dz-avatar user="{{me}}" size="72" />
+      <view class="row between head-top">
+        <view class="avatar-ring"><dz-avatar user="{{me}}" size="80" /></view>
         <view class="btn btn-xs btn-outline edit" hover-class="pressed" bindtap="edit">编辑资料</view>
       </view>
       <view class="col gap-6">

@@ -20,6 +20,19 @@
 .gap-2 {
   gap: 4rpx;
 }
+.cover-thumb {
+  flex-shrink: 0;
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 28rpx;
+  overflow: hidden;
+  background: var(--stone);
+}
+.cover-thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .change {
   font-size: 28rpx;
   padding: 0 32rpx;

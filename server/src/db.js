@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT,
   nickname TEXT NOT NULL,
   avatar_url TEXT,
+  cover_url TEXT,
   bio TEXT NOT NULL DEFAULT '',
   gender TEXT NOT NULL DEFAULT 'unknown',
   pace TEXT,
@@ -320,6 +321,7 @@ CREATE TABLE IF NOT EXISTS job_marks (
 /** 给已有数据库补新加的列（CREATE TABLE IF NOT EXISTS 不会改旧表） */
 const COLUMN_MIGRATIONS = [
   ['users', 'restricted_reason', 'TEXT'],
+  ['users', 'cover_url', 'TEXT'],
   ['event_members', 'invite_expired', 'INTEGER NOT NULL DEFAULT 0'],
   ['reports', 'user_message', 'TEXT'],
   // v0.3

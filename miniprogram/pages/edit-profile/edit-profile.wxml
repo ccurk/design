@@ -11,6 +11,17 @@
       <view class="btn btn-xs btn-outline change" hover-class="pressed" bindtap="changeAvatar">更换</view>
     </view>
 
+    <view class="box avatar-row">
+      <view class="cover-thumb">
+        <image wx:if="{{coverSrc}}" class="cover-thumb-img" src="{{coverSrc}}" mode="aspectFill" />
+      </view>
+      <view class="flex1 col gap-2">
+        <text class="t-15 w7">主页背景</text>
+        <text class="t-12 lh-15 c-2">{{coverNote}}</text>
+      </view>
+      <view class="btn btn-xs btn-outline change" hover-class="pressed" bindtap="changeCover">更换</view>
+    </view>
+
     <view class="box">
       <text class="label">昵称</text>
       <input class="field" type="nickname" value="{{nickname}}" placeholder="大家怎么称呼你" placeholder-class="ph" maxlength="12" bindinput="onNickname" bindblur="onNickname" />
