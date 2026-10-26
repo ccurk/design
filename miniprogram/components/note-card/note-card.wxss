@@ -113,8 +113,9 @@
   display: flex;
   align-items: center;
   gap: 6rpx;
-  min-height: 64rpx;
-  padding-left: 12rpx;
+  min-height: 88rpx;
+  margin: -12rpx -8rpx -12rpx 0;
+  padding: 0 8rpx 0 16rpx;
   font-size: 22rpx;
   color: #5B5F68;
 }

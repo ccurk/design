@@ -39,7 +39,7 @@
   color: #3D4048;
 }
 .aa-quick {
-  min-height: 72rpx;
+  min-height: 88rpx;
   padding: 0 24rpx;
   font-size: 26rpx;
 }

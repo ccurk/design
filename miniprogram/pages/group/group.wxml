@@ -1,7 +1,32 @@
+<template name="ice">
+  <view class="ice">
+    <view class="row between">
+      <text class="pill pill-accent">破冰话题 {{ice.index + 1}}/{{ice.total}}</text>
+      <view class="ice-next" hover-class="pressed" catchtap="nextIce" aria-role="button">
+        <image class="ico-15" src="/assets/icons/refresh-body.svg" />
+        <text>换一个</text>
+      </view>
+    </view>
+    <view class="ice-q">{{ice.question}}</view>
+    <view class="t-13 c-2">想说再说，不想说也可以先听听大家的。</view>
+    <view class="row gap-8 ice-actions">
+      <view class="chip ice-chip" hover-class="pressed" catchtap="listen">我先听听</view>
+      <view class="chip ice-chip dark-on w7" hover-class="pressed" catchtap="speak">我来说一个</view>
+    </view>
+  </view>
+</template>
+
 <dz-skeleton wx:if="{{loading}}" type="list" count="5" />
 
 <view wx:elif="{{closed}}" class="closed">
-  <dz-empty title="{{closedTitle}}" desc="{{closedDesc}}" icon="/assets/icons/chat-primary.svg">
+  <view wx:if="{{closedEvent}}" class="closed-ev" hover-class="pressed" bindtap="openDetail">
+    <dz-cover variant="wide" image="{{closedEvent.cover}}" cover-key="{{closedEvent.coverKey}}" category="{{closedEvent.category}}" task="{{closedEvent.tag}}" title="{{closedEvent.title}}" />
+    <view class="closed-ev-text">
+      <text class="t-16 w8 ellipsis">{{closedEvent.title}}</text>
+      <text class="t-12 c-2 ellipsis">{{closedEvent.sub}}</text>
+    </view>
+  </view>
+  <dz-empty title="{{closedTitle}}" desc="{{closedDesc}}" icon="{{closedEvent ? '' : '/assets/icons/chat-primary.svg'}}" compact="{{!!closedEvent}}">
     <view wx:if="{{closedProgress}}" class="closed-progress">
       <view class="progress"><view class="progress-bar" style="width: {{closedProgress.pct}}%;"></view></view>
       <text class="t-12 c-2">{{closedProgress.text}}</text>
@@ -43,23 +68,10 @@
 
   <scroll-view scroll-y enhanced class="msgs" scroll-into-view="{{intoView}}" bindtap="closePanels">
     <view class="msgs-inner">
-      <view wx:if="{{headSystem}}" class="sys">{{headSystem.text}}</view>
-
-      <view wx:if="{{icebreaker && !hideIce}}" class="ice">
-        <view class="row between">
-          <text class="pill pill-accent">破冰话题 {{icebreaker.index + 1}}/{{icebreaker.total}}</text>
-          <view class="ice-next" hover-class="pressed" catchtap="nextIce">
-            <image class="ico-15" src="/assets/icons/refresh-body.svg" />
-            <text>换一个</text>
-          </view>
-        </view>
-        <view class="ice-q">{{icebreaker.question}}</view>
-        <view class="t-13 c-2">想说再说，不想说也可以先听听大家的。</view>
-        <view class="row gap-8 ice-actions">
-          <view class="chip ice-chip" hover-class="pressed" catchtap="listen">我先听听</view>
-          <view class="chip ice-chip dark-on w7" hover-class="pressed" catchtap="speak">我来说一个</view>
-        </view>
-      </view>
+      <!-- 破冰话题放在「群已自动建好」那条系统消息后面；没有这条时放最上面 -->
+      <block wx:if="{{icebreaker && !hideIce && !iceAfter}}">
+        <template is="ice" data="{{ice: icebreaker}}" />
+      </block>
 
       <block wx:for="{{list}}" wx:key="id">
         <view wx:if="{{item.kind === 'system'}}" id="m{{item.id}}" class="sys">{{item.text}}</view>
@@ -75,6 +87,9 @@
             <view class="bubble" data-index="{{index}}" bindlongpress="onMsgLong">{{item.text}}</view>
           </view>
         </view>
+        <block wx:if="{{iceAfter === item.id && icebreaker && !hideIce}}">
+          <template is="ice" data="{{ice: icebreaker}}" />
+        </block>
       </block>
 
       <view id="bottom" class="msgs-end"></view>

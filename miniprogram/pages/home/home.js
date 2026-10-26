@@ -387,7 +387,9 @@ Page({
     wx.switchTab({ url: '/pages/square/square' });
   },
 
+  // 带上首页选中的标签，发起页直接选好
   goCreate() {
-    wx.navigateTo({ url: '/pages/create/create' });
+    const task = this.data.task;
+    wx.navigateTo({ url: '/pages/create/create' + (task ? '?tag=' + encodeURIComponent(task) : '') });
   }
 });

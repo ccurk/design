@@ -14,7 +14,9 @@ const HOST_LINE = {
 };
 
 // 底部栏：mode = action（一个主按钮）| waiting（已加入未成群：进度 + 邀请）
+// 过了最晚退出时间：以服务端给的「不能退出」原因为准，其次看本机时间
 function deadlinePassed(ev) {
+  if (ev.canLeave === false && /最晚退出时间/.test(ev.leaveBlockedReason || '')) return true;
   const t = ev.exitDeadline ? new Date(ev.exitDeadline).getTime() : 0;
   return !!t && t <= Date.now();
 }
@@ -294,11 +296,11 @@ Page({
   approveApp(e) {
     api
       .approve(this.id, e.currentTarget.dataset.id)
-      .then(() => {
-        wx.showToast({ title: '已同意', icon: 'success' });
+      .then((res) => {
+        wx.showToast({ title: res && res.formed ? '满员啦，群已建好' : '已同意', icon: res && res.formed ? 'none' : 'success' });
         this.load();
       })
-      .catch(() => {});
+      .catch(() => this.load());
   },
 
   rejectApp(e) {

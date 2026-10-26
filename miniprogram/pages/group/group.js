@@ -17,11 +17,12 @@ Page({
     closedDesc: '',
     closedShare: false,
     closedProgress: null,
+    closedEvent: null,
     aa: { show: false },
     subtitle: '',
     task: { show: false },
-    headSystem: null,
     list: [],
+    iceAfter: 0,
     icebreaker: null,
     hideIce: false,
     draft: '',
@@ -93,7 +94,15 @@ Page({
             closedDesc = ev.source === 'matched' ? '等其他人确认，人齐了第一时间通知你。' : '人齐了第一时间通知你，群聊会自动建好。';
             closedProgress = { pct: ev.capacity ? Math.round(((ev.memberCount || 0) / ev.capacity) * 100) : 0, text: (ev.memberCount || 0) + '/' + ev.capacity + ' 人' };
           }
-          this.setData({ loading: false, closed: true, closedTitle, closedDesc, closedProgress, closedShare: joined && ev.source !== 'matched' && ev.status === 'open' });
+          this.setData({
+            loading: false,
+            closed: true,
+            closedTitle,
+            closedDesc,
+            closedProgress,
+            closedShare: joined && ev.source !== 'matched' && ev.status === 'open',
+            closedEvent: { title: ev.title, sub: [ev.dateLabel, ev.place].filter(Boolean).join(' · '), cover: ev.cover || '', coverKey: ev.coverKey || '', category: ev.category, tag: ev.tag || ev.task }
+          });
           return null;
         }
         this.loadAA();
@@ -175,13 +184,9 @@ Page({
     // 有人记了 / 改了 AA，顺手刷新顶部卡片
     if (this.ready && fresh.some((m) => /AA/.test(m.text || ''))) this.loadAA();
     this.lastId = fresh[fresh.length - 1].id;
-    let head = null;
-    let list = this.msgs;
-    if (this.msgs[0].kind === 'system') {
-      head = this.msgs[0];
-      list = this.msgs.slice(1);
-    }
-    this.setData({ headSystem: head, list }, () => this.scrollBottom());
+    // 破冰话题跟在「群已自动建好」后面（成群前的「某某加入了这个局」排在它前面）
+    const formed = this.msgs.filter((m) => m.kind === 'system' && /群已自动建好|群已建好/.test(m.text || ''))[0];
+    this.setData({ list: this.msgs, iceAfter: formed ? formed.id : 0 }, () => this.scrollBottom());
   },
 
   startPoll() {

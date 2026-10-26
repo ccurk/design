@@ -39,7 +39,9 @@ npm run dev      # http://localhost:3000
 3. 把 `miniprogram/config.js` 里的 `devUserId` 改成 `3`（阿野）重新编译，在「消息」里会看到「撮合成功」，点进去「加入这个局」。
 4. 再分别用 `8`（小林）和 `11`（老周）加入。全员加入后自动建群，群里第一条是「满员啦，群已自动建好 · 第一次见面，慢慢来」。
 
-栗子自己的意向「周日 · 洱海边骑行」还差 1 个人，首页能看到「撮合中」。
+栗子自己的意向「周日下午 · 洱海边骑行」还差 1 个人，首页能看到「撮合中」。
+
+加入时会先弹出确认和免责声明：不是最后一个人会提示「还差 N 人成群，人齐了通知你」，最后一个人直接「进入群聊」。过了最晚退出时间就不能退出了。
 
 ## 测试
 
@@ -48,6 +50,7 @@ cd server && npm test        # 接口与业务规则测试
 cd server && npm run smoke   # 起一个临时服务，用 HTTP 走一遍主流程
 node miniprogram/tools/check.js   # 小程序静态检查：页面、跳转、资源、事件、接口都对得上
 node admin/tools/e2e.mjs     # 后台端到端测试：用浏览器把后台每个操作点一遍（先按 admin/README.md 起一个演示数据的后端，需要 Playwright）
+cd miniprogram && BASE=http://localhost:3500 node tools/e2e/e2e.js   # 小程序端到端：用模拟的微信环境把页面代码对着真实后端走一遍（先起一个刚 seed 过的后端，见 miniprogram/README.md）
 ```
 
 ## 上线前需要准备

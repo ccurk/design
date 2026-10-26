@@ -87,7 +87,7 @@ page {
 .from {
   align-self: flex-start;
   max-width: 100%;
-  min-height: 72rpx;
+  min-height: 88rpx;
   padding: 0 24rpx;
   border-radius: 999rpx;
   background: var(--ground);

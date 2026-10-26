@@ -99,6 +99,7 @@ Page({
 
   leave() {
     const ev = this.data.event;
+    if (!ev) return;
     if (this.data.isHost) {
       native
         .confirm({ title: '取消这个局？', content: '已加入的人会收到通知。尽量提前说，大家好另做安排。', confirmText: '取消这个局', cancelText: '再想想', confirmColor: '#B42318' })

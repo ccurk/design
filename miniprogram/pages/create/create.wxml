@@ -56,6 +56,7 @@
         <view class="flex1 col">
           <text class="row-label">最晚退出时间</text>
           <text class="row-value {{startAt ? '' : 'ph'}}">{{startAt ? exitText : '先选开始时间'}}</text>
+          <text wx:if="{{startAt && exitSub}}" class="row-sub">{{exitSub}}</text>
         </view>
         <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
       </view>
@@ -67,7 +68,7 @@
         <image class="ico-20" src="/assets/icons/people-gray.svg" />
         <view class="flex1 col">
           <text class="row-label">人数</text>
-          <text class="row-sub">含你自己，人齐了自动建群</text>
+          <text class="row-sub">含你自己，满员就成群</text>
         </view>
         <view class="row gap-4">
           <view class="step-btn {{capacity <= 2 ? 'off' : ''}}" hover-class="pressed" bindtap="dec" aria-role="button" aria-label="减少人数">
@@ -75,6 +76,22 @@
           </view>
           <text class="step-num">{{capacity}}</text>
           <view class="step-btn {{capacity >= 20 ? 'off' : ''}}" hover-class="pressed" bindtap="inc" aria-role="button" aria-label="增加人数">
+            <image class="ico-18" src="/assets/icons/plus-ink.svg" />
+          </view>
+        </view>
+      </view>
+      <view class="pick-row divider-top">
+        <image class="ico-20" src="/assets/icons/people-gray.svg" />
+        <view class="flex1 col">
+          <text class="row-label">至少几人成群</text>
+          <text class="row-sub">到截止时间人够也成群</text>
+        </view>
+        <view class="row gap-4">
+          <view class="step-btn {{minSize <= 2 ? 'off' : ''}}" hover-class="pressed" bindtap="decMin" aria-role="button" aria-label="减少成群人数">
+            <image class="ico-18" src="/assets/icons/minus-ink.svg" />
+          </view>
+          <text class="step-num">{{minSize}}</text>
+          <view class="step-btn {{minSize >= capacity ? 'off' : ''}}" hover-class="pressed" bindtap="incMin" aria-role="button" aria-label="增加成群人数">
             <image class="ico-18" src="/assets/icons/plus-ink.svg" />
           </view>
         </view>
@@ -163,7 +180,7 @@
 
 <dz-sheet show="{{exitShow}}" title="最晚退出时间" bindclose="closeExit" bindconfirm="confirmExit">
   <view class="xs">
-    <view class="xs-intro">过了这个时间就不能退出了。到时候人够了自动成群，不够就取消，并通知大家。</view>
+    <view class="xs-intro">过了这个时间就不能退出、也不再接受报名。到时候有 {{minSize}} 人以上就自动成群，不够就取消，并通知大家。</view>
     <view wx:for="{{exitOptions}}" wx:key="hours" class="xs-row {{item.off ? 'off' : ''}} {{index ? 'divider-top' : ''}}" hover-class="{{item.off ? 'none' : 'pressed'}}" data-hours="{{item.hours}}" data-off="{{item.off}}" bindtap="pickExit" aria-role="radio" aria-checked="{{exitPick === item.hours}}" aria-disabled="{{item.off}}">
       <view class="radio {{exitPick === item.hours ? 'on' : ''}}"></view>
       <view class="flex1 col">

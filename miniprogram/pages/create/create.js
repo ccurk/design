@@ -40,9 +40,11 @@ Page({
     exitHours: DEFAULT_EXIT,
     exitOptions: [],
     exitText: '',
+    exitSub: '',
     exitShow: false,
     exitPick: DEFAULT_EXIT,
     capacity: 5,
+    minSize: 2,
     myGender: '',
     genderText: '不限',
     genders: { female: true, male: true },
@@ -169,13 +171,14 @@ Page({
       const ok = exitOptions.filter((o) => !o.off && o.hours <= DEFAULT_EXIT);
       hours = ok.length ? ok[ok.length - 1].hours : 0;
     }
-    this.setData({ exitOptions, exitHours: hours, exitText: this.exitLabel(hours, exitOptions) });
+    this.setData(Object.assign({ exitOptions, exitHours: hours }, this.exitLabel(hours, exitOptions)));
   },
 
+  // { exitText: '开始前 24 小时', exitSub: '10月29日 05:40 之前可以退出' }
   exitLabel(hours, options) {
-    if (!hours) return '发布后 30 分钟内可以退出';
+    if (!hours) return { exitText: '发布后 30 分钟', exitSub: '离开始太近了，发布后 30 分钟内可以退出' };
     const o = (options || this.data.exitOptions).filter((x) => x.hours === hours)[0];
-    return o ? o.label + '（' + o.time + '）' : '';
+    return o ? { exitText: o.label, exitSub: o.time + ' 之前可以退出' } : { exitText: '', exitSub: '' };
   },
 
   openExit() {
@@ -202,16 +205,27 @@ Page({
 
   confirmExit() {
     const hours = this.data.exitPick;
-    this.setData({ exitShow: false, exitHours: hours, exitText: this.exitLabel(hours) });
+    this.setData(Object.assign({ exitShow: false, exitHours: hours }, this.exitLabel(hours)));
   },
 
   // ===== 人数 =====
   dec() {
-    if (this.data.capacity > 2) this.setData({ capacity: this.data.capacity - 1 });
+    const capacity = this.data.capacity - 1;
+    if (capacity < 2) return;
+    this.setData({ capacity, minSize: Math.min(this.data.minSize, capacity) });
   },
 
   inc() {
     if (this.data.capacity < 20) this.setData({ capacity: this.data.capacity + 1 });
+  },
+
+  // 到最晚退出时间，至少几人就成群（2 ≤ minSize ≤ 人数）
+  decMin() {
+    if (this.data.minSize > 2) this.setData({ minSize: this.data.minSize - 1 });
+  },
+
+  incMin() {
+    if (this.data.minSize < this.data.capacity) this.setData({ minSize: this.data.minSize + 1 });
   },
 
   // ===== 谁可以报名：女 / 男 多选，都选 = 不限；发起人自己必须在内 =====
@@ -319,6 +333,7 @@ Page({
       startAt: d.startAt,
       place: d.place,
       capacity: d.capacity,
+      minSize: Math.min(d.minSize, d.capacity),
       feeType: d.feeType,
       requireApproval: d.requireApproval,
       genderLimit: genderLimitOf(d.genders),

@@ -26,8 +26,8 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  margin-top: 20rpx;
-  padding: 12rpx 0 16rpx;
+  margin-top: 16rpx;
+  padding: 12rpx 0;
   background: var(--ground);
 }
 .tags {
@@ -42,15 +42,15 @@
 /* 选中前后尺寸完全一致，点选时不跳动 */
 .tab {
   flex-shrink: 0;
-  height: 80rpx;
-  padding: 0 30rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
   border-radius: 999rpx;
   border: 1px solid var(--hairline);
   background: var(--surface);
   color: var(--ink);
   font-size: 28rpx;
   font-weight: 700;
-  line-height: 78rpx;
+  line-height: 86rpx;
   box-sizing: border-box;
 }
 .tab.on {

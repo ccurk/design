@@ -16,7 +16,7 @@
 .top-search {
   flex: 1;
   min-width: 0;
-  height: 72rpx;
+  height: 88rpx;
   padding: 0 24rpx;
   border-radius: 999rpx;
   background: var(--surface);
@@ -45,7 +45,7 @@
 }
 .err-retry {
   flex-shrink: 0;
-  min-height: 72rpx;
+  min-height: 88rpx;
   padding: 0 28rpx;
   border-radius: 999rpx;
   background: var(--primary);

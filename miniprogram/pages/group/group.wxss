@@ -264,3 +264,18 @@ page {
 .closed-progress .progress {
   width: 100%;
 }
+.closed-ev {
+  margin: 24rpx 32rpx 0;
+  padding: 12rpx 12rpx 24rpx;
+  border-radius: 40rpx;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.closed-ev-text {
+  padding: 0 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}

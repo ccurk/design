@@ -45,8 +45,8 @@
   display: flex;
   align-items: center;
   gap: 10rpx;
-  min-height: 72rpx;
-  padding: 0 24rpx;
+  min-height: 88rpx;
+  padding: 0 28rpx;
   border-radius: 999rpx;
   background: var(--ground);
   font-size: 26rpx;
@@ -127,7 +127,7 @@
   margin-top: -4rpx;
 }
 .phrase {
-  min-height: 64rpx;
+  min-height: 88rpx;
   padding: 0 22rpx;
   border-radius: 999rpx;
   background: var(--ground);
