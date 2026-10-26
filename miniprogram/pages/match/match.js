@@ -128,7 +128,6 @@ Page({
             myStatus: res.myStatus
           }
         });
-        this.load();
       })
       .catch((err) => {
         this.setData({ joinBusy: false, joinShow: false });

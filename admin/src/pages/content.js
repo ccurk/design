@@ -278,7 +278,7 @@ export default {
         focusSoon('#bf-ev-q');
         return;
       }
-      const link = f.linkKind === 'none' ? (f.otherLink || null) : f.linkKind === 'event' ? `event:${f.eventId}` : f.linkKind;
+      const link = f.linkKind === 'none' ? null : f.linkKind === 'event' ? `event:${f.eventId}` : f.linkKind;
       const body = { image: f.images[0], title, subtitle: f.subtitle.trim(), link, enabled: f.enabled };
       s.saving = true;
       s.formErr = '';

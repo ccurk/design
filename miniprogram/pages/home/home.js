@@ -90,13 +90,14 @@ Page({
     nav.setTab(this, 0);
     this.syncTabBar();
     if (this.loadedOnce) {
-      this.loadIntents();
+      // load(true) 内部已经会刷新意向，别再额外触发一次
       if (Date.now() - this.loadedAt > 5 * 60 * 1000) this.load(true);
+      else this.loadIntents();
     }
   },
 
   onPullDownRefresh() {
-    Promise.all([this.load(true), this.loadIntents()]).then(() => wx.stopPullDownRefresh());
+    this.load(true).then(() => wx.stopPullDownRefresh());
   },
 
   onShareAppMessage() {
@@ -266,15 +267,20 @@ Page({
   // ===== 时间段 =====
   // 今天已经过去的时间段不能选（离结束不到 1 小时）
   buildSlots() {
-    const today = this.data.when === 'today';
     const now = nowMinutes();
+    const todayClosed = format.toMinutes('23:00') - now < 60;
+    // 今天太晚了就自动改到明天；各时间段是否可选要按最终选中的日期算，
+    // 否则跳到明天后仍沿用今天的 off 标记，明天的档会被整排错误置灰
+    let when = this.data.when;
+    if (todayClosed && when === 'today') when = 'tomorrow';
+    const today = when === 'today';
     const slots = format.TIME_SLOTS.map((s) => ({
       value: s.value,
       label: s.label,
       off: today && format.toMinutes(s.to) - Math.max(now, format.toMinutes(s.from)) < 60
     }));
-    const todayClosed = format.toMinutes('23:00') - now < 60;
     const patch = { slots, todayClosed };
+    if (when !== this.data.when) patch.when = when;
     const cur = slots.filter((s) => s.value === this.data.slot)[0];
     if (cur && cur.off) patch.slot = (slots.filter((s) => !s.off)[0] || { value: 'allday' }).value;
     if (this.data.slot === 'custom' && today && format.toMinutes(this.data.timeTo) - now < 60) {
@@ -282,7 +288,6 @@ Page({
       patch.timeFrom = '';
       patch.timeTo = '';
     }
-    if (todayClosed && this.data.when === 'today') patch.when = 'tomorrow';
     this.setData(patch, () => this.updateCta());
   },
 

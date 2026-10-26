@@ -538,7 +538,10 @@ function setMember(db, eventId, userId, patch) {
 function afterJoined(db, event, user) {
   const count = joinedCount(db, event.id);
   if (event.source !== 'matched') addSystemMessage(db, event.id, `${user.nickname} 加入了这个局`);
-  if (event.status === 'open' && count >= event.capacity) formEvent(db, event);
+  if (event.status === 'open' && count >= event.capacity) {
+    formEvent(db, event);
+    closePendingApplications(db, event); // 满员成群时，还挂着的报名申请一并结束（与到期成群路径一致）
+  }
   return getEvent(db, event.id);
 }
 

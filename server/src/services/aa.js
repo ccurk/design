@@ -208,34 +208,38 @@ function setTransferStatus(db, eventId, from, to, status) {
 
 /** 付款方：我已转账 */
 export function markPaid(db, user, eventId, toUserId) {
-  const event = requireAaMember(db, user, eventId);
-  const t = aaSummary(db, event, user.id).transfers.find((x) => x.fromId === user.id && x.toId === toUserId);
-  if (!t) throw invalid('没有需要转给 TA 的钱');
-  if (t.status !== 'confirmed') {
-    setTransferStatus(db, eventId, user.id, toUserId, 'paid');
-    notify(db, toUserId, {
-      type: 'aa_paid',
-      title: 'AA 转账提醒',
-      body: `${user.nickname} 说已经转给你 ¥${t.amount}，收到后点一下「确认收到」`,
-      link: `chat:${eventId}`,
-    });
-  }
-  return aaView(db, user, eventId);
+  return db.tx(() => {
+    const event = requireAaMember(db, user, eventId);
+    const t = aaSummary(db, event, user.id).transfers.find((x) => x.fromId === user.id && x.toId === toUserId);
+    if (!t) throw invalid('没有需要转给 TA 的钱');
+    if (t.status !== 'confirmed') {
+      setTransferStatus(db, eventId, user.id, toUserId, 'paid');
+      notify(db, toUserId, {
+        type: 'aa_paid',
+        title: 'AA 转账提醒',
+        body: `${user.nickname} 说已经转给你 ¥${t.amount}，收到后点一下「确认收到」`,
+        link: `chat:${eventId}`,
+      });
+    }
+    return aaView(db, user, eventId);
+  });
 }
 
 /** 收款方：确认收到 */
 export function confirmReceived(db, user, eventId, fromUserId) {
-  const event = requireAaMember(db, user, eventId);
-  const t = aaSummary(db, event, user.id).transfers.find((x) => x.fromId === fromUserId && x.toId === user.id);
-  if (!t) throw invalid('TA 不需要转钱给你');
-  setTransferStatus(db, eventId, fromUserId, user.id, 'confirmed');
-  if (getUser(db, fromUserId)) {
-    notify(db, fromUserId, {
-      type: 'aa_confirmed',
-      title: 'AA 已清账',
-      body: `${user.nickname} 确认收到了你的 ¥${t.amount}`,
-      link: `chat:${eventId}`,
-    });
-  }
-  return aaView(db, user, eventId);
+  return db.tx(() => {
+    const event = requireAaMember(db, user, eventId);
+    const t = aaSummary(db, event, user.id).transfers.find((x) => x.fromId === fromUserId && x.toId === user.id);
+    if (!t) throw invalid('TA 不需要转钱给你');
+    setTransferStatus(db, eventId, fromUserId, user.id, 'confirmed');
+    if (getUser(db, fromUserId)) {
+      notify(db, fromUserId, {
+        type: 'aa_confirmed',
+        title: 'AA 已清账',
+        body: `${user.nickname} 确认收到了你的 ¥${t.amount}`,
+        link: `chat:${eventId}`,
+      });
+    }
+    return aaView(db, user, eventId);
+  });
 }

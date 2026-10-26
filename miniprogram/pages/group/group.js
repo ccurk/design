@@ -51,7 +51,12 @@ Page({
   },
 
   onShow() {
-    if (!this.ready) return;
+    if (!this.ready) {
+      // 未成群时打开的群聊页 ready 一直是 false；再次进入时重拉一次，群可能已经成了
+      if (this.entered) this.load();
+      this.entered = true;
+      return;
+    }
     this.refreshEvent();
     this.loadAA();
     this.fetch(false);

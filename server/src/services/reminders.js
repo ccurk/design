@@ -52,6 +52,7 @@ export function runReminders(db, logger) {
         result.review++;
       }
     }
+    if (joinedCount(db, row.id) < 2) continue; // 只有自己的局不用报平安
     if (row.safe_at || t > end + DAY) continue;
     const user = db.get('SELECT * FROM users WHERE id = ?', row.user_id);
     if (!user || !userSettings(user).checkInReminder) continue;

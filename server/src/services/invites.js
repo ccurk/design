@@ -49,7 +49,8 @@ export function inviteDeadline(event, member) {
 
 /** 整个局的邀请期限：最后一个被邀请的人的回应期限（到点后够人成局，不够取消） */
 export function eventInviteDeadline(event, rows) {
-  const invitedAt = rows.map((r) => Date.parse(r.invited_at || event.created_at));
+  // 只看还在等回应的人：已退出 / 过期的成员不该把整局的取消期限往后拖
+  const invitedAt = rows.filter((r) => r.status === 'invited').map((r) => Date.parse(r.invited_at || event.created_at));
   const lastInvite = invitedAt.length ? Math.max(...invitedAt) : Date.parse(event.created_at);
   return new Date(Math.min(lastInvite + INVITE_TTL, Date.parse(event.start_at) - LAST_CALL));
 }
@@ -442,8 +443,15 @@ export function processInviteDeadlines(db) {
         }
       }
       if (now >= Date.parse(event.start_at)) {
-        cancelUnderfilled(db, event);
-        result.cancelled++;
+        // 开场时间到了还在邀请中：够人就成群，不够才取消（原来无条件取消会误杀已满足 min_size 的局）
+        const joined = db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'joined'", event.id);
+        if (joined.length >= event.min_size) {
+          formMatchedEvent(db, event);
+          result.formed++;
+        } else {
+          cancelUnderfilled(db, event);
+          result.cancelled++;
+        }
         continue;
       }
       const status = evaluateInviting(db, event.id);

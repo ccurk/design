@@ -139,10 +139,12 @@ Page({
 
   onLike(e) {
     const f = this.find(e.detail.id);
-    if (!f || this.liking) return;
+    if (!f) return;
     const p = f.post;
+    if (!this.liking) this.liking = {};
+    if (this.liking[p.id]) return; // 只锁同一条帖子，别把别的帖子的赞一起挡掉
     const liked = !p.liked;
-    this.liking = true;
+    this.liking[p.id] = true;
     this.patch(p.id, { liked, likeCount: p.likeCount + (liked ? 1 : -1) });
     (liked ? api.like(p.id) : api.unlike(p.id))
       .then((res) => {
@@ -150,7 +152,7 @@ Page({
       })
       .catch(() => this.patch(p.id, { liked: p.liked, likeCount: p.likeCount }))
       .then(() => {
-        this.liking = false;
+        delete this.liking[p.id];
       });
   },
 

@@ -107,6 +107,14 @@ export function ongoingItems(db, user, now = clock.now()) {
   return [...events, ...intents];
 }
 
-export function ongoingCount(db, user) {
-  return ongoingItems(db, user).length;
+export function ongoingCount(db, user, now = clock.now()) {
+  // 只数数量，不构建卡片（原来会连每条 open 意向的 similarCount 全量扫描一起算，挂在高频 /api/me 上）
+  const events = memberships(db, user.id, ['joined', 'invited', 'applied'])
+    .map((m) => getEvent(db, m.event_id))
+    .filter((e) => phaseOf(e, now) !== 'ended' && !['cancelled', 'rejected'].includes(e.status)).length;
+  const intents = db.get(
+    "SELECT COUNT(*) AS n FROM intents WHERE user_id = ? AND status IN ('open', 'proposed')",
+    user.id,
+  ).n;
+  return events + Number(intents);
 }
