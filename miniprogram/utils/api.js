@@ -14,13 +14,13 @@ module.exports = {
   verifyPhone: (code) => post('/api/auth/phone', { code }),
   me: (opts) => get('/api/me', {}, opts),
   updateMe: (data) => put('/api/me', data),
-  safety: () => get('/api/me/safety'),
+  safety: (opts) => get('/api/me/safety', {}, opts),
   updateSafety: (data) => put('/api/me/safety', data),
   creditEvents: () => get('/api/me/credit-events'),
   appeal: (id, text) => post(`/api/credit-events/${id}/appeal`, { text }),
 
   // 4.2 他人主页、拉黑、不看
-  user: (id) => get(`/api/users/${id}`),
+  user: (id, opts) => get(`/api/users/${id}`, {}, opts),
   block: (userId) => post(`/api/blocks/${userId}`),
   unblock: (userId) => del(`/api/blocks/${userId}`),
   muteUser: (userId) => post(`/api/mutes/${userId}`),
@@ -40,7 +40,7 @@ module.exports = {
   declineMatch: (eventId) => post(`/api/matches/${eventId}/decline`),
 
   // 4.4 局
-  events: (params) => get('/api/events', q(params)),
+  events: (params, opts) => get('/api/events', q(params), opts),
   event: (id, opts) => get(`/api/events/${id}`, {}, opts),
   createEvent: (data, opts) => post('/api/events', data, opts),
   join: (id, opts) => post(`/api/events/${id}/join`, {}, opts),
@@ -60,7 +60,7 @@ module.exports = {
   messages: (id, after, opts) => get(`/api/events/${id}/messages`, after ? { after } : {}, opts),
   sendMessage: (id, text) => post(`/api/events/${id}/messages`, { text }),
   nextIcebreaker: (id) => post(`/api/events/${id}/icebreaker/next`),
-  eventInfo: (id) => get(`/api/events/${id}/info`),
+  eventInfo: (id, opts) => get(`/api/events/${id}/info`, {}, opts),
   muteEvent: (id, muted) => put(`/api/events/${id}/mute`, { muted }),
   // v0.3 AA：每个局只有一笔，由垫钱的人一次声明
   aa: (id, opts) => get(`/api/events/${id}/aa`, {}, opts),
@@ -71,11 +71,11 @@ module.exports = {
   aaConfirm: (id, fromUserId) => post(`/api/events/${id}/aa/confirm`, { fromUserId }),
 
   // 4.6 互评
-  review: (id) => get(`/api/events/${id}/review`),
+  review: (id, opts) => get(`/api/events/${id}/review`, {}, opts),
   submitReview: (id, data) => post(`/api/events/${id}/reviews`, data),
 
   // 4.7 动态
-  posts: (cursor) => get('/api/posts', q({ cursor })),
+  posts: (cursor, opts) => get('/api/posts', q({ cursor }), opts),
   post: (id, opts) => get(`/api/posts/${id}`, {}, opts),
   createPost: (data) => post('/api/posts', data),
   deletePost: (id) => del(`/api/posts/${id}`),

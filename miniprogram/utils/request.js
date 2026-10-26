@@ -63,6 +63,14 @@ function showError(err) {
   wx.showModal({ title, content: message, showCancel: false, confirmText: '知道了', confirmColor: '#193543' });
 }
 
+// 开发模式下直接说清楚连的是哪个地址，方便排查「后端没启动 / 没关域名校验」
+function networkMessage(err) {
+  if (!config.devLogin) return '网络不太好，连不上服务器';
+  const msg = (err && err.errMsg) || '';
+  if (/domain|域名/i.test(msg)) return '请求被拦截：开发者工具「详情 → 本地设置」里勾选「不校验合法域名」';
+  return '连不上后端 ' + config.baseURL + '，请确认它已经启动';
+}
+
 function send(method, path, data, withAuth) {
   return new Promise((resolve, reject) => {
     const header = { 'content-type': 'application/json' };
@@ -74,7 +82,7 @@ function send(method, path, data, withAuth) {
       header,
       timeout: 15000,
       success: resolve,
-      fail: (err) => reject(makeError('NETWORK', '网络不太好，连不上服务器', 0, err))
+      fail: (err) => reject(makeError('NETWORK', networkMessage(err), 0, err))
     });
   });
 }

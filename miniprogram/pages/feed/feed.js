@@ -77,7 +77,7 @@ Page({
     const has = this.data.left.length > 0;
     this.setData({ loading: !(keep && has), error: '', moreError: false });
     return api
-      .posts()
+      .posts(undefined, { silent: !has })
       .then((res) => {
         if (seq !== this.seq) return;
         this.place((res.items || []).map(mapPost), true);
@@ -98,7 +98,7 @@ Page({
     const seq = this.seq;
     this.setData({ loadingMore: true, moreError: false });
     api
-      .posts(this.data.nextCursor)
+      .posts(this.data.nextCursor, { silent: true })
       .then((res) => {
         if (seq !== this.seq) return;
         this.place((res.items || []).map(mapPost), false);

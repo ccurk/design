@@ -32,7 +32,7 @@ Page({
   },
 
   load() {
-    return Promise.all([api.eventInfo(this.id), api.aa(this.id, { silent: true }).catch(() => null)])
+    return Promise.all([api.eventInfo(this.id, { silent: true }), api.aa(this.id, { silent: true }).catch(() => null)])
       .then(([res, aa]) => {
         const ev = res.event || {};
         const members = res.members || [];

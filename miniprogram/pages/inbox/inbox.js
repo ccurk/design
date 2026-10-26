@@ -47,7 +47,7 @@ Page({
   load() {
     this.setData({ loading: true });
     return api
-      .inbox({ silent: this.data.loaded })
+      .inbox({ silent: !this.data.loaded })
       .then((res) => {
         // 刚回答过的轻确认，5 分钟内保留结果（服务端已不再返回这条）
         const answered = {};

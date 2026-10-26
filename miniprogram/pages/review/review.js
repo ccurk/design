@@ -30,7 +30,7 @@ Page({
       return;
     }
     api
-      .review(this.id)
+      .review(this.id, { silent: true })
       .then((res) => {
         const ev = res.event || {};
         if (res.canSubmit === false && !res.submitted) {

@@ -30,7 +30,7 @@ Page({
   load() {
     this.setData({ loading: true, error: '' });
     return api
-      .safety()
+      .safety({ silent: true })
       .then((res) => this.render(res))
       .catch((err) => this.setData({ loading: false, error: err.message }));
   },

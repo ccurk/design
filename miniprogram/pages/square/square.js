@@ -69,7 +69,7 @@ Page({
     const hasList = this.data.events.length > 0;
     this.setData({ loading: !(keep && hasList), switching: !!(keep && hasList), error: '', moreError: false });
     return api
-      .events({ tag: this.data.tag, limit: PAGE_SIZE })
+      .events({ tag: this.data.tag, limit: PAGE_SIZE }, { silent: !hasList })
       .then((res) => {
         if (seq !== this.seq) return;
         this.setData({ events: res.items || [], nextCursor: res.nextCursor || null, loading: false, switching: false });
@@ -89,7 +89,7 @@ Page({
     const seq = this.seq;
     this.setData({ loadingMore: true, moreError: false });
     api
-      .events({ tag: this.data.tag, limit: PAGE_SIZE, cursor: this.data.nextCursor })
+      .events({ tag: this.data.tag, limit: PAGE_SIZE, cursor: this.data.nextCursor }, { silent: true })
       .then((res) => {
         if (seq !== this.seq) return;
         const seen = {};

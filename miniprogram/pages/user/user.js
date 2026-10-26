@@ -45,7 +45,7 @@ Page({
   },
 
   load() {
-    return Promise.all([api.user(this.id), session.loadMe().catch(() => null)])
+    return Promise.all([api.user(this.id, { silent: true }), session.loadMe().catch(() => null)])
       .then(([res, me]) => {
         const user = res.user || {};
         const credit = res.credit || { rate: user.creditRate, level: user.creditLevel };
