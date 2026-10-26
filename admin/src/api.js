@@ -52,8 +52,9 @@ function currentPlace() {
  * api('/admin/stats')
  * api('/admin/proposals/3/confirm', { method: 'POST', body: {...} })
  * api('/admin/users', { query: { q: '阿野' } })
+ * api('/admin/upload', { method: 'POST', form: formData })   // multipart，不设 Content-Type，浏览器会带上 boundary
  */
-export async function api(path, { method = 'GET', body, query } = {}) {
+export async function api(path, { method = 'GET', body, query, form } = {}) {
   let url = `/api${path}`;
   if (query) {
     const qs = new URLSearchParams(
@@ -62,13 +63,13 @@ export async function api(path, { method = 'GET', body, query } = {}) {
     if (qs) url += `?${qs}`;
   }
   const headers = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
   const sentToken = auth.token;
   if (sentToken) headers.Authorization = `Bearer ${sentToken}`;
 
   let res;
   try {
-    res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(url, { method, headers, body: form || (body === undefined ? undefined : JSON.stringify(body)) });
   } catch {
     throw new ApiError('NETWORK', '连不上服务器，请检查网络后再试');
   }
@@ -97,4 +98,20 @@ export async function api(path, { method = 'GET', body, query } = {}) {
     }
   }
   throw err;
+}
+
+/** 和服务端一样的上限（server/src/routes：只收 jpg / png / gif / webp，≤ 5MB） */
+export const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+export const UPLOAD_MAX = 5 * 1024 * 1024;
+
+/** 上传一张图片（后台 token）→ 图片地址。先在本地挡掉明显不行的文件，省一次请求 */
+export async function uploadImage(file) {
+  if (!file) throw new ApiError('VALIDATION', '先选一张图片');
+  if (!UPLOAD_TYPES.includes(file.type)) throw new ApiError('VALIDATION', `「${file.name}」不是 jpg / png / gif / webp 图片`);
+  if (file.size > UPLOAD_MAX) throw new ApiError('VALIDATION', `「${file.name}」超过 5MB 了，压缩一下再传`);
+  const form = new FormData();
+  form.append('file', file);
+  const res = await api('/admin/upload', { method: 'POST', form });
+  if (!res || !res.url) throw new ApiError('UPLOAD', '上传没有成功，请重试');
+  return res.url;
 }
