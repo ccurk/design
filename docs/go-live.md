@@ -70,9 +70,11 @@ npm install
 #    NODE_ENV=production ADMIN_PASSWORD=<随机串> PUBLIC_BASE_URL=https://<域名> WX_APPID=... WX_SECRET=...
 
 # 4. 初始化数据
-#    正式上线通常【不要】写演示数据 —— 空库首次启动会自动写入默认标签,直接启动即可。
-#    只有需要演示数据(栗子、阿野、苍山看日出……)时才跑:
-# npm run seed
+#    正式上线【不要】跑 npm run seed(它会清库并写入演示账号栗子、阿野……)。
+#    冷启动想让广场/首页一开始就有活动,跑叠加式的冷启动数据(不清库、可重复防重):
+# npm run seed:cold   # 运营账号 + 种子用户 + 历史撑场面局 + 一批未来运营带队的开放局
+#    之后服务进程会每天自动发布新的运营局(jobs.js → publishDailyEvents),无需手动维护。
+#    种子账号只进「历史已成团的局」(不进广场);未来可报名的局只有运营号 + 真人。
 
 # 5. 启动(正式用 pm2 / systemd 守护,保证崩溃重启)
 npm start          # 监听 PORT(默认 3000)

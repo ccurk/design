@@ -12,6 +12,7 @@
     "start": "node --no-warnings src/index.js",
     "dev": "node --no-warnings --watch src/index.js",
     "seed": "node --no-warnings scripts/seed.js",
+    "seed:cold": "node --no-warnings scripts/seed-coldstart.js",
     "test": "node --no-warnings --test test/*.test.js",
     "smoke": "node --no-warnings scripts/smoke.js"
   },
