@@ -102,7 +102,7 @@ export function exitDeadlineOf(event) {
 }
 
 /** 组局有效期：建局后这么久还没凑够人就自动解散（独立于开场时间，远期的局不会一直挂在广场） */
-export const ORGANIZE_TTL = 7 * 24 * HOUR;
+export const ORGANIZE_TTL = 30 * 24 * HOUR;
 
 /** 还在凑人的局是否已超过组局有效期 */
 export function organizeExpired(event, now = clock.now()) {
