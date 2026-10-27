@@ -1,0 +1,33 @@
+<view class="page">
+  <view class="form">
+    <view wx:if="{{statusText}}" class="box">
+      <view class="t-17 w6">{{statusText.title}}</view>
+      <view class="t-14 c-2">{{statusText.desc}}</view>
+      <view wx:if="{{application && application.note}}" class="t-13 c-2">平台说明：{{application.note}}</view>
+    </view>
+
+    <block wx:if="{{canApply}}">
+      <view class="box">
+        <text class="label">带队介绍 / 经验</text>
+        <textarea class="text" value="{{intro}}" placeholder="你常带什么局？在大理多久了？为什么想做官方带队？" placeholder-class="ph" maxlength="500" bindinput="onIntro" />
+        <view class="count">{{intro.length}}/500</view>
+      </view>
+      <view class="box">
+        <text class="label">资质 / 相关照片（选填）</text>
+        <dz-uploader max="{{9}}" size="{{196}}" cover="{{true}}" bindchange="onImages" />
+        <view class="t-12 c-2">带队照片、行程、证照等，帮平台更快通过。</view>
+      </view>
+      <view class="note">
+        <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
+        <text>官方带队由平台审核、真实到场组织局。请如实填写。</text>
+      </view>
+    </block>
+  </view>
+
+  <block wx:if="{{canApply}}">
+    <view class="bar-space"></view>
+    <view class="bottom-bar">
+      <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" hover-class="{{submitting ? 'none' : 'pressed'}}" bindtap="submit">{{submitting ? '提交中…' : (uploading ? '图片上传中…' : '提交申请')}}</view>
+    </view>
+  </block>
+</view>

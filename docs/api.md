@@ -258,6 +258,8 @@
 | `GET /api/me/safety` · `PUT /api/me/safety` | `{sameSexOnly, checkInReminder, profileOpen, emergencyContact: {name, phone}\|null}`；返回时手机号打码 `phoneMasked`，并附 `blocked: UserBrief[]` |
 | `GET /api/me/credit-events` | 我的信用记录列表 |
 | `POST /api/credit-events/:id/appeal` `{text}` | 申诉 |
+| `GET /api/leader-application` | 我的官方带队申请状态：`{isLeader, application: {id, intro, images, status(`pending`/`approved`/`rejected`), note, createdAt, reviewedAt}\|null}` |
+| `POST /api/leader-application` `{intro, images?}` | 申请成为官方带队（需先完成手机号认证）：`intro` 10–500 字，`images` 最多 9 张。返回同上。一次只能有一个待审核申请 |
 
 `Me`：
 

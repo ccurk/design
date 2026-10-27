@@ -18,6 +18,8 @@ module.exports = {
   updateSafety: (data) => put('/api/me/safety', data),
   creditEvents: () => get('/api/me/credit-events'),
   appeal: (id, text) => post(`/api/credit-events/${id}/appeal`, { text }),
+  leaderStatus: (opts) => get('/api/leader-application', {}, opts),
+  applyLeader: (data) => post('/api/leader-application', data),
 
   // 4.2 他人主页、拉黑、不看
   user: (id, opts) => get(`/api/users/${id}`, {}, opts),

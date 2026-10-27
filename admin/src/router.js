@@ -1,7 +1,7 @@
 // 极简 hash 路由：#/dashboard、#/users?id=6 …… 地址栏的路径永远是 /admin/，相对路径的静态文件不会找错。
 import { reactive } from './vue.js';
 
-export const PAGES = ['dashboard', 'matching', 'moderation', 'events', 'users', 'content'];
+export const PAGES = ['dashboard', 'matching', 'moderation', 'leaders', 'events', 'users', 'content'];
 
 export const route = reactive({ name: '', query: {} });
 

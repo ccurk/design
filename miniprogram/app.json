@@ -23,7 +23,8 @@
     "pages/review/review",
     "pages/edit-profile/edit-profile",
     "pages/safety/safety",
-    "pages/rules/rules"
+    "pages/rules/rules",
+    "pages/leader-apply/leader-apply"
   ],
   "window": {
     "navigationBarTitleText": "活动搭子",

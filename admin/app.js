@@ -11,11 +11,13 @@ import ModerationPage from './src/pages/moderation.js';
 import EventsPage from './src/pages/events.js';
 import UsersPage from './src/pages/users.js';
 import ContentPage from './src/pages/content.js';
+import LeadersPage from './src/pages/leaders.js';
 
 const PAGE_COMPONENTS = {
   dashboard: DashboardPage,
   matching: MatchingPage,
   moderation: ModerationPage,
+  leaders: LeadersPage,
   events: EventsPage,
   users: UsersPage,
   content: ContentPage,
@@ -25,6 +27,7 @@ const TITLES = {
   dashboard: '概览',
   matching: '撮合池',
   moderation: '审核与举报',
+  leaders: '官方带队',
   events: '局管理',
   users: '用户与信用',
   content: '内容运营',

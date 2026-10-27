@@ -137,6 +137,10 @@ Page({
     wx.navigateTo({ url: '/pages/rules/rules' });
   },
 
+  openLeader() {
+    wx.navigateTo({ url: '/pages/leader-apply/leader-apply' });
+  },
+
   openCreditRules() {
     wx.navigateTo({ url: '/pages/rules/rules?section=credit' });
   }

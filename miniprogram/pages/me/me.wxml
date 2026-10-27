@@ -64,6 +64,12 @@
         <text wx:if="{{me.ongoingCount}}" class="pill pill-accent">{{me.ongoingCount}} 个进行中</text>
         <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
       </view>
+      <view class="menu-row" hover-class="pressed" bindtap="openLeader">
+        <view class="menu-ico"><image class="ico-18" src="/assets/icons/star-accent.svg" /></view>
+        <text class="flex1 t-15 w5">{{me.isLeader ? '官方带队' : '申请成为官方带队'}}</text>
+        <text wx:if="{{me.isLeader}}" class="pill pill-accent">已认证</text>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
       <view class="menu-row tall" hover-class="pressed" bindtap="openSafety">
         <view class="menu-ico"><image class="ico-18" src="/assets/icons/shield-ink.svg" /></view>
         <view class="flex1 col gap-2">

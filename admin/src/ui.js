@@ -143,6 +143,7 @@ export const AppNav = {
       { name: 'dashboard', label: '概览', icon: 'grid', count: 0 },
       { name: 'matching', label: '撮合池', icon: 'people', count: badges.proposals, aria: (n) => `撮合池，${n} 个方案等你确认` },
       { name: 'moderation', label: '审核与举报', icon: 'shield', count: badges.moderation, aria: (n) => `审核与举报，${n} 条待处理` },
+      { name: 'leaders', label: '官方带队', icon: 'user', count: 0 },
       { name: 'events', label: '局管理', icon: 'calendar', count: 0 },
       { name: 'users', label: '用户与信用', icon: 'user', count: badges.appeals, aria: (n) => `用户与信用，${n} 条申诉待处理` },
       { name: 'content', label: '内容运营', icon: 'image', count: 0 },
