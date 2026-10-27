@@ -238,6 +238,28 @@ describe('用户发起的局', () => {
     assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'open'); // 还在凑人
   });
 
+  test('邀请归因：通过分享(ref)加入 → 记录 invited_by 并通知分享人', async () => {
+    const host = makeUser(s.db);
+    const sharer = makeUser(s.db); // 分享这个局的人
+    const ev = await hostEvent(await s.login(host)); // 默认 any 局、无需审核、capacity 3
+    const joiner = makeUser(s.db);
+    const token = await s.login(joiner);
+    await s.ok('POST', `/api/events/${ev.id}/join`, { token, body: { ref: sharer } });
+
+    assert.equal(s.db.get('SELECT invited_by FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, joiner).invited_by, sharer);
+    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'invite_joined'", sharer), '分享人应收到「你邀请的朋友来了」');
+  });
+
+  test('邀请归因：ref 是自己或非法用户 → 不记录、不通知', async () => {
+    const host = makeUser(s.db);
+    const ev = await hostEvent(await s.login(host));
+    const joiner = makeUser(s.db);
+    const token = await s.login(joiner);
+    await s.ok('POST', `/api/events/${ev.id}/join`, { token, body: { ref: joiner } }); // ref 填自己
+    assert.equal(s.db.get('SELECT invited_by FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, joiner).invited_by, null);
+    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'invite_joined'").n, 0);
+  });
+
   test('内容审核不过 → pending_review，只有发起人看得到；后台通过后进广场', async () => {
     const host = makeUser(s.db);
     const th = await s.login(host);

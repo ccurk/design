@@ -83,6 +83,13 @@ Page({
     return share;
   },
 
+  onShareTimeline() {
+    const p = this.data.post;
+    const share = { title: p ? (p.text || '').slice(0, 24) || '大理的局 · 花絮' : '大理的局 · 花絮', query: 'id=' + this.id };
+    if (p && p.images.length) share.imageUrl = p.images[0];
+    return share;
+  },
+
   onLike() {
     const p = this.data.post;
     if (!p || this.liking) return;

@@ -60,7 +60,7 @@ export function eventRoutes({ db }) {
     res.json(eventDetail(db, event, req.user));
   });
 
-  r.post('/events/:id/join', auth, (req, res) => res.json(joinEvent(db, req.user, pid(req))));
+  r.post('/events/:id/join', auth, (req, res) => res.json(joinEvent(db, req.user, pid(req), body(req))));
   r.post('/events/:id/leave', auth, (req, res) => res.json(leaveEvent(db, req.user, pid(req), leaveDeps)));
   r.post('/events/:id/cancel', auth, (req, res) => res.json(cancelByHost(db, req.user, pid(req))));
 

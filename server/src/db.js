@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS event_members (
   joined_at TEXT,
   left_at TEXT,
   invite_expired INTEGER NOT NULL DEFAULT 0,
+  invited_by INTEGER,
   PRIMARY KEY (event_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_members_user ON event_members(user_id, status);
@@ -330,6 +331,7 @@ const COLUMN_MIGRATIONS = [
   ['events', 'images', "TEXT NOT NULL DEFAULT '[]'"],
   ['events', 'location', 'TEXT'],
   ['events', 'exit_deadline', 'TEXT'],
+  ['event_members', 'invited_by', 'INTEGER'],
 ];
 
 function migrate(raw) {

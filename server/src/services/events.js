@@ -553,9 +553,28 @@ function afterJoined(db, event, user) {
   return getEvent(db, event.id);
 }
 
-export function joinEvent(db, user, eventId) {
+/** 邀请归因：取出有效的分享人 id（真实用户、不是本人）；无效返回 null */
+function inviterFrom(db, ref, selfId) {
+  const id = Number(ref);
+  if (!Number.isInteger(id) || id <= 0 || id === selfId) return null;
+  return getUser(db, id) ? id : null;
+}
+
+/** 通知分享人「你邀请的朋友来了」（发起人本人不重复通知，他另有「有人加入」的通知） */
+function notifyInviter(db, event, joiner, inviterId) {
+  if (!inviterId || inviterId === event.creator_id || inviterId === joiner.id) return;
+  notify(db, inviterId, {
+    type: 'invite_joined',
+    title: '你邀请的朋友来了',
+    body: `${joiner.nickname} 通过你的分享加入了「${shortTitle(event.title)}」`,
+    link: `event:${event.id}`,
+  });
+}
+
+export function joinEvent(db, user, eventId, body = {}) {
   return db.tx(() => {
     const event = requireVisibleEvent(db, eventId, user);
+    const inviterId = inviterFrom(db, body.ref, user.id); // 邀请归因：谁分享来的
     const mine = memberRow(db, eventId, user.id);
     if (mine && ['joined', 'applied'].includes(mine.status)) return joinResult(db, eventId, mine.status);
     if (mine?.status === 'invited') throw conflict('你已被邀请，请在「撮合成功」页确认加入');
@@ -572,7 +591,7 @@ export function joinEvent(db, user, eventId) {
     const needApproval =
       event.source === 'user' && (event.require_approval || (creditOf(db, user).level === 'fair' && event.capacity >= 6));
     if (needApproval) {
-      setMember(db, eventId, user.id, { status: 'applied', role: 'member', applied_at: now, attendance: 'pending' });
+      setMember(db, eventId, user.id, { status: 'applied', role: 'member', applied_at: now, attendance: 'pending', ...(inviterId ? { invited_by: inviterId } : {}) });
       if (event.creator_id) {
         notify(db, event.creator_id, {
           type: 'application',
@@ -591,6 +610,7 @@ export function joinEvent(db, user, eventId) {
       attendance: 'pending',
       arrived_at: null,
       safe_at: null,
+      ...(inviterId ? { invited_by: inviterId } : {}),
     });
     afterJoined(db, event, user);
     if (event.creator_id && event.creator_id !== user.id) {
@@ -601,6 +621,7 @@ export function joinEvent(db, user, eventId) {
         link: `event:${event.id}`,
       });
     }
+    notifyInviter(db, event, user, inviterId);
     return joinResult(db, eventId, 'joined');
   });
 }
@@ -820,6 +841,7 @@ export function approveApplication(db, user, eventId, applicantId) {
       body: `你已加入「${event.title}」`,
       link: `event:${event.id}`,
     });
+    notifyInviter(db, event, applicant, m.invited_by); // 通过分享申请、现在被通过 → 通知分享人
     const result = joinResult(db, eventId, 'joined');
     return { ok: true, eventStatus: result.eventStatus, memberCount: result.memberCount, formed: result.formed, remaining: result.remaining };
   });

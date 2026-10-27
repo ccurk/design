@@ -51,6 +51,10 @@ Page({
     return { title: '大理这周的局，看到合适的直接加入', path: '/pages/square/square' };
   },
 
+  onShareTimeline() {
+    return { title: '大理这周的局，看到合适的直接加入' };
+  },
+
   // 记下标签栏吸顶时的滚动位置，切换标签后回到这里（列表从头看，标签栏不动）
   measure() {
     wx.createSelectorQuery()

@@ -104,6 +104,10 @@ Page({
     return { title: '在大理，找个搭子一起玩', path: '/pages/home/home' };
   },
 
+  onShareTimeline() {
+    return { title: '在大理，找个搭子一起玩' };
+  },
+
   load(quiet) {
     if (!quiet && !this.loadedOnce) this.setData({ loading: true, error: '' });
     const intents = this.loadIntents();

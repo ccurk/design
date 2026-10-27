@@ -73,6 +73,7 @@ Page({
 
   onLoad(query) {
     this.id = Number(query.id);
+    this.ref = Number(query.ref) || null; // 邀请归因：谁分享来的
     if (!this.id) {
       this.setData({ loading: false, error: '链接里缺少局的编号' });
       return;
@@ -93,10 +94,27 @@ Page({
     const ev = this.data.event;
     const share = {
       title: ev ? (ev.remaining > 0 ? '还差 ' + ev.remaining + ' 人：' : '') + ev.title : '活动搭子 · 大理兴趣局',
-      path: '/pages/detail/detail?id=' + this.id
+      path: '/pages/detail/detail?id=' + this.id + this.shareRef()
     };
     if (this.data.images.length) share.imageUrl = this.data.images[0];
     return share;
+  },
+
+  // 分享到朋友圈：带上局 id 和邀请归因
+  onShareTimeline() {
+    const ev = this.data.event;
+    const share = {
+      title: ev ? (ev.remaining > 0 ? '还差 ' + ev.remaining + ' 人：' : '') + ev.title : '活动搭子 · 大理兴趣局',
+      query: 'id=' + this.id + this.shareRef()
+    };
+    if (this.data.images.length) share.imageUrl = this.data.images[0];
+    return share;
+  },
+
+  // 分享链接带上「谁分享的」，朋友加入后回流通知到我（见 server joinEvent 的邀请归因）
+  shareRef() {
+    const me = session.myId();
+    return me ? '&ref=' + me : '';
   },
 
   load() {
@@ -237,7 +255,7 @@ Page({
     if (this.data.joinBusy) return;
     this.setData({ joinBusy: true });
     api
-      .join(this.id, { silent: true })
+      .join(this.id, { ref: this.ref }, { silent: true })
       .then((res) => {
         session.markDirty('square');
         this.setData({

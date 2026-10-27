@@ -50,6 +50,10 @@ Page({
     return { title: '大理的局，结束后的花絮', path: '/pages/feed/feed' };
   },
 
+  onShareTimeline() {
+    return { title: '大理的局，结束后的花絮' };
+  },
+
   reset() {
     this.heights = [0, 0];
     this.where = {};
