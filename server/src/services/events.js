@@ -1,6 +1,6 @@
 // 局：卡片 / 详情视图、可见性、广场、发起、报名、退出、最晚退出时间、成群、轻确认、到场、报平安。
 import { clock, HOUR, MINUTE } from '../clock.js';
-import { CATEGORIES, FEE_TYPES, GENDER_LIMITS, GENDER_LIMIT_LABELS, SYSTEM_MESSAGES, categoryOfTask } from '../constants.js';
+import { AREAS, CATEGORIES, FEE_TYPES, GENDER_LIMITS, GENDER_LIMIT_LABELS, SYSTEM_MESSAGES, categoryOfTask } from '../constants.js';
 import { json } from '../db.js';
 import { conflict, forbidden, invalid, notFound, restricted } from '../errors.js';
 import { checkAll } from '../moderation.js';
@@ -203,6 +203,7 @@ export function eventCard(db, event, viewer = null, members = joinedMembers(db, 
     startAt: event.start_at,
     dateLabel: dateLabel(new Date(event.start_at), now),
     place: event.place,
+    area: event.area ?? null,
     capacity: event.capacity,
     memberCount: members.length,
     membersPreview: members.slice(0, 3).map((x) => userBrief(db, x.user_id, now)),
@@ -274,12 +275,18 @@ export function joinResult(db, eventId, myStatus) {
 // ---- 广场 / 搜索 ----
 
 /** 广场上的局：open 的用户局 / 平台局，还没开始、还没过最晚退出时间；按看的人过滤性别和拉黑 */
-export function squareCandidates(db, viewer, { category = null, tag = null } = {}) {
+export function squareCandidates(db, viewer, { category = null, tag = null, source = null, area = null } = {}) {
   const now = clock.now();
+  const params = [now.toISOString()];
+  if (category) params.push(category);
+  if (source) params.push(source);
+  if (area) params.push(area);
   const rows = db.all(
     `SELECT * FROM events WHERE status = 'open' AND source IN ('user', 'platform') AND start_at > ?
-     ${category ? 'AND category = ?' : ''} ORDER BY start_at, id`,
-    ...(category ? [now.toISOString(), category] : [now.toISOString()]),
+     ${category ? 'AND category = ?' : ''}
+     ${source ? 'AND source = ?' : ''}
+     ${area ? 'AND area = ?' : ''} ORDER BY start_at, id`,
+    ...params,
   );
   const key = tag ? tagKey(tag) : '';
   const related = viewer ? blockRelatedIds(db, viewer.id) : new Set();
@@ -297,9 +304,23 @@ export function squareCandidates(db, viewer, { category = null, tag = null } = {
   });
 }
 
-export function squareList(db, viewer, { category, tag, limit = 20, cursor = 0 } = {}) {
+/** 广场排序：soon = 即将开始（默认）、new = 最新发布、filling = 快满了（报名比例高的在前） */
+function sortCandidates(db, rows, sort) {
+  if (sort === 'new') return [...rows].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  if (sort === 'filling') {
+    return [...rows]
+      .map((e) => ({ e, fill: joinedCount(db, e.id) / Math.max(1, e.capacity) }))
+      .sort((a, b) => b.fill - a.fill || (a.e.start_at < b.e.start_at ? -1 : 1))
+      .map((x) => x.e);
+  }
+  return rows; // soon：SQL 已按 start_at 升序
+}
+
+export function squareList(db, viewer, { category, tag, source, area, sort = 'soon', limit = 20, cursor = 0 } = {}) {
   if (category && !CATEGORIES.includes(category)) throw invalid('分类不正确');
-  const all = squareCandidates(db, viewer, { category, tag });
+  if (source && !['user', 'platform'].includes(source)) throw invalid('来源不正确');
+  if (area && !AREAS.includes(area)) throw invalid('片区不正确');
+  const all = sortCandidates(db, squareCandidates(db, viewer, { category, tag, source, area }), sort);
   const page = all.slice(cursor, cursor + limit);
   return {
     items: page.map((e) => eventCard(db, e, viewer)),
@@ -398,10 +419,12 @@ export function parseEventInput(body, { creator = null } = {}) {
     throw invalid('最晚退出时间要在现在和开始时间之间');
   }
   const genderLimit = parseGenderLimit(body, creator);
+  const area = oneOf(body.area, '片区', AREAS, { optional: true }) ?? null;
   return {
     title,
     category,
     tag,
+    area,
     startAt,
     durationMin,
     place,
@@ -446,6 +469,7 @@ function eventColumns(input, tag) {
     gender: input.genderLimit === 'any' ? null : input.genderLimit,
     images: JSON.stringify(input.images),
     location: input.location ? JSON.stringify(input.location) : null,
+    area: input.area,
     exit_deadline: input.exitDeadline.toISOString(),
   };
 }

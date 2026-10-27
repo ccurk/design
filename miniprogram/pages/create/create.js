@@ -11,6 +11,7 @@ const FEES = [
   { value: 'host', label: '我请客' }
 ];
 const PHRASES = ['慢热友好', '新手友好', '不用尬聊', '不喝酒', '自带装备'];
+const AREAS = ['古城', '才村', '下关', '喜洲', '双廊', '海东', '其他']; // 与 server/src/constants.js 的 AREAS 一致
 const EXIT_HOURS = [2, 6, 12, 24, 48];
 const DEFAULT_EXIT = 24;
 // 退出时间至少要比现在晚这么多（填表也要花时间）
@@ -36,6 +37,7 @@ Page({
     timeShow: false,
     place: '',
     location: null,
+    area: '',
     placeShow: false,
     exitHours: DEFAULT_EXIT,
     exitOptions: [],
@@ -317,6 +319,10 @@ Page({
   },
 
   // ===== 发布 =====
+  pickArea() {
+    wx.showActionSheet({ itemList: AREAS, success: (r) => this.setData({ area: AREAS[r.tapIndex] }) });
+  },
+
   publish() {
     if (this.data.submitting) return;
     const d = this.data;
@@ -348,6 +354,7 @@ Page({
       images: d.images
     };
     if (d.location) body.location = d.location;
+    if (d.area) body.area = d.area;
     if (exitHours) body.exitDeadline = new Date(new Date(d.startAt).getTime() - exitHours * 3600000).toISOString();
     if (feeEstimate !== undefined) body.feeEstimate = feeEstimate;
     if (d.description.trim()) body.description = d.description.trim();

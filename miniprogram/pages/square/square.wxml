@@ -21,6 +21,11 @@
         <view wx:for="{{tags}}" wx:key="*this" id="t{{index}}" class="tab {{tag === item ? 'on' : ''}}" data-value="{{item}}" data-index="{{index}}" bindtap="pickTag" aria-role="tab" aria-selected="{{tag === item}}">{{item}}</view>
       </view>
     </scroll-view>
+    <view class="subfilters">
+      <view class="chip-sf {{official ? 'on' : ''}}" hover-class="pressed" bindtap="toggleOfficial">只看官方</view>
+      <view class="chip-sf {{area ? 'on' : ''}}" hover-class="pressed" bindtap="pickArea">{{areaLabel}}</view>
+      <view class="chip-sf {{sort !== 'soon' ? 'on' : ''}}" hover-class="pressed" bindtap="pickSort">{{sortLabel}}</view>
+    </view>
   </view>
 
   <view class="list">

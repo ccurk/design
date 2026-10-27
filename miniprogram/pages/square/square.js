@@ -5,12 +5,23 @@ const nav = require('../../utils/nav');
 const session = require('../../utils/session');
 
 const PAGE_SIZE = 10;
+const AREAS = ['古城', '才村', '下关', '喜洲', '双廊', '海东', '其他']; // 与 server/src/constants.js 的 AREAS 一致
+const SORTS = [
+  { value: 'soon', label: '即将开始' },
+  { value: 'new', label: '最新发布' },
+  { value: 'filling', label: '快满了' }
+];
 
 Page({
   data: {
     tags: [],
     tag: '',
     tagView: '',
+    official: false,
+    area: '',
+    areaLabel: '片区',
+    sort: 'soon',
+    sortLabel: '排序',
     events: [],
     nextCursor: null,
     loading: true,
@@ -73,7 +84,7 @@ Page({
     const hasList = this.data.events.length > 0;
     this.setData({ loading: !(keep && hasList), switching: !!(keep && hasList), error: '', moreError: false });
     return api
-      .events({ tag: this.data.tag, limit: PAGE_SIZE }, { silent: !hasList })
+      .events(this.query(), { silent: !hasList })
       .then((res) => {
         if (seq !== this.seq) return;
         this.setData({ events: res.items || [], nextCursor: res.nextCursor || null, loading: false, switching: false });
@@ -93,7 +104,7 @@ Page({
     const seq = this.seq;
     this.setData({ loadingMore: true, moreError: false });
     api
-      .events({ tag: this.data.tag, limit: PAGE_SIZE, cursor: this.data.nextCursor }, { silent: true })
+      .events(this.query({ cursor: this.data.nextCursor }), { silent: true })
       .then((res) => {
         if (seq !== this.seq) return;
         const seen = {};
@@ -114,6 +125,46 @@ Page({
       wx.pageScrollTo({ scrollTop: this.stickyTop, duration: 0 });
     }
     this.refresh(true);
+  },
+
+  // 拉列表的查询参数：标签 + 只看官方 + 片区 + 排序
+  query(extra) {
+    const q = { tag: this.data.tag, limit: PAGE_SIZE, sort: this.data.sort };
+    if (this.data.official) q.source = 'official';
+    if (this.data.area) q.area = this.data.area;
+    return Object.assign(q, extra || {});
+  },
+
+  // 子筛选改了：若已滚过标签栏，先回到吸顶位置，再从头重拉
+  applyFilter() {
+    if (this.stickyTop !== undefined && (this.scrollTop || 0) > this.stickyTop) {
+      wx.pageScrollTo({ scrollTop: this.stickyTop, duration: 0 });
+    }
+    this.refresh(true);
+  },
+
+  toggleOfficial() {
+    this.setData({ official: !this.data.official }, () => this.applyFilter());
+  },
+
+  pickArea() {
+    wx.showActionSheet({
+      itemList: ['全部片区'].concat(AREAS),
+      success: (r) => {
+        const area = r.tapIndex === 0 ? '' : AREAS[r.tapIndex - 1];
+        this.setData({ area, areaLabel: area || '片区' }, () => this.applyFilter());
+      }
+    });
+  },
+
+  pickSort() {
+    wx.showActionSheet({
+      itemList: SORTS.map((s) => s.label),
+      success: (r) => {
+        const s = SORTS[r.tapIndex];
+        this.setData({ sort: s.value, sortLabel: s.value === 'soon' ? '排序' : s.label }, () => this.applyFilter());
+      }
+    });
   },
 
   goCreate() {

@@ -46,6 +46,19 @@ describe('运营带队的平台局 / 每日自动发布', () => {
     assert.equal(s.db.get("SELECT COUNT(*) AS n FROM event_members WHERE event_id = ? AND status = 'joined'", eventId).n, 2);
   });
 
+  test('广场筛选：只看官方、按片区', async () => {
+    const cycId = publishPlatformEvent(s.db, EVENT_TEMPLATES[1], { date: '2026-10-28' }); // 骑行 · 才村
+    const coffeeId = publishPlatformEvent(s.db, EVENT_TEMPLATES[2], { date: '2026-10-28' }); // 咖啡 · 古城
+    const token = await s.login(makeUser(s.db));
+
+    const official = await s.ok('GET', '/api/events?source=official', { token });
+    assert.ok(official.items.length >= 2 && official.items.every((e) => e.source === 'platform'), '只看官方应全是平台局');
+
+    const cai = await s.ok('GET', `/api/events?area=${encodeURIComponent('才村')}`, { token });
+    assert.ok(cai.items.some((e) => e.id === cycId), '才村应有骑行局');
+    assert.ok(!cai.items.some((e) => e.id === coffeeId), '才村不应有古城的咖啡局');
+  });
+
   test('历史已成团的局(撑场面)不进广场,真人加不到;只有未来开放局进广场', async () => {
     // 一个过去的、已成团的平台局(模拟 seed-coldstart 造的撑场面数据)
     const pastId = s.db.insert('events', {

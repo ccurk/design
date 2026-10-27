@@ -58,6 +58,26 @@
   border-color: var(--primary);
   color: #FFFFFF;
 }
+.subfilters {
+  display: flex;
+  gap: 12rpx;
+  padding: 10rpx 24rpx 0;
+}
+.chip-sf {
+  height: 56rpx;
+  line-height: 54rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 24rpx;
+  color: #5A6472;
+}
+.chip-sf.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #FFFFFF;
+}
 .list {
   min-height: 100vh;
   padding: 16rpx 32rpx 0;

@@ -39,7 +39,10 @@ export function eventRoutes({ db }) {
   r.get('/events', maybeAuth, (req, res) => {
     const category = req.query.category && req.query.category !== 'all' ? String(req.query.category) : null;
     const tag = req.query.tag ? String(req.query.tag) : null; // 按标签筛（规范化后比较）
-    res.json(squareList(db, req.user, { category, tag, ...page(req) }));
+    const source = req.query.source === 'official' || req.query.source === 'platform' ? 'platform' : null; // 只看官方
+    const area = req.query.area && req.query.area !== 'all' ? String(req.query.area) : null; // 按片区
+    const sort = req.query.sort ? String(req.query.sort) : undefined; // soon / new / filling
+    res.json(squareList(db, req.user, { category, tag, source, area, sort, ...page(req) }));
   });
   r.get('/search', maybeAuth, (req, res) => res.json(searchEvents(db, req.user, req.query.q)));
   r.get('/search/hot', (req, res) => res.json(hotTerms(db)));

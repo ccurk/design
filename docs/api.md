@@ -81,7 +81,7 @@
 | `admin_sessions` | token(PK), created_at, expires_at |
 | `intents` | 撮合意向：id, user_id, task（标签名）, category, label, date_from, date_to, slot, time_from, time_to（自定义时间段 `"HH:MM"`，不是自定义时为 null）, area（主片区）, areas（JSON 数组，多选片区，旧意向为 null 时回落到 area）, same_sex_only（按局只约同性）, size_min, size_max, relax_time, relax_size, status(`open`/`proposed`/`invited`/`matched`/`cancelled`/`expired`), event_id, proposal_id, created_at |
 | `proposals` | 系统建议的局：id, task, category, date, slot, area, title, intent_ids(JSON), user_ids(JSON), score(0–100), reasons(JSON 数组), risks(JSON 数组), status(`pending`/`confirmed`/`rejected`/`expired`), event_id, created_at, reviewed_at, review_note。时间窗交集和默认集合时间按当前成员的意向实时算 |
-| `events` | 局：id, title, category（由标签推出）, task（标签名）, description, start_at, duration_min, place, meeting_point, capacity, min_size（成群最少人数）, fee_type(`aa`/`free`/`host`/`split`), fee_estimate, require_approval, same_sex_only + gender（= 谁可以报名 genderLimit：0 + null 为 any，1 + `female`/`male` 为只限女生 / 男生）, images(JSON，相对路径), location(JSON：name, address, latitude, longitude), exit_deadline（最晚退出时间）, source(`matched`/`user`/`platform`), creator_id, status(`pending_review`/`inviting`/`open`/`formed`/`cancelled`/`rejected`), formed_at（成群时间）, icebreaker_index, created_at |
+| `events` | 局：id, title, category（由标签推出）, task（标签名）, description, start_at, duration_min, place, meeting_point, capacity, min_size（成群最少人数）, fee_type(`aa`/`free`/`host`/`split`), fee_estimate, require_approval, same_sex_only + gender（= 谁可以报名 genderLimit：0 + null 为 any，1 + `female`/`male` 为只限女生 / 男生）, images(JSON，相对路径), location(JSON：name, address, latitude, longitude), area（片区，可空，广场按片区筛用）, exit_deadline（最晚退出时间）, source(`matched`/`user`/`platform`), creator_id, status(`pending_review`/`inviting`/`open`/`formed`/`cancelled`/`rejected`), formed_at（成群时间）, icebreaker_index, created_at |
 | `event_members` | event_id, user_id, role(`host`/`member`), status(`invited`/`applied`/`joined`/`declined`/`left`/`removed`), attendance(`pending`/`yes`/`no`), arrived_at, safe_at, muted, last_read_message_id, invited_at, applied_at, joined_at, left_at, invite_expired（邀请到期没回应时为 1，status 仍是 declined） |
 | `messages` | id, event_id, user_id(系统消息为 null), kind(`text`/`system`), text, created_at |
 | `aa_bills` | 每个局一笔 AA：event_id(PK), payer_id（记账人）, amount（总额）, note（包含哪些）, created_at, updated_at。（v0.1 的 `aa_items` 不再使用，旧数据不迁移） |
@@ -313,9 +313,9 @@
 
 | 接口 | 说明 |
 | --- | --- |
-| `GET /api/events` | 广场：`?category=outdoor&tag=骑行&limit=&cursor=` → `{items: EventCard[], nextCursor}`，按开始时间升序，只含 open、还没开始、还没过最晚退出时间的局。`tag` 按规范化后的 key 比较（`?tag=ktv` 也能筛出「KTV」）；`category` 和 `tag` 可以一起用 |
+| `GET /api/events` | 广场：`?category=outdoor&tag=骑行&source=official&area=才村&sort=soon&limit=&cursor=` → `{items: EventCard[], nextCursor}`，默认按开始时间升序，只含 open、还没开始、还没过最晚退出时间的局。`tag` 按规范化后的 key 比较（`?tag=ktv` 也能筛出「KTV」）；`source=official`（即 platform）只看运营局；`area` 按片区筛（`古城`/`才村`/`下关`/`喜洲`/`双廊`/`海东`/`其他`）；`sort`：`soon` 即将开始（默认）/ `new` 最新发布 / `filling` 快满了（报名比例高的在前）。各参数可叠加 |
 | `GET /api/events/:id` | `EventDetail`（撮合局只有成员能看；性别不符的人看不到） |
-| `POST /api/events` | 发起局 `{title, tag, startAt, durationMin?, place?, location?, meetingPoint?, capacity, minSize?, feeType, feeEstimate?, requireApproval, genderLimit?, images?, exitDeadline?, description?, invite?}` → `EventDetail`（过审核则 open，否则 pending_review）。`invite` 是「再约」时上次同行的 userId 列表，发布后给他们发「有人想再约你」通知。字段说明见下 |
+| `POST /api/events` | 发起局 `{title, tag, startAt, durationMin?, place?, area?, location?, meetingPoint?, capacity, minSize?, feeType, feeEstimate?, requireApproval, genderLimit?, images?, exitDeadline?, description?, invite?}` → `EventDetail`（`area` 是片区，见 `GET /api/events`，用于广场按片区筛选）（过审核则 open，否则 pending_review）。`invite` 是「再约」时上次同行的 userId 列表，发布后给他们发「有人想再约你」通知。字段说明见下 |
 | `POST /api/events/:id/join` `{ref?}` | 报名 → `JoinResult`。`ref` 是分享人的 userId（邀请归因：加入后通知分享人「你邀请的朋友来了」）。不能报名时：满员 / 已经截止报名 / 状态不对 → `CONFLICT`，时间重叠 → `CONFLICT`（3.9），已经开始 → `VALIDATION`，账号受限 → `RESTRICTED` |
 | `POST /api/events/:id/leave` | → `{penalty: "cancel_late"\|null}`。过了最晚退出时间 → `CONFLICT`「已过最晚退出时间（10月30日 05:50），不能退出了」 |
 | `POST /api/events/:id/cancel` | 发起人取消 |
@@ -350,7 +350,7 @@
 
 ```json
 { "id": 1, "title": "周六清晨 · 苍山看日出", "category": "outdoor", "task": "看日出", "tag": "看日出",
-  "startAt": "2026-10-30T21:50:00.000Z", "dateLabel": "周六 05:50", "place": "大理古城南门",
+  "startAt": "2026-10-30T21:50:00.000Z", "dateLabel": "周六 05:50", "place": "大理古城南门", "area": "古城",
   "capacity": 5, "memberCount": 4, "membersPreview": [UserBrief, UserBrief, UserBrief],
   "feeLabel": "AA 约 ¥30", "source": "matched", "status": "formed", "phase": "upcoming",
   "cover": "https://api.example.com/uploads/seed-sunrise.png", "coverKey": "sunrise",

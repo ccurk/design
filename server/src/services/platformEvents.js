@@ -16,14 +16,14 @@ export const OPERATOR_OPENID = 'operator_official';
  * start = [时, 分]（北京时间）；category 用 constants.CATEGORIES 里的合法值。
  */
 export const EVENT_TEMPLATES = [
-  { task: '看日出', category: 'outdoor', title: '苍山看日出', slot: 'morning', start: [5, 50], place: '大理古城南门', meetingPoint: '南门城楼下集合，拼车上山', durationMin: 240, capacity: 5, minSize: 3, description: '凌晨集合拼车上苍山看日出，看完一起吃个早饭。只分摊车费和早餐，平台不经手钱。' },
-  { task: '骑行', category: 'outdoor', title: '洱海西岸骑行', slot: 'afternoon', start: [15, 30], place: '才村码头', meetingPoint: '才村码头停车场租车点', durationMin: 180, capacity: 6, minSize: 3, description: '沿洱海西岸慢骑，边骑边停拍照，不赶路。自带或现场租车。' },
-  { task: '咖啡', category: 'coffee', title: '人民路喝咖啡', slot: 'afternoon', start: [15, 0], place: '大理古城人民路', meetingPoint: '人民路中段的咖啡馆（报名后群里定）', durationMin: 90, capacity: 4, minSize: 2, description: '找家安静的咖啡馆坐坐，聊不聊天都行，i 人友好。' },
-  { task: '桌游', category: 'game', title: '古城桌游夜', slot: 'evening', start: [19, 30], place: '床单厂艺术区', meetingPoint: '床单厂的桌游吧（报名后群里定）', durationMin: 180, capacity: 6, minSize: 3, description: '轻度桌游，新手友好，有人带。AA 场地费。' },
-  { task: '徒步', category: 'outdoor', title: '喜洲田野徒步', slot: 'morning', start: [8, 30], place: '喜洲古镇', meetingPoint: '喜洲古镇牌坊下', durationMin: 240, capacity: 8, minSize: 3, description: '沿喜洲稻田慢走一圈，拍拍照，中午一起吃个饭。' },
-  { task: '夜市', category: 'food', title: '大理夜市逛吃', slot: 'evening', start: [19, 0], place: '大理古城', meetingPoint: '古城红龙井入口', durationMin: 120, capacity: 5, minSize: 2, description: '一起逛夜市吃小吃，各付各的也行，图个热闹。' },
-  { task: '读书', category: 'coffee', title: '安静读书会', slot: 'afternoon', start: [15, 0], place: '床单厂艺术区', meetingPoint: '床单厂的书店（报名后群里定）', durationMin: 120, capacity: 6, minSize: 2, description: '各看各的书，不用社交，结束想聊再聊。' },
-  { task: '拼车', category: 'carpool', title: '周末拼车去沙溪', slot: 'allday', start: [8, 0], place: '大理古城', meetingPoint: '古城西门停车场', durationMin: 600, capacity: 4, minSize: 2, description: '拼车去沙溪古镇玩一天，分摊油费过路费，当天往返。' },
+  { task: '看日出', category: 'outdoor', title: '苍山看日出', slot: 'morning', start: [5, 50], area: '古城', place: '大理古城南门', meetingPoint: '南门城楼下集合，拼车上山', durationMin: 240, capacity: 5, minSize: 3, description: '凌晨集合拼车上苍山看日出，看完一起吃个早饭。只分摊车费和早餐，平台不经手钱。' },
+  { task: '骑行', category: 'outdoor', title: '洱海西岸骑行', slot: 'afternoon', start: [15, 30], area: '才村', place: '才村码头', meetingPoint: '才村码头停车场租车点', durationMin: 180, capacity: 6, minSize: 3, description: '沿洱海西岸慢骑，边骑边停拍照，不赶路。自带或现场租车。' },
+  { task: '咖啡', category: 'coffee', title: '人民路喝咖啡', slot: 'afternoon', start: [15, 0], area: '古城', place: '大理古城人民路', meetingPoint: '人民路中段的咖啡馆（报名后群里定）', durationMin: 90, capacity: 4, minSize: 2, description: '找家安静的咖啡馆坐坐，聊不聊天都行，i 人友好。' },
+  { task: '桌游', category: 'game', title: '古城桌游夜', slot: 'evening', start: [19, 30], area: '古城', place: '床单厂艺术区', meetingPoint: '床单厂的桌游吧（报名后群里定）', durationMin: 180, capacity: 6, minSize: 3, description: '轻度桌游，新手友好，有人带。AA 场地费。' },
+  { task: '徒步', category: 'outdoor', title: '喜洲田野徒步', slot: 'morning', start: [8, 30], area: '喜洲', place: '喜洲古镇', meetingPoint: '喜洲古镇牌坊下', durationMin: 240, capacity: 8, minSize: 3, description: '沿喜洲稻田慢走一圈，拍拍照，中午一起吃个饭。' },
+  { task: '夜市', category: 'food', title: '大理夜市逛吃', slot: 'evening', start: [19, 0], area: '古城', place: '大理古城', meetingPoint: '古城红龙井入口', durationMin: 120, capacity: 5, minSize: 2, description: '一起逛夜市吃小吃，各付各的也行，图个热闹。' },
+  { task: '读书', category: 'coffee', title: '安静读书会', slot: 'afternoon', start: [15, 0], area: '古城', place: '床单厂艺术区', meetingPoint: '床单厂的书店（报名后群里定）', durationMin: 120, capacity: 6, minSize: 2, description: '各看各的书，不用社交，结束想聊再聊。' },
+  { task: '拼车', category: 'carpool', title: '周末拼车去沙溪', slot: 'allday', start: [8, 0], area: '古城', place: '大理古城', meetingPoint: '古城西门停车场', durationMin: 600, capacity: 4, minSize: 2, description: '拼车去沙溪古镇玩一天，分摊油费过路费，当天往返。' },
 ];
 
 /** 运营账号：平台局的组织者，会真实到场。没有就建一个（按 openid 幂等）。 */
@@ -65,6 +65,7 @@ export function publishPlatformEvent(db, template, { date, operatorId } = {}) {
       tag: template.task,
       startAt: startAt.toISOString(),
       durationMin: template.durationMin,
+      area: template.area,
       place: template.place,
       meetingPoint: template.meetingPoint,
       capacity: template.capacity,
