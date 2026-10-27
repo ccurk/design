@@ -8,18 +8,41 @@
 
     <block wx:if="{{canApply}}">
       <view class="box">
+        <text class="label">真实姓名</text>
+        <input class="field" value="{{realName}}" placeholder="与证件一致，仅用于审核，不会公开" placeholder-class="ph" maxlength="20" bindinput="onRealName" />
+      </view>
+
+      <view class="box">
+        <text class="label">擅长带什么（可多选）</text>
+        <view class="chips">
+          <view wx:for="{{specialtyList}}" wx:key="*this" class="chip {{specPicked[item] ? 'on' : ''}}" data-spec="{{item}}" bindtap="toggleSpec" aria-role="checkbox" aria-checked="{{specPicked[item]}}">{{item}}</view>
+        </view>
+      </view>
+
+      <view class="box">
         <text class="label">带队介绍 / 经验</text>
         <textarea class="text" value="{{intro}}" placeholder="你常带什么局？在大理多久了？为什么想做官方带队？" placeholder-class="ph" maxlength="500" bindinput="onIntro" />
         <view class="count">{{intro.length}}/500</view>
       </view>
+
       <view class="box">
-        <text class="label">资质 / 相关照片（选填）</text>
-        <dz-uploader max="{{9}}" size="{{196}}" cover="{{true}}" bindchange="onImages" />
-        <view class="t-12 c-2">带队照片、行程、证照等，帮平台更快通过。</view>
+        <text class="label">紧急联系人</text>
+        <input class="field" value="{{emName}}" placeholder="联系人姓名" placeholder-class="ph" maxlength="20" bindinput="onEmName" />
+        <input class="field field-gap" value="{{emPhone}}" type="number" placeholder="联系人电话" placeholder-class="ph" maxlength="20" bindinput="onEmPhone" />
+        <view class="t-12 c-2">带队要去线下，留个紧急联系人，只有平台可见。</view>
       </view>
-      <view class="note">
-        <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
-        <text>官方带队由平台审核、真实到场组织局。请如实填写。</text>
+
+      <view class="box">
+        <text class="label">证明材料</text>
+        <dz-uploader max="{{9}}" size="{{196}}" cover="{{true}}" bindchange="onImages" />
+        <view class="t-12 c-2">身份证件 / 带队照片 / 行程 / 资质证书，至少一张，帮平台更快通过。</view>
+      </view>
+
+      <view class="agree" hover-class="pressed" bindtap="toggleAgree" aria-role="checkbox" aria-checked="{{agree}}">
+        <view class="cbox {{agree ? 'on' : ''}}">
+          <image wx:if="{{agree}}" class="ico-14" src="/assets/icons/check-white.svg" />
+        </view>
+        <text class="t-13 c-2">我承诺以上信息真实，并对带队活动的安全负责。官方带队由平台审核、真实到场组织局。</text>
       </view>
     </block>
   </view>

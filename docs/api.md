@@ -258,8 +258,8 @@
 | `GET /api/me/safety` · `PUT /api/me/safety` | `{sameSexOnly, checkInReminder, profileOpen, emergencyContact: {name, phone}\|null}`；返回时手机号打码 `phoneMasked`，并附 `blocked: UserBrief[]` |
 | `GET /api/me/credit-events` | 我的信用记录列表 |
 | `POST /api/credit-events/:id/appeal` `{text}` | 申诉 |
-| `GET /api/leader-application` | 我的官方带队申请状态：`{isLeader, application: {id, intro, images, status(`pending`/`approved`/`rejected`), note, createdAt, reviewedAt}\|null}` |
-| `POST /api/leader-application` `{intro, images?}` | 申请成为官方带队（需先完成手机号认证）：`intro` 10–500 字，`images` 最多 9 张。返回同上。一次只能有一个待审核申请 |
+| `GET /api/leader-application` | 我的官方带队申请状态：`{isLeader, application: {id, realName, specialties, intro, emergencyName, emergencyPhone, images, status(`pending`/`approved`/`rejected`), note, createdAt, reviewedAt}\|null}` |
+| `POST /api/leader-application` `{realName, specialties, intro, emergencyName, emergencyPhone, images, agree}` | 申请成为官方带队（结构化认证，需先完成手机号认证）：`realName` 2–20 字；`specialties` 至少一项（`徒步`/`骑行`/`登山`/`摄影`/`露营`/`桌游`/`咖啡`/`美食`/`读书`/`拼车自驾`/`其他`）；`intro` 10–500 字；`emergencyName` 2–20 字 + `emergencyPhone`（6–20 位）；`images` 证明材料至少 1 张、最多 9 张；`agree` 须为 true。返回同上。一次只能有一个待审核申请 |
 
 `Me`：
 

@@ -23,3 +23,27 @@
   font-size: 24rpx;
   color: var(--text-2);
 }
+.field-gap {
+  margin-top: 16rpx;
+}
+.agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 0 8rpx;
+}
+.cbox {
+  flex-shrink: 0;
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 8rpx;
+  border: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2rpx;
+}
+.cbox.on {
+  background: var(--primary);
+  border-color: var(--primary);
+}

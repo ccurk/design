@@ -86,9 +86,12 @@ export default {
         <a class="btn btn--outline btn--sm" :href="'#/users?id=' + it.user.id">看信用记录</a>
       </div>
       <div class="stack-8">
+        <p class="small"><span class="muted">真实姓名：</span>{{ it.realName || '—' }}</p>
+        <p class="small" v-if="it.specialties && it.specialties.length"><span class="muted">擅长带队：</span>{{ it.specialties.join('、') }}</p>
+        <p class="small"><span class="muted">紧急联系人：</span>{{ it.emergencyName || '—' }}<template v-if="it.emergencyPhone"> · {{ it.emergencyPhone }}</template></p>
         <span class="label">带队介绍 / 经验</span>
         <blockquote class="quote">{{ it.intro }}</blockquote>
-        <Thumbs :images="imagesOf(it)" label="资质 / 相关照片" />
+        <Thumbs :images="imagesOf(it)" label="证明材料" />
       </div>
       <div v-if="s.rejId !== it.id" class="actions">
         <button type="button" class="btn btn--primary btn--lg" :disabled="s.busy === it.id" @click="review(it, true)">通过，成为官方带队</button>

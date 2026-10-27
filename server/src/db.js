@@ -91,6 +91,10 @@ CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
 CREATE TABLE IF NOT EXISTS leader_applications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
+  real_name TEXT,
+  specialties TEXT,
+  emergency_name TEXT,
+  emergency_phone TEXT,
   intro TEXT NOT NULL,
   images TEXT NOT NULL DEFAULT '[]',
   status TEXT NOT NULL DEFAULT 'pending',
@@ -351,6 +355,13 @@ const COLUMN_MIGRATIONS = [
   // 撮合：多选片区 + 按局的「只约同性」
   ['intents', 'areas', 'TEXT'],
   ['intents', 'same_sex_only', 'INTEGER NOT NULL DEFAULT 0'],
+  // 发起局的片区
+  ['events', 'area', 'TEXT'],
+  // 官方带队结构化认证
+  ['leader_applications', 'real_name', 'TEXT'],
+  ['leader_applications', 'specialties', 'TEXT'],
+  ['leader_applications', 'emergency_name', 'TEXT'],
+  ['leader_applications', 'emergency_phone', 'TEXT'],
 ];
 
 function migrate(raw) {
