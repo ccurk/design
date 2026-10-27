@@ -8,6 +8,7 @@ const upload = require('../../utils/upload');
 
 const NEGATIVE = ['late', 'cancel_late', 'no_show'];
 const APPEAL_STATE = { pending: '申诉中', approved: '申诉通过', rejected: '申诉未通过' };
+const RECORD_PREVIEW = 8; // 信用记录默认只展开最近这么多，其余折进「查看全部」
 
 Page({
   data: {
@@ -15,6 +16,9 @@ Page({
     error: '',
     creditText: '',
     records: [],
+    visibleRecords: [],
+    recordsMore: 0,
+    showAllRecords: false,
     appealable: false,
     showRecords: false
   },
@@ -72,7 +76,9 @@ Page({
             canAppeal
           };
         });
-        this.setData({ records, appealable: records.some((r) => r.canAppeal) });
+        // 可申诉的负面记录置顶，其余保持时间倒序；默认只展开最近 RECORD_PREVIEW 条
+        const ordered = records.filter((r) => r.canAppeal).concat(records.filter((r) => !r.canAppeal));
+        this.setData({ records: ordered, appealable: ordered.some((r) => r.canAppeal) }, () => this.applyRecordView());
       })
       .catch(() => {});
   },
@@ -81,9 +87,22 @@ Page({
     this.setData({ showRecords: !this.data.showRecords });
   },
 
+  // 默认只显示最近 RECORD_PREVIEW 条，点「查看全部」才铺开，避免活跃用户一直下拉
+  applyRecordView() {
+    const { records, showAllRecords } = this.data;
+    this.setData({
+      visibleRecords: showAllRecords ? records : records.slice(0, RECORD_PREVIEW),
+      recordsMore: Math.max(0, records.length - RECORD_PREVIEW)
+    });
+  },
+
+  toggleAllRecords() {
+    this.setData({ showAllRecords: !this.data.showAllRecords }, () => this.applyRecordView());
+  },
+
   appeal(e) {
-    const r = this.data.records[e.currentTarget.dataset.index];
-    if (!r) return;
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
     native.prompt({ title: '申诉这条记录', placeholderText: '说说当时的情况，比如提前在群里说过', confirmText: '提交' }).then((text) => {
       if (text === null) return;
       if (!text) {
@@ -91,7 +110,7 @@ Page({
         return;
       }
       api
-        .appeal(r.id, text)
+        .appeal(id, text)
         .then(() => {
           wx.showToast({ title: '已提交，平台会尽快处理', icon: 'none' });
           this.loadRecords();

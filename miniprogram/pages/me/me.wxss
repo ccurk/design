@@ -91,6 +91,13 @@
   padding: 12rpx 0;
   border-bottom: 1px solid var(--divider);
 }
+.record-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  min-height: 80rpx;
+}
 .gap-2 {
   gap: 4rpx;
 }

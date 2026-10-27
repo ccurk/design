@@ -46,13 +46,17 @@
         <image class="ico-14 {{showRecords ? 'turn' : ''}}" src="/assets/icons/chevron-right-muted.svg" />
       </view>
       <view wx:if="{{showRecords}}" class="records">
-        <view wx:for="{{records}}" wx:key="id" class="record">
+        <view wx:for="{{visibleRecords}}" wx:key="id" class="record">
           <view class="flex1 col gap-2">
             <text class="t-14 w7">{{item.typeLabel}}{{item.eventTitle ? ' · ' + item.eventTitle : ''}}</text>
             <text class="t-12 c-2">{{item.date}}{{item.note ? ' · ' + item.note : ''}}</text>
           </view>
-          <view wx:if="{{item.canAppeal}}" class="btn btn-xs btn-outline appeal-btn" hover-class="pressed" data-index="{{index}}" bindtap="appeal">申诉</view>
+          <view wx:if="{{item.canAppeal}}" class="btn btn-xs btn-outline appeal-btn" hover-class="pressed" data-id="{{item.id}}" bindtap="appeal">申诉</view>
           <text wx:elif="{{item.state}}" class="pill pill-pill">{{item.state}}</text>
+        </view>
+        <view wx:if="{{recordsMore}}" class="record-more" hover-class="pressed" bindtap="toggleAllRecords">
+          <text class="t-13 c-2">{{showAllRecords ? '收起' : '查看全部 ' + records.length + ' 条'}}</text>
+          <image class="ico-14 {{showAllRecords ? 'turn' : ''}}" src="/assets/icons/chevron-right-muted.svg" />
         </view>
       </view>
     </view>

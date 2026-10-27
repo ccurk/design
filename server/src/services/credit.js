@@ -77,7 +77,7 @@ export function listCreditEvents(db, userId) {
          (SELECT a.status FROM appeals a WHERE a.credit_event_id = c.id ORDER BY a.id DESC LIMIT 1) AS appeal_status,
          (SELECT a.id FROM appeals a WHERE a.credit_event_id = c.id ORDER BY a.id DESC LIMIT 1) AS appeal_id
        FROM credit_events c LEFT JOIN events e ON e.id = c.event_id
-       WHERE c.user_id = ? ORDER BY c.created_at DESC, c.id DESC`,
+       WHERE c.user_id = ? ORDER BY c.created_at DESC, c.id DESC LIMIT 200`,
       userId,
     )
     .map(creditEventView);

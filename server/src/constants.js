@@ -40,7 +40,12 @@ export function defaultDurationForTask(task) {
   return 120;
 }
 
+/** 大理常用活动片区：撮合（多选）、广场筛选、发起局共用的位置维度。'其他' 兜底。 */
+export const AREAS = ['古城', '才村', '下关', '喜洲', '双廊', '海东', '其他'];
 export const DEFAULT_AREA = '古城';
+
+/** 官方带队申请：擅长带队的方向（结构化认证用，至少选一项） */
+export const LEADER_SPECIALTIES = ['徒步', '骑行', '登山', '摄影', '露营', '桌游', '咖啡', '美食', '读书', '拼车自驾', '其他'];
 
 export const ICEBREAKERS = [
   '来大理以后，你最喜欢的一个瞬间是什么？',
