@@ -1,5 +1,5 @@
 // 撮合局的邀请流程：后台确认 → inviting；接受 / 换一批；补邀；邀请到期；成局或取消（docs/api.md 3.2）。
-import { clock, HOUR } from '../clock.js';
+import { clock, HOUR, MINUTE } from '../clock.js';
 import { FEE_TYPES, defaultDurationForTask } from '../constants.js';
 import { json } from '../db.js';
 import { conflict, invalid, notFound, restricted } from '../errors.js';
@@ -38,13 +38,25 @@ import { tagCategory, tagKey } from './tags.js';
 import { allBlockPairs, getUser, isNewUser, userBrief, userSettings } from './users.js';
 
 const INVITE_TTL = 24 * HOUR; // 邀请 24 小时内有效
-const LAST_CALL = 12 * HOUR; // 离开场不到 12 小时不再等
+const LAST_CALL = 12 * HOUR; // 正常提前量：离开场 12 小时就不再等
+const SHORT_LAST_CALL = 30 * MINUTE; // 当天 / 短时局：缩到离开场 30 分钟，否则一建好邀请期就已过去
+const MIN_LEAD = 60 * MINUTE; // 确认成局时离开场至少要留这么久，否则来不及邀请成局
+
+/**
+ * 离开场多久停止邀请 / 等待回应。正常是 12 小时；本来就临近开场的局（当天撮合，
+ * 建局到开场不足 12 小时）用更短的 30 分钟，这样当天的局也能真正凑人，
+ * 而不是邀请截止时间一上来就已经是过去（原来固定减 12h 会让当天局一建即死）。
+ */
+function lastCall(event) {
+  const lead = Date.parse(event.start_at) - Date.parse(event.created_at);
+  return lead >= LAST_CALL + MIN_LEAD ? LAST_CALL : SHORT_LAST_CALL;
+}
 
 /** 某个被邀请人的回应期限 */
 export function inviteDeadline(event, member) {
   const start = Date.parse(event.start_at);
   const invited = Date.parse(member.invited_at || event.created_at);
-  return new Date(Math.min(invited + INVITE_TTL, start - LAST_CALL));
+  return new Date(Math.min(invited + INVITE_TTL, start - lastCall(event)));
 }
 
 /** 整个局的邀请期限：最后一个被邀请的人的回应期限（到点后够人成局，不够取消） */
@@ -52,7 +64,7 @@ export function eventInviteDeadline(event, rows) {
   // 只看还在等回应的人：已退出 / 过期的成员不该把整局的取消期限往后拖
   const invitedAt = rows.filter((r) => r.status === 'invited').map((r) => Date.parse(r.invited_at || event.created_at));
   const lastInvite = invitedAt.length ? Math.max(...invitedAt) : Date.parse(event.created_at);
-  return new Date(Math.min(lastInvite + INVITE_TTL, Date.parse(event.start_at) - LAST_CALL));
+  return new Date(Math.min(lastInvite + INVITE_TTL, Date.parse(event.start_at) - lastCall(event)));
 }
 
 function inviteNotice(db, userId, event) {
@@ -92,7 +104,9 @@ export function confirmProposal(db, proposalId, overrides = {}) {
     const now = clock.now();
     // 默认集合时刻：没人用自定义时间段时按任务 / 时间段；有人用了取大家时间窗交集的开始（见 proposalPlan）
     const startAt = isoTime(overrides.startAt, '集合时间', { optional: true }) ?? proposalPlan(p, intents).startAt;
-    if (startAt.getTime() <= now.getTime()) throw invalid('集合时间已经过了，请修改时间');
+    if (startAt.getTime() - now.getTime() < MIN_LEAD) {
+      throw invalid('太临近开场了，来不及邀请成局，请把集合时间改晚一点');
+    }
     const durationMin =
       int(overrides.durationMin, '时长', { min: 30, max: 24 * 60, optional: true }) ?? defaultDurationForTask(p.task);
     const capacity = int(overrides.capacity, '人数上限', { min: 2, max: 20, optional: true }) ?? intents.length;
@@ -331,7 +345,7 @@ function cancelUnderfilled(db, event) {
 export function backfillEvent(db, event, pool = null, used = new Set()) {
   if (!event || event.status !== 'inviting' || event.source !== 'matched') return 0;
   const now = clock.now();
-  if (now.getTime() >= Date.parse(event.start_at) - LAST_CALL) return 0;
+  if (now.getTime() >= Date.parse(event.start_at) - lastCall(event)) return 0;
   const rows = db.all('SELECT * FROM event_members WHERE event_id = ?', event.id);
   const active = rows.filter((r) => ['invited', 'joined'].includes(r.status));
   let seats = event.capacity - active.length;

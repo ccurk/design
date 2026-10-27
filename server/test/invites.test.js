@@ -231,4 +231,64 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     assert.equal(items[0].myStatus, 'matching');
     assert.equal((await s.ok('GET', '/api/me', { token: t })).ongoingCount, 1);
   });
+
+  test('当天 / 短时撮合局：邀请截止在开场前而非过去，成员能加入并成局（H1 回归）', async () => {
+    // 现在是周一 10:00；三个人想今天下午（自定义 14:00–17:00）一起 → 开场只有 4 小时提前量
+    const sameDay = Array.from({ length: 3 }, () => makeUser(s.db));
+    sameDay.forEach((u) => addCredit(s.db, u, 'attended', 2));
+    sameDay.forEach((u) =>
+      makeIntent(s.db, u, {
+        date_from: '2026-10-26',
+        date_to: '2026-10-26',
+        slot: 'afternoon',
+        time_from: '14:00',
+        time_to: '17:00',
+        size_min: 2,
+        size_max: 5,
+      }),
+    );
+    runMatching(s.db);
+    const t = await Promise.all(sameDay.map((u) => s.login(u)));
+    const adminTok = await s.adminToken();
+    const { items } = await s.ok('GET', '/api/admin/proposals?status=pending', { token: adminTok });
+    const proposal = items[0];
+
+    const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, {
+      token: adminTok,
+      body: { capacity: 3 },
+    });
+    const event = s.db.get('SELECT * FROM events WHERE id = ?', eventId);
+    assert.equal(event.status, 'inviting');
+    assert.equal(event.start_at, '2026-10-26T06:00:00.000Z'); // 今天 14:00 北京时间
+
+    // 关键：邀请截止时间要在未来（短时局缩到开场前的短窗口），不是过去——
+    // 以前固定减 12h 会让当天局一建好邀请期就已经过去，没人能加入
+    const match = await s.ok('GET', `/api/matches/${eventId}`, { token: t[0] });
+    assert.ok(match.deadline, '被邀请人应看到邀请截止时间');
+    assert.ok(new Date(match.deadline).getTime() > clock.now().getTime(), '邀请截止时间应在未来');
+
+    // 三个人都能点「加入」→ 成局，而不是被判过期
+    for (const token of t) {
+      const r = await s.ok('POST', `/api/matches/${eventId}/accept`, { token });
+      assert.notEqual(r.expired, true);
+    }
+    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'formed');
+  });
+
+  test('确认成局时离开场太近（不足 1 小时）→ 拒绝，不生成一建即死的局（H1 回归）', async () => {
+    const users3 = Array.from({ length: 3 }, () => makeUser(s.db));
+    users3.forEach((u) => addCredit(s.db, u, 'attended', 2));
+    users3.forEach((u) => makeIntent(s.db, u)); // 默认周六的局
+    runMatching(s.db);
+    const adminTok = await s.adminToken();
+    const { items } = await s.ok('GET', '/api/admin/proposals?status=pending', { token: adminTok });
+    // 管理员把集合时间手动改到 40 分钟后 → 太临近，来不及邀请成局
+    const soonStart = new Date(clock.now().getTime() + 40 * 60 * 1000).toISOString();
+    const res = await s.api('POST', `/api/admin/proposals/${items[0].id}/confirm`, {
+      token: adminTok,
+      body: { startAt: soonStart, capacity: 3 },
+    });
+    assert.equal(res.status, 400);
+    assert.equal(s.db.get('SELECT COUNT(*) AS n FROM events').n, 0); // 没有建出任何局
+  });
 });
