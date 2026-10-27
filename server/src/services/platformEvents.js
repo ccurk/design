@@ -47,7 +47,8 @@ export function ensureOperator(db) {
 /** 这个模板在某天的局标题，如「周六下午 · 洱海西岸骑行」（不超过 30 字）。 */
 export function templateTitle(template, startAt) {
   const label = template.slot === 'allday' ? '' : slotLabel(template.slot, template.task);
-  return `${weekdayName(startAt)}${label} · ${template.title}`.slice(0, 30);
+  // weekdayName 要的是北京日期字符串，startAt 是 Date，先转回 bjDate（否则取到「周undefined」）
+  return `${weekdayName(bjDate(startAt))}${label} · ${template.title}`.slice(0, 30);
 }
 
 /**

@@ -27,6 +27,8 @@ describe('运营带队的平台局 / 每日自动发布', () => {
       assert.equal(members[0].user_id, op.id);
       assert.ok(e.capacity > members.length); // 还有空位留给真人
       assert.ok(Date.parse(e.start_at) > clock.now().getTime()); // 都是未来的局
+      assert.ok(!e.title.includes('undefined'), `标题不该有 undefined：${e.title}`);
+      assert.match(e.title, /^周[日一二三四五六]/, `标题应以周几开头：${e.title}`);
     }
   });
 
