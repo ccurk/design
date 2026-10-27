@@ -75,7 +75,13 @@ export function updateMe(db, user, body = {}) {
       patch.cover_url = p;
     }
   }
-  if (body.gender !== undefined) patch.gender = oneOf(body.gender, '性别', ['female', 'male', 'unknown']);
+  if (body.gender !== undefined) {
+    patch.gender = oneOf(body.gender, '性别', ['female', 'male', 'unknown']);
+    // 开了「只参加同性局」就不能把性别改回未填，否则会被撮合静默排除（与 updateSafety 的校验对称）
+    if (patch.gender === 'unknown' && userSettings(user).sameSexOnly) {
+      throw invalid('开了「只参加同性局」，先去安全设置里关掉才能把性别改回未填');
+    }
+  }
   if (body.pace !== undefined) patch.pace = oneOf(body.pace, '社交节奏', ['slow', 'warm', 'open']);
   if (body.interests !== undefined) {
     patch.interests = JSON.stringify(strArray(body.interests, '兴趣', { maxItems: 12, maxLen: 10 }));
@@ -217,8 +223,8 @@ export function publicProfile(db, viewer, targetId) {
     )
     .filter((e) => {
       const sharedWithMe = shared.includes(e.id);
-      // 撮合局只有成员能看到：没一起参加过的、还没结束的撮合局不展示
-      return sharedWithMe || e.source !== 'matched' || phaseOf(e, now) === 'ended';
+      // 撮合局只有成员能看到（README「可见性」）：没一起参加过的撮合局一律不展示，已结束的也不例外
+      return sharedWithMe || e.source !== 'matched';
     })
     .slice(0, 5)
     .map((e) => ({

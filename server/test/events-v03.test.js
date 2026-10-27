@@ -44,6 +44,15 @@ describe('谁可以报名 genderLimit', () => {
     assert.deepEqual([open.genderLimit, open.genderLabel, open.sameSexOnly], ['any', null, false]);
   });
 
+  test('开了「只参加同性局」后不能把性别改回未填（与 updateSafety 对称）', async () => {
+    const token = await s.login(makeUser(s.db, { gender: 'female' }));
+    await s.ok('PUT', '/api/me/safety', { token, body: { sameSexOnly: true } });
+    assert.equal((await s.api('PUT', '/api/me', { token, body: { gender: 'unknown' } })).status, 400);
+    // 关掉开关后就能改
+    await s.ok('PUT', '/api/me/safety', { token, body: { sameSexOnly: false } });
+    await s.ok('PUT', '/api/me', { token, body: { gender: 'unknown' } });
+  });
+
   test('性别不符（含未填）的人看不到、也报不了名；平台局可以任意限制', async () => {
     const admin = await s.adminToken();
     const { eventId } = await s.ok('POST', '/api/admin/events', { token: admin, body: body({ genderLimit: 'male', title: '男生夜跑' }) });

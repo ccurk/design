@@ -11,7 +11,7 @@ import { creditOf, effectiveStatus, upsertEventCredit } from './credit.js';
 import { notify } from './notices.js';
 import { assertNoOverlap, firstOverlap } from './overlap.js';
 import { coverKeyFor, parseTag, tagKey, useTag } from './tags.js';
-import { blockRelatedIds, getUser, userBrief, userSettings } from './users.js';
+import { blockRelatedIds, getUser, userBrief } from './users.js';
 
 export { shortTitle };
 
@@ -275,12 +275,12 @@ export function squareCandidates(db, viewer, { category = null, tag = null } = {
   );
   const key = tag ? tagKey(tag) : '';
   const related = viewer ? blockRelatedIds(db, viewer.id) : new Set();
-  const settings = viewer ? userSettings(viewer) : null;
+  // 「只参加同性局」只约束撮合（见 matchRules.pairCompatible / docs §3.2），不作为广场 / 首页 / 搜索的浏览过滤：
+  // 否则开了该设置的人这些页面几乎全空，却又允许手动加入这些混合局，自相矛盾。
   return rows.filter((e) => {
     if (exitDeadlinePassed(e, now)) return false;
     if (key && tagKey(e.task) !== key) return false;
     if (!genderAllowed(e, viewer)) return false;
-    if (settings?.sameSexOnly && genderLimitOf(e) === 'any') return false;
     if (related.size) {
       if (e.creator_id && related.has(e.creator_id)) return false;
       if (joinedMembers(db, e.id).some((x) => related.has(x.user_id))) return false;

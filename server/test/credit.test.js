@@ -24,12 +24,12 @@ describe('信用计算（纯函数）', () => {
     assert.equal(computeCredit({ attended: 3, late: 2 }).eventsCount, 5);
   });
 
-  test('等级：<90 或一个月内有放鸽子为一般；受限账号或一个月内放鸽子 ≥2 为受限', () => {
+  test('等级：<90 或一个月内放鸽子为一般；受限 / 封禁账号为受限（放鸽子 2 次的停撮由账号状态控制，不靠等级）', () => {
     assert.equal(computeCredit({ attended: 9, cancelLate: 1 }).level, 'good'); // 90
     assert.equal(computeCredit({ attended: 8, cancelLate: 1 }).level, 'fair'); // 89
     assert.equal(computeCredit({ attended: 30, noShow: 1, recentNoShow: 1 }).level, 'fair');
     assert.equal(computeCredit({ attended: 30, noShow: 1, recentNoShow: 0 }).level, 'good');
-    assert.equal(computeCredit({ attended: 30, noShow: 2, recentNoShow: 2 }).level, 'restricted');
+    assert.equal(computeCredit({ attended: 30, noShow: 2, recentNoShow: 2 }).level, 'fair'); // 放鸽子 2 次是「一般」；7 天停撮由账号状态(restricted_until)强制
     assert.equal(computeCredit({ attended: 30, status: 'restricted' }).level, 'restricted');
   });
 });
@@ -79,6 +79,8 @@ describe('信用（数据库）', () => {
     clock.advance(7 * 86400000 + 60000);
     const me = await s.ok('GET', '/api/me', { token });
     assert.equal(me.status, 'active');
+    // 且 7 天后真能再撮合：放鸽子 2 次是停撮 7 天，不是靠信用等级拖到约 30 天
+    await s.ok('POST', '/api/intents', { token, body: { task: '看日出', when: 'tomorrow' } });
   });
 
   test('信用记录列表与申诉：后台通过后记录撤销、履约率回升', async () => {

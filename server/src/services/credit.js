@@ -22,7 +22,9 @@ export function computeCredit({ attended = 0, late = 0, cancelLate = 0, noShow =
   const total = kept + cancelLate + noShow;
   const rate = total === 0 ? 100 : Math.round((kept / total) * 100);
   let level = 'good';
-  if (status === 'restricted' || status === 'banned' || recentNoShow >= 2) level = 'restricted';
+  // 受限 / 封禁账号为受限等级。放鸽子 2 次触发的是 7 天「停撮」——由账号状态 restricted_until 控制
+  // （见 checkAutoRestrict），不在这里再按 30 天的 recentNoShow 顶成受限，否则 7 天会被拖成约 30 天。
+  if (status === 'restricted' || status === 'banned') level = 'restricted';
   else if (rate < 90 || recentNoShow >= 1) level = 'fair';
   return { rate, level, attended, late, cancelLate, noShow, eventsCount: kept };
 }

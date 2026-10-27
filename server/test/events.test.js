@@ -178,6 +178,14 @@ describe('用户发起的局', () => {
     assert.equal(r.status, 404);
   });
 
+  test('开了「只参加同性局」的人仍能在广场看到并加入混合局（该设置只约束撮合，不过滤浏览）', async () => {
+    const ev = await hostEvent(await s.login(makeUser(s.db))); // 默认 any 混合局
+    const viewer = await s.login(makeUser(s.db, { gender: 'female', settings: { sameSexOnly: true } }));
+    const square = await s.ok('GET', '/api/events', { token: viewer });
+    assert.ok(square.items.some((e) => e.id === ev.id), '开了「只参加同性局」也应看到混合局');
+    await s.ok('POST', `/api/events/${ev.id}/join`, { token: viewer }); // 看得到也加得进，前后一致
+  });
+
   test('内容审核不过 → pending_review，只有发起人看得到；后台通过后进广场', async () => {
     const host = makeUser(s.db);
     const th = await s.login(host);
