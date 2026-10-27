@@ -53,6 +53,13 @@ export function intentWindow(intent) {
 
 const windowOf = (x) => x.window ?? intentWindow(x);
 const keyOf = (x) => x.taskKey ?? tagKey(x.task);
+const areasOf = (x) => (Array.isArray(x.areas) && x.areas.length ? x.areas : [x.area]);
+
+/** 两个意向的片区有交集（多选「范围」只要有重叠就能同组） */
+export function areasOverlap(a, b) {
+  const set = new Set(areasOf(b));
+  return areasOf(a).some((x) => set.has(x));
+}
 
 export function datesOverlap(a, b) {
   return a.date_from <= b.date_to && b.date_from <= a.date_to;
@@ -104,7 +111,8 @@ export function enrichIntent(db, intent, now = clock.now()) {
     gender: user.gender,
     pace: user.pace,
     interests: json.parse(user.interests, []),
-    sameSexOnly: userSettings(user).sameSexOnly,
+    areas: json.parse(intent.areas, null) || [intent.area],
+    sameSexOnly: userSettings(user).sameSexOnly || Boolean(intent.same_sex_only),
     userStatus: effectiveStatus(user, now),
     creditLevel: credit.level,
     isNew: isNewUser(db, user.id),
@@ -114,7 +122,7 @@ export function enrichIntent(db, intent, now = clock.now()) {
 /** 两个意向能否进同一组（同标签、同地区、日期重叠、时间窗交集 ≥ 60 分钟、没有拉黑、同性规则） */
 export function pairCompatible(a, b, blocks) {
   if (a.user_id === b.user_id) return false;
-  if (keyOf(a) !== keyOf(b) || a.area !== b.area) return false;
+  if (keyOf(a) !== keyOf(b) || !areasOverlap(a, b)) return false;
   if (!datesOverlap(a, b) || !windowsCompatible(a, b)) return false;
   if (blocks.has(`${a.user_id}:${b.user_id}`) || blocks.has(`${b.user_id}:${a.user_id}`)) return false;
   if (a.sameSexOnly || b.sameSexOnly) {

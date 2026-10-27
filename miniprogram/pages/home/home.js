@@ -12,6 +12,7 @@ const WHENS = [
 ];
 const BANNER_FALLBACK = ['sunrise', 'cycling', 'oldtown', 'lake'];
 const GRID_MAX = 10;
+const AREAS = ['古城', '才村', '下关', '喜洲', '双廊', '海东', '其他']; // 与 server/src/constants.js 的 AREAS 保持一致
 
 function describe(intent, detail) {
   if (intent.status === 'invited') return { sub: '配到了，去看看是谁', pill: '撮合成功', pillClass: 'pill-accent' };
@@ -63,6 +64,9 @@ Page({
     rangeTo: '17:00',
     todayClosed: false,
     cta: '',
+    areas: AREAS,
+    areaPicked: { 古城: true },
+    sameSexOnly: false,
     submitting: false
   },
 
@@ -321,6 +325,16 @@ Page({
     this.sheets({ rangeShow: false, slot: 'custom', timeFrom: from, timeTo: to }, () => this.updateCta());
   },
 
+  // 片区多选：勾一个或多个能接受的片区，撮合时有交集就能配上
+  toggleArea(e) {
+    const area = e.currentTarget.dataset.area;
+    this.setData({ areaPicked: Object.assign({}, this.data.areaPicked, { [area]: !this.data.areaPicked[area] }) });
+  },
+
+  toggleSameSex(e) {
+    this.setData({ sameSexOnly: e.detail.value });
+  },
+
   // 「帮我选择 · 本周末上午 · 看日出」
   updateCta() {
     const { when, pickedDateLabel, slot, timeFrom, timeTo, task } = this.data;
@@ -338,7 +352,26 @@ Page({
       this.openTags();
       return;
     }
-    const body = { task, when };
+    const areas = this.data.areas.filter((a) => this.data.areaPicked[a]);
+    if (!areas.length) {
+      wx.showToast({ title: '选一个片区吧', icon: 'none' });
+      return;
+    }
+    if (this.data.sameSexOnly) {
+      const me = session.cachedMe();
+      if (me && me.gender !== 'female' && me.gender !== 'male') {
+        wx.showModal({
+          title: '先填一下性别',
+          content: '只约同性需要知道你的性别，只用于撮合，不会公开。',
+          confirmText: '去填写',
+          cancelText: '先不用',
+          confirmColor: '#193543',
+          success: (r) => r.confirm && wx.navigateTo({ url: '/pages/edit-profile/edit-profile' })
+        });
+        return;
+      }
+    }
+    const body = { task, when, areas, sameSexOnly: this.data.sameSexOnly };
     if (slot === 'custom') {
       body.timeFrom = timeFrom;
       body.timeTo = timeTo;

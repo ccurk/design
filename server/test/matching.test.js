@@ -54,6 +54,42 @@ describe('撮合引擎', () => {
     assert.equal(runMatching(s.db).created, 0);
   });
 
+  test('片区多选：只要有交集就能配到一组', () => {
+    const users = [1, 2, 3].map(() => makeUser(s.db));
+    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
+    makeIntent(s.db, users[0], { area: '古城', areas: JSON.stringify(['古城', '才村']) });
+    makeIntent(s.db, users[1], { area: '才村', areas: JSON.stringify(['才村', '下关']) });
+    makeIntent(s.db, users[2], { area: '才村', areas: JSON.stringify(['才村']) });
+    assert.equal(runMatching(s.db).created, 1); // 都包含「才村」
+  });
+
+  test('片区多选：没有交集不会配到一起', () => {
+    makeIntent(s.db, makeUser(s.db), { area: '古城', areas: JSON.stringify(['古城']) });
+    makeIntent(s.db, makeUser(s.db), { area: '下关', areas: JSON.stringify(['下关']) });
+    makeIntent(s.db, makeUser(s.db), { area: '双廊', areas: JSON.stringify(['双廊']) });
+    assert.equal(runMatching(s.db).created, 0);
+  });
+
+  test('按局的「只约同性」：唯一能成的组必须跨性别时配不成（无需开全局同性局）', () => {
+    const f1 = makeUser(s.db, { gender: 'female' });
+    const f2 = makeUser(s.db, { gender: 'female' });
+    const m = makeUser(s.db, { gender: 'male' });
+    [f1, f2, m].forEach((u) => addCredit(s.db, u, 'attended', 2));
+    makeIntent(s.db, f1, { same_sex_only: 1 });
+    makeIntent(s.db, f2);
+    makeIntent(s.db, m);
+    assert.equal(runMatching(s.db).created, 0);
+  });
+
+  test('按局的「只约同性」：同性别照常成组', () => {
+    const users = [1, 2, 3].map(() => makeUser(s.db, { gender: 'female' }));
+    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
+    makeIntent(s.db, users[0], { same_sex_only: 1 });
+    makeIntent(s.db, users[1]);
+    makeIntent(s.db, users[2]);
+    assert.equal(runMatching(s.db).created, 1);
+  });
+
   test('allday 或「时间放宽到全天」可以和任何时间段配', () => {
     const users = [1, 2, 3].map(() => makeUser(s.db));
     makeIntent(s.db, users[0], { slot: 'afternoon' });

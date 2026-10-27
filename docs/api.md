@@ -79,7 +79,7 @@
 | `users` | id, openid(唯一), phone, nickname, avatar_url（本站上传的存相对路径）, bio, gender(`female`/`male`/`unknown`), pace(`slow`/`warm`/`open`), interests(JSON 数组), phone_verified, id_verified, status(`active`/`restricted`/`banned`), restricted_until, restricted_reason（受限 / 封禁的原因）, settings(JSON：sameSexOnly, checkInReminder, profileOpen), emergency_contact(JSON：name, phone), onboarded, created_at |
 | `sessions` | token(PK), user_id, created_at, expires_at |
 | `admin_sessions` | token(PK), created_at, expires_at |
-| `intents` | 撮合意向：id, user_id, task（标签名）, category, label, date_from, date_to, slot, time_from, time_to（自定义时间段 `"HH:MM"`，不是自定义时为 null）, area, size_min, size_max, relax_time, relax_size, status(`open`/`proposed`/`invited`/`matched`/`cancelled`/`expired`), event_id, proposal_id, created_at |
+| `intents` | 撮合意向：id, user_id, task（标签名）, category, label, date_from, date_to, slot, time_from, time_to（自定义时间段 `"HH:MM"`，不是自定义时为 null）, area（主片区）, areas（JSON 数组，多选片区，旧意向为 null 时回落到 area）, same_sex_only（按局只约同性）, size_min, size_max, relax_time, relax_size, status(`open`/`proposed`/`invited`/`matched`/`cancelled`/`expired`), event_id, proposal_id, created_at |
 | `proposals` | 系统建议的局：id, task, category, date, slot, area, title, intent_ids(JSON), user_ids(JSON), score(0–100), reasons(JSON 数组), risks(JSON 数组), status(`pending`/`confirmed`/`rejected`/`expired`), event_id, created_at, reviewed_at, review_note。时间窗交集和默认集合时间按当前成员的意向实时算 |
 | `events` | 局：id, title, category（由标签推出）, task（标签名）, description, start_at, duration_min, place, meeting_point, capacity, min_size（成群最少人数）, fee_type(`aa`/`free`/`host`/`split`), fee_estimate, require_approval, same_sex_only + gender（= 谁可以报名 genderLimit：0 + null 为 any，1 + `female`/`male` 为只限女生 / 男生）, images(JSON，相对路径), location(JSON：name, address, latitude, longitude), exit_deadline（最晚退出时间）, source(`matched`/`user`/`platform`), creator_id, status(`pending_review`/`inviting`/`open`/`formed`/`cancelled`/`rejected`), formed_at（成群时间）, icebreaker_index, created_at |
 | `event_members` | event_id, user_id, role(`host`/`member`), status(`invited`/`applied`/`joined`/`declined`/`left`/`removed`), attendance(`pending`/`yes`/`no`), arrived_at, safe_at, muted, last_read_message_id, invited_at, applied_at, joined_at, left_at, invite_expired（邀请到期没回应时为 1，status 仍是 declined） |
@@ -288,7 +288,7 @@
 
 | 接口 | 说明 |
 | --- | --- |
-| `POST /api/intents` | `{task, when: "today"\|"tomorrow"\|"weekend"\|"YYYY-MM-DD", slot? \| timeFrom? + timeTo?, area?, sizeMin?, sizeMax?, label?, relaxTime?, relaxSize?}` → `Intent`（提交后立刻触发一次撮合）。`task` 是标签（规则见 1.2）；`when` 只能选 30 天以内；`slot`（morning / afternoon / evening / allday）和 `timeFrom` + `timeTo`（`"HH:MM"`，北京时间，任意分钟，05:00 ≤ timeFrom < timeTo ≤ 23:59，至少 60 分钟）二选一，同时给 → `VALIDATION`「时间段和具体时间只能选一个」，只给一个 → 「请同时填写开始和结束时间」，都不给按任务给默认时间段。时间已经过去 → `VALIDATION`；同一个标签、日期有重叠的意向已经在撮合中 → `CONFLICT`；时间窗里已经没有空档 → `CONFLICT`（3.9）。`label` 是展示名，如「洱海边骑行」 |
+| `POST /api/intents` | `{task, when: "today"\|"tomorrow"\|"weekend"\|"YYYY-MM-DD", slot? \| timeFrom? + timeTo?, area?, areas?, sizeMin?, sizeMax?, label?, relaxTime?, relaxSize?, sameSexOnly?}` → `Intent`（提交后立刻触发一次撮合）。`areas` 是多选片区（`古城`/`才村`/`下关`/`喜洲`/`双廊`/`海东`/`其他` 的子集，非法 → `VALIDATION`），撮合时片区**有交集**即可配到一起，不传则按单个 `area`；`sameSexOnly` 为按局只约同性（需已填性别，否则 `VALIDATION`），与「安全设置」的全局同性局取并集。`task` 是标签（规则见 1.2）；`when` 只能选 30 天以内；`slot`（morning / afternoon / evening / allday）和 `timeFrom` + `timeTo`（`"HH:MM"`，北京时间，任意分钟，05:00 ≤ timeFrom < timeTo ≤ 23:59，至少 60 分钟）二选一，同时给 → `VALIDATION`「时间段和具体时间只能选一个」，只给一个 → 「请同时填写开始和结束时间」，都不给按任务给默认时间段。时间已经过去 → `VALIDATION`；同一个标签、日期有重叠的意向已经在撮合中 → `CONFLICT`；时间窗里已经没有空档 → `CONFLICT`（3.9）。`label` 是展示名，如「洱海边骑行」 |
 | `GET /api/intents/mine` | `{items: Intent[]}`（open / proposed / invited 状态） |
 | `GET /api/intents/:id` | `Intent` + `{similarCount, needMore, submittedAt}`。similarCount = 其他条件相同（能和我配到一起）的 open 意向数 |
 | `PUT /api/intents/:id` | `{relaxTime?, relaxSize?}`（也接受 PATCH；小程序的 `wx.request` 不支持 PATCH，所以用 PUT） |
@@ -541,7 +541,7 @@
 - `minSize` / `maxSize`：组里所有人约好的人数范围（3.2 第 3 条）。人数比 minSize 少时界面要提示「还差 n 人」，确认会被拒。
 - `window`：当前成员时间窗的交集（`"HH:MM"`）；`windowLabel`：有人用了自定义时间段时是「14:10–16:00」，否则是时间段（清晨 / 上午 / 下午 / 晚上 / 全天）。`defaultStartAt`：确认表单里集合时间的默认值（3.2 的默认集合时刻，落在 `date` 那天）。`members[].timeLabel`：每个人自己选的时间。
 
-`PoolIntent`：`{id, user: UserBrief, task, title, dateFrom, dateTo, slot, slotLabel, timeFrom, timeTo, timeLabel, area, sizeMin, sizeMax, relaxTime, relaxSize, status, eventId, proposalId, isNew, createdAt, waitingHours}`。`isNew` = 这个人还没有到场记录（第一次参加）；`proposalId` / `eventId` = 所在的建议局 / 撮合局；`waitingHours` = 已经等了几个小时（取整）；时间字段同 `Intent`。
+`PoolIntent`：`{id, user: UserBrief, task, title, dateFrom, dateTo, slot, slotLabel, timeFrom, timeTo, timeLabel, area, areas, sameSexOnly, sizeMin, sizeMax, relaxTime, relaxSize, status, eventId, proposalId, isNew, createdAt, waitingHours}`。`isNew` = 这个人还没有到场记录（第一次参加）；`proposalId` / `eventId` = 所在的建议局 / 撮合局；`waitingHours` = 已经等了几个小时（取整）；时间字段同 `Intent`。
 
 `AdminEventCard` = `EventCard` + `{creator: UserBrief|null, createdAt, reportCount, flags, reviewNote, cancelReason, formedAt, joinedCount, invitedCount, inviteDeadline}`
 

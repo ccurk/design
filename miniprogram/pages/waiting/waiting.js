@@ -105,7 +105,8 @@ Page({
     for (let i = 0; i < filled; i++) seats.push({ key: 'f' + i, filled: true, alt: i % 2 === 1 });
     for (let j = 0; j < empty; j++) seats.push({ key: 'e' + j, filled: false });
     const time = it.relaxTime ? '全天' : it.timeLabel || it.slotLabel || format.SLOT[it.slot];
-    const meta = [time, format.sizeLabel(it.sizeMin, it.sizeMax, it.relaxSize), it.area ? it.area + '附近出发' : '']
+    const areaText = it.areas && it.areas.length ? it.areas.join('/') : it.area;
+    const meta = [time, format.sizeLabel(it.sizeMin, it.sizeMax, it.relaxSize), areaText ? areaText + '附近出发' : '', it.sameSexOnly ? '只约同性' : '']
       .filter(Boolean)
       .join(' · ');
     const proposed = it.status === 'proposed';

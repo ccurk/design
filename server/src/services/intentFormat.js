@@ -4,6 +4,17 @@ import { rangeLabel, slotLabel } from '../time.js';
 
 const isCustom = (intent) => Boolean(intent.time_from && intent.time_to);
 
+/** 意向的片区列表（多选，兼容旧的单个 area） */
+function intentAreas(intent) {
+  try {
+    const a = JSON.parse(intent.areas);
+    if (Array.isArray(a) && a.length) return a;
+  } catch {
+    // 旧意向没有 areas 字段，回落到单个 area
+  }
+  return intent.area ? [intent.area] : [];
+}
+
 /** 时间标签：清晨 / 上午 / 下午 / 晚上 / 全天，自定义时间段是「14:00–17:00」 */
 export function intentTimeLabel(intent) {
   return isCustom(intent) ? `${intent.time_from}–${intent.time_to}` : slotLabel(intent.slot, intent.task);
@@ -32,6 +43,8 @@ export function intentView(intent, now = clock.now()) {
     timeTo: isCustom(intent) ? intent.time_to : null,
     timeLabel: intentTimeLabel(intent),
     area: intent.area,
+    areas: intentAreas(intent),
+    sameSexOnly: Boolean(intent.same_sex_only),
     sizeMin: intent.size_min,
     sizeMax: intent.size_max,
     relaxTime: Boolean(intent.relax_time),

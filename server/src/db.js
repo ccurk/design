@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS intents (
   date_to TEXT NOT NULL,
   slot TEXT NOT NULL,
   area TEXT NOT NULL,
+  areas TEXT,
+  same_sex_only INTEGER NOT NULL DEFAULT 0,
   size_min INTEGER NOT NULL DEFAULT 3,
   size_max INTEGER NOT NULL DEFAULT 5,
   relax_time INTEGER NOT NULL DEFAULT 0,
@@ -346,6 +348,9 @@ const COLUMN_MIGRATIONS = [
   ['events', 'exit_deadline', 'TEXT'],
   ['event_members', 'invited_by', 'INTEGER'],
   ['users', 'is_leader', 'INTEGER NOT NULL DEFAULT 0'],
+  // 撮合：多选片区 + 按局的「只约同性」
+  ['intents', 'areas', 'TEXT'],
+  ['intents', 'same_sex_only', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 function migrate(raw) {

@@ -1,6 +1,6 @@
 // 撮合意向：提交（立刻触发一次撮合）、查看、放宽条件、取消。
 import { clock } from '../clock.js';
-import { DEFAULT_AREA, defaultSlotForTask } from '../constants.js';
+import { AREAS, DEFAULT_AREA, defaultSlotForTask } from '../constants.js';
 import { conflict, invalid, notFound, restricted } from '../errors.js';
 import {
   EARLIEST_MINUTE,
@@ -62,6 +62,15 @@ function datesBetween(from, to) {
   return dates;
 }
 
+/** 解析撮合的多选片区：去重、必须在 AREAS 里；传了但全不合法就报错，没传返回 [] */
+function parseAreas(raw) {
+  if (!Array.isArray(raw) || !raw.length) return [];
+  const out = [];
+  for (const a of raw) if (typeof a === 'string' && AREAS.includes(a) && !out.includes(a)) out.push(a);
+  if (!out.length) throw invalid('片区不正确');
+  return out;
+}
+
 export function createIntent(db, user, body) {
   assertCanMatch(db, user);
   const now = clock.now();
@@ -73,7 +82,11 @@ export function createIntent(db, user, body) {
   if (range.dateFrom < today) throw invalid('不能选已经过去的日子');
   if (range.dateTo > addDays(today, 30)) throw invalid('只能选 30 天以内的日子');
   const { slot, timeFrom, timeTo } = parseIntentTime(body, task);
-  const area = str(body.area, '地区', { max: 20, optional: true }) ?? DEFAULT_AREA;
+  const picked = parseAreas(body.areas); // 多选片区（范围），已校验/去重
+  const area = picked[0] ?? str(body.area, '地区', { max: 20, optional: true }) ?? DEFAULT_AREA;
+  const areas = picked.length ? picked : [area];
+  const sameSexOnly = bool(body.sameSexOnly, '只约同性', { optional: true }) ?? false;
+  if (sameSexOnly && user.gender !== 'female' && user.gender !== 'male') throw invalid('先在资料里填写性别，才能只约同性');
   const sizeMin = int(body.sizeMin, '最少人数', { min: 2, max: 20, optional: true }) ?? 3;
   const sizeMax = int(body.sizeMax, '最多人数', { min: 2, max: 20, optional: true }) ?? Math.max(5, sizeMin);
   if (sizeMin > sizeMax) throw invalid('最少人数不能大于最多人数');
@@ -113,6 +126,8 @@ export function createIntent(db, user, body) {
       time_from: timeFrom,
       time_to: timeTo,
       area,
+      areas: JSON.stringify(areas),
+      same_sex_only: sameSexOnly ? 1 : 0,
       size_min: sizeMin,
       size_max: sizeMax,
       relax_time: relaxTime,

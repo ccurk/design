@@ -357,6 +357,12 @@
 .ms-ico {
   margin-right: 8rpx;
 }
+.ms-samesex {
+  margin-top: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
 .ms-note {
   margin-top: 8rpx;
   display: flex;

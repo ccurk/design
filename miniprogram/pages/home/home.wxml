@@ -192,6 +192,19 @@
       </view>
     </view>
 
+    <view class="ms-label">在哪片区</view>
+    <view class="chips">
+      <view wx:for="{{areas}}" wx:key="*this" class="chip chip-sm {{areaPicked[item] ? 'on' : ''}}" data-area="{{item}}" bindtap="toggleArea" aria-role="checkbox" aria-checked="{{areaPicked[item]}}">{{item}}</view>
+    </view>
+
+    <view class="ms-samesex">
+      <view class="flex1 col gap-2">
+        <text class="t-14 w5">只约同性</text>
+        <text class="t-12 c-2">只和同性别的人撮合。想长期开启可在安全设置里设。</text>
+      </view>
+      <dz-switch checked="{{sameSexOnly}}" label="只约同性" bindchange="toggleSameSex" />
+    </view>
+
     <view class="ms-note">
       <image class="ico-14" src="/assets/icons/shield-check-gray.svg" />
       <text>意向只有你自己看得到。配到时间合得来的人，第一时间通知你。</text>
