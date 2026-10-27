@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { clock } from '../src/clock.js';
-import { makeUser, startServer } from './helpers.js';
+import { processExitDeadlines } from '../src/services/events.js';
+import { DAY, makeUser, startServer } from './helpers.js';
 
 let s;
 
@@ -184,6 +185,57 @@ describe('用户发起的局', () => {
     const square = await s.ok('GET', '/api/events', { token: viewer });
     assert.ok(square.items.some((e) => e.id === ev.id), '开了「只参加同性局」也应看到混合局');
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: viewer }); // 看得到也加得进，前后一致
+  });
+
+  test('组局有效期：超过 7 天还没凑够人 → 自动解散并通知（即使还没到最晚退出时间）', () => {
+    const host = makeUser(s.db);
+    const start = new Date(clock.now().getTime() + 20 * DAY); // 开场还在 20 天后
+    const eventId = s.db.insert('events', {
+      title: '很久以后 · 苍山看日出',
+      category: 'outdoor',
+      task: '看日出',
+      start_at: start.toISOString(),
+      duration_min: 240,
+      place: '大理古城南门',
+      capacity: 5,
+      min_size: 3,
+      source: 'user',
+      creator_id: host,
+      status: 'open',
+      exit_deadline: new Date(start.getTime() - DAY).toISOString(),
+      created_at: new Date(clock.now().getTime() - 8 * DAY).toISOString(), // 8 天前建的
+    });
+    s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: new Date(clock.now().getTime() - 8 * DAY).toISOString() });
+
+    const r = processExitDeadlines(s.db); // 还没到最晚退出时间，但超过了 7 天组局有效期
+    assert.equal(r.cancelled, 1);
+    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'cancelled');
+    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'event_cancelled'", host), '发起人应收到解散通知');
+  });
+
+  test('组局有效期内（没超）、还没到最晚退出时间的 open 局不受影响', () => {
+    const host = makeUser(s.db);
+    const start = new Date(clock.now().getTime() + 20 * DAY);
+    const eventId = s.db.insert('events', {
+      title: '很久以后 · 洱海骑行',
+      category: 'outdoor',
+      task: '骑行',
+      start_at: start.toISOString(),
+      duration_min: 180,
+      place: '才村码头',
+      capacity: 5,
+      min_size: 3,
+      source: 'user',
+      creator_id: host,
+      status: 'open',
+      exit_deadline: new Date(start.getTime() - DAY).toISOString(),
+      created_at: new Date(clock.now().getTime() - 2 * DAY).toISOString(), // 才 2 天前建的
+    });
+    s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
+
+    const r = processExitDeadlines(s.db);
+    assert.equal(r.cancelled, 0);
+    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'open'); // 还在凑人
   });
 
   test('内容审核不过 → pending_review，只有发起人看得到；后台通过后进广场', async () => {

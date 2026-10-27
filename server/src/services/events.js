@@ -101,6 +101,14 @@ export function exitDeadlineOf(event) {
   return defaultExitDeadline(event.start_at, new Date(event.created_at));
 }
 
+/** 组局有效期：建局后这么久还没凑够人就自动解散（独立于开场时间，远期的局不会一直挂在广场） */
+export const ORGANIZE_TTL = 7 * 24 * HOUR;
+
+/** 还在凑人的局是否已超过组局有效期 */
+export function organizeExpired(event, now = clock.now()) {
+  return now.getTime() >= Date.parse(event.created_at) + ORGANIZE_TTL;
+}
+
 export function exitDeadlinePassed(event, now = clock.now()) {
   return now.getTime() >= exitDeadlineOf(event).getTime();
 }
@@ -716,14 +724,22 @@ export function cancelByHost(db, user, eventId) {
  * 已加入人数 ≥ minSize 就成群，不够就取消（原因「没凑齐人」）；两种情况都通知所有人。
  * 成群时还在等发起人同意的申请一并结束（不再接受报名）。
  * 早就结束了的局（老库升级、服务停了很久）只改状态，不再发通知。
+ * 另外：还没到最晚退出时间、但超过组局有效期（ORGANIZE_TTL）还没凑够人的局，也会自动解散并通知。
  */
 export function processExitDeadlines(db, now = clock.now()) {
   return db.tx(() => {
     const result = { formed: 0, cancelled: 0 };
     const rows = db.all("SELECT * FROM events WHERE status = 'open' AND source IN ('user', 'platform') ORDER BY start_at, id");
     for (const event of rows) {
-      if (!exitDeadlinePassed(event, now)) continue;
       const enough = joinedCount(db, event.id) >= Math.max(2, event.min_size);
+      if (!exitDeadlinePassed(event, now)) {
+        // 还没到最晚退出时间：只处理「超过组局有效期还没凑够人」→ 自动解散并通知其他人
+        if (organizeExpired(event, now) && !enough) {
+          cancelEvent(db, event, { reason: '没凑齐人', notifyHost: true, systemText: '太久没凑齐人，这个局自动解散了' });
+          result.cancelled++;
+        }
+        continue;
+      }
       if (phaseOf(event, now) === 'ended') {
         const patch = enough
           ? { status: 'formed', formed_at: event.formed_at || exitDeadlineOf(event).toISOString() }
