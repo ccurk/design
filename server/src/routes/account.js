@@ -5,6 +5,7 @@ import { createSession, requireUser } from '../auth.js';
 import { forbidden, invalid, notFound } from '../errors.js';
 import { str } from '../validate.js';
 import { createAppeal } from '../services/appeals.js';
+import { applyLeader, myLeaderStatus } from '../services/leaders.js';
 import { listCreditEvents } from '../services/credit.js';
 import { meView, publicProfile, safetyView, updateMe, updateSafety } from '../services/profile.js';
 import { block, getUser, maskPhone, mute, unblock, unmute } from '../services/users.js';
@@ -81,6 +82,9 @@ export function accountRoutes({ db, config, wechat }) {
   r.put('/me/safety', auth, (req, res) => res.json(updateSafety(db, req.user, body(req))));
   r.get('/me/credit-events', auth, (req, res) => res.json({ items: listCreditEvents(db, req.user.id) }));
   r.post('/credit-events/:id/appeal', auth, (req, res) => res.json(createAppeal(db, req.user, pid(req), body(req))));
+
+  r.get('/leader-application', auth, (req, res) => res.json(myLeaderStatus(db, req.user)));
+  r.post('/leader-application', auth, (req, res) => res.json(applyLeader(db, req.user, body(req))));
 
   r.get('/users/:id', auth, (req, res) => res.json(publicProfile(db, req.user, pid(req))));
   r.post('/blocks/:userId', auth, (req, res) => res.json(block(db, req.user.id, pid(req, 'userId'))));

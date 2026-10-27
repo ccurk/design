@@ -48,6 +48,7 @@ export function userBrief(db, userOrId, now = clock.now()) {
     avatarColor: AVATAR_COLORS[user.id % 4],
     creditRate: credit.rate,
     creditLevel: credit.level,
+    isLeader: Boolean(user.is_leader),
   };
 }
 

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   interests TEXT NOT NULL DEFAULT '[]',
   phone_verified INTEGER NOT NULL DEFAULT 0,
   id_verified INTEGER NOT NULL DEFAULT 0,
+  is_leader INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active',
   restricted_until TEXT,
   restricted_reason TEXT,
@@ -84,6 +85,18 @@ CREATE TABLE IF NOT EXISTS proposals (
   review_note TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
+
+CREATE TABLE IF NOT EXISTS leader_applications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  intro TEXT NOT NULL,
+  images TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  note TEXT,
+  created_at TEXT NOT NULL,
+  reviewed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_leader_apps ON leader_applications(status, id);
 
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -332,6 +345,7 @@ const COLUMN_MIGRATIONS = [
   ['events', 'location', 'TEXT'],
   ['events', 'exit_deadline', 'TEXT'],
   ['event_members', 'invited_by', 'INTEGER'],
+  ['users', 'is_leader', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 function migrate(raw) {

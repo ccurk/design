@@ -46,6 +46,7 @@ export function meView(db, user) {
     interests: json.parse(user.interests, []),
     phoneVerified: Boolean(user.phone_verified),
     idVerified: Boolean(user.id_verified),
+    isLeader: Boolean(user.is_leader),
     status: effectiveStatus(user),
     onboarded: Boolean(user.onboarded),
     credit: creditOf(db, user),

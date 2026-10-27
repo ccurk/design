@@ -18,6 +18,7 @@ import {
   stats,
 } from '../services/admin.js';
 import { listAppeals, resolveAppeal } from '../services/appeals.js';
+import { listLeaderApplications, reviewLeaderApplication } from '../services/leaders.js';
 import { createPlatformEvent } from '../services/events.js';
 import { confirmProposal, remindInvitees } from '../services/invites.js';
 import {
@@ -154,6 +155,10 @@ export function adminRoutes({ db, config }) {
   r.get('/appeals', (req, res) => res.json(listAppeals(db, statusQuery(req, 'pending'))));
   r.post('/appeals/:id/resolve', (req, res) =>
     res.json(resolveAppeal(db, pid(req), { approve: body(req).approve, note: note(req) })),
+  );
+  r.get('/leader-applications', (req, res) => res.json(listLeaderApplications(db, statusQuery(req, 'pending'))));
+  r.post('/leader-applications/:id/review', (req, res) =>
+    res.json(reviewLeaderApplication(db, pid(req), body(req).approve, note(req))),
   );
 
   // 标签（/tags/hot 要写在 /tags/:id 前面）
