@@ -58,10 +58,18 @@ Page({
     uploading: false,
     submitting: false,
     published: false,
-    doneText: ''
+    doneText: '',
+    reunionNote: ''
   },
 
   onLoad(query) {
+    // C 再约：从群信息带来的「上次同行的人」和地点
+    const invite = query && query.invite ? String(query.invite).split(',').map(Number).filter((n) => n > 0) : [];
+    this.inviteIds = invite;
+    const prefill = {};
+    if (query && query.place) prefill.place = decodeURIComponent(query.place);
+    if (invite.length) prefill.reunionNote = '已带上上次同行的 ' + invite.length + ' 人，发布后会通知他们来';
+    if (Object.keys(prefill).length) this.setData(prefill);
     session.loadHotTags().then((tags) => {
       const patch = { hotTags: tags };
       // 从首页 / 广场带了标签过来
@@ -343,6 +351,7 @@ Page({
     if (exitHours) body.exitDeadline = new Date(new Date(d.startAt).getTime() - exitHours * 3600000).toISOString();
     if (feeEstimate !== undefined) body.feeEstimate = feeEstimate;
     if (d.description.trim()) body.description = d.description.trim();
+    if (this.inviteIds && this.inviteIds.length) body.invite = this.inviteIds;
 
     this.setData({ submitting: true });
     api

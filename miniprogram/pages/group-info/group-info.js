@@ -74,6 +74,17 @@ Page({
     wx.navigateTo({ url: '/pages/detail/detail?id=' + this.id });
   },
 
+  // C 再约：带上这帮人和地点去发起一个新局
+  reunion() {
+    const ev = this.data.event;
+    if (!ev) return;
+    const ids = (this.data.members || []).filter((m) => !m.isMe && m.id).map((m) => m.id);
+    const q = ['tag=' + encodeURIComponent(ev.tag || ev.task || ''), 'place=' + encodeURIComponent(ev.place || ''), ids.length ? 'invite=' + ids.join(',') : '']
+      .filter(Boolean)
+      .join('&');
+    wx.navigateTo({ url: '/pages/create/create?' + q });
+  },
+
   openUser(e) {
     const { id, me } = e.currentTarget.dataset;
     if (!id || me) return;

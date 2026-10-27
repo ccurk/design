@@ -287,6 +287,14 @@ describe('用户发起的局', () => {
     assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'invite_joined'").n, 0);
   });
 
+  test('再约：发起时带 invite → 通知上次同行的人（不含自己）', async () => {
+    const host = makeUser(s.db);
+    const mate = makeUser(s.db);
+    await hostEvent(await s.login(host), { invite: [mate, host] }); // host 自己会被忽略
+    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'reunion_invite'", mate), '同行的人应收到再约通知');
+    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE user_id = ? AND type = 'reunion_invite'", host).n, 0);
+  });
+
   test('内容审核不过 → pending_review，只有发起人看得到；后台通过后进广场', async () => {
     const host = makeUser(s.db);
     const th = await s.login(host);

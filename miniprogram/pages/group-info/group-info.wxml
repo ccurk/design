@@ -30,6 +30,11 @@
   </view>
 
   <view class="list-card mx-16 mt-12">
+    <view wx:if="{{members.length > 1}}" class="list-row member" hover-class="pressed" bindtap="reunion">
+      <image class="ico-20" src="/assets/icons/refresh-ink.svg" />
+      <text class="flex1 t-15 w5">再约这帮人</text>
+      <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+    </view>
     <view class="list-row member" hover-class="pressed" bindtap="openAA">
       <image class="ico-20" src="/assets/icons/wallet-ink.svg" />
       <text class="flex1 t-15 w5">AA</text>

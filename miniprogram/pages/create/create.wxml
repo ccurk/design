@@ -1,5 +1,9 @@
 <view wx:if="{{!published}}" class="page">
   <view class="form">
+    <view wx:if="{{reunionNote}}" class="banner">
+      <image class="ico-18" src="/assets/icons/people-primary.svg" />
+      <text class="flex1">{{reunionNote}}</text>
+    </view>
     <view class="banner" hover-class="pressed" bindtap="goHome">
       <image class="ico-18" src="/assets/icons/sparkle-primary.svg" />
       <text class="flex1">不想自己张罗？回首页说出想做的事，平台帮你凑人。</text>

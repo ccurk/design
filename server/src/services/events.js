@@ -451,6 +451,24 @@ function eventColumns(input, tag) {
 }
 
 /** 用户发起局：过审核则 open，否则 pending_review；发起人自动加入（要检查时间重叠） */
+/** C 再约：发起人把上次同行的人（body.invite 的 userId 列表）请回来，给每个有效用户发通知 */
+function notifyReunion(db, event, host, invite) {
+  if (!Array.isArray(invite)) return;
+  const seen = new Set();
+  for (const raw of invite.slice(0, 20)) {
+    const uid = Number(raw);
+    if (!Number.isInteger(uid) || uid <= 0 || uid === host.id || seen.has(uid)) continue;
+    seen.add(uid);
+    if (!getUser(db, uid)) continue;
+    notify(db, uid, {
+      type: 'reunion_invite',
+      title: '有人想再约你',
+      body: `${host.nickname} 发起了「${shortTitle(event.title)}」，想再约你一起，去看看吧`,
+      link: `event:${event.id}`,
+    });
+  }
+}
+
 export function createUserEvent(db, user, body) {
   if (effectiveStatus(user) !== 'active' || creditOf(db, user).level === 'restricted') {
     throw restricted('账号受限中，暂时不能发起局');
@@ -484,7 +502,9 @@ export function createUserEvent(db, user, body) {
       attendance: 'pending',
       joined_at: now,
     });
-    return getEvent(db, id);
+    const event = getEvent(db, id);
+    notifyReunion(db, event, user, body.invite); // C 再约：通知上次同行的人
+    return event;
   });
 }
 

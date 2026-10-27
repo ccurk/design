@@ -315,8 +315,8 @@
 | --- | --- |
 | `GET /api/events` | 广场：`?category=outdoor&tag=骑行&limit=&cursor=` → `{items: EventCard[], nextCursor}`，按开始时间升序，只含 open、还没开始、还没过最晚退出时间的局。`tag` 按规范化后的 key 比较（`?tag=ktv` 也能筛出「KTV」）；`category` 和 `tag` 可以一起用 |
 | `GET /api/events/:id` | `EventDetail`（撮合局只有成员能看；性别不符的人看不到） |
-| `POST /api/events` | 发起局 `{title, tag, startAt, durationMin?, place?, location?, meetingPoint?, capacity, minSize?, feeType, feeEstimate?, requireApproval, genderLimit?, images?, exitDeadline?, description?}` → `EventDetail`（过审核则 open，否则 pending_review）。字段说明见下 |
-| `POST /api/events/:id/join` | 报名 → `JoinResult`。不能报名时：满员 / 已经截止报名 / 状态不对 → `CONFLICT`，时间重叠 → `CONFLICT`（3.9），已经开始 → `VALIDATION`，账号受限 → `RESTRICTED` |
+| `POST /api/events` | 发起局 `{title, tag, startAt, durationMin?, place?, location?, meetingPoint?, capacity, minSize?, feeType, feeEstimate?, requireApproval, genderLimit?, images?, exitDeadline?, description?, invite?}` → `EventDetail`（过审核则 open，否则 pending_review）。`invite` 是「再约」时上次同行的 userId 列表，发布后给他们发「有人想再约你」通知。字段说明见下 |
+| `POST /api/events/:id/join` `{ref?}` | 报名 → `JoinResult`。`ref` 是分享人的 userId（邀请归因：加入后通知分享人「你邀请的朋友来了」）。不能报名时：满员 / 已经截止报名 / 状态不对 → `CONFLICT`，时间重叠 → `CONFLICT`（3.9），已经开始 → `VALIDATION`，账号受限 → `RESTRICTED` |
 | `POST /api/events/:id/leave` | → `{penalty: "cancel_late"\|null}`。过了最晚退出时间 → `CONFLICT`「已过最晚退出时间（10月30日 05:50），不能退出了」 |
 | `POST /api/events/:id/cancel` | 发起人取消 |
 | `GET /api/events/:id/applications` | 发起人看报名申请 |
