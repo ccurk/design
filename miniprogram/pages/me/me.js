@@ -9,9 +9,9 @@ const upload = require('../../utils/upload');
 const NEGATIVE = ['late', 'cancel_late', 'no_show'];
 const APPEAL_STATE = { pending: '申诉中', approved: '申诉通过', rejected: '申诉未通过' };
 const RECORD_PREVIEW = 8; // 信用记录默认只展开最近这么多，其余折进「查看全部」
-// 商务合作联系方式——改成你自己的；不想留微信就把下面这行和弹窗里的「微信」删掉
-const COOP_EMAIL = 'your-email@example.com';
-const COOP_WECHAT = 'your-wechat-id';
+// 商务合作联系方式
+const COOP_EMAIL = 'zhaoxianxin.climber@gmail.com';
+const COOP_WECHAT = '17767792037'; // 微信同号
 
 Page({
   data: {
@@ -167,7 +167,7 @@ Page({
   openCoop() {
     wx.showModal({
       title: '商务合作 · 广告投放',
-      content: `邮箱：${COOP_EMAIL}\n微信：${COOP_WECHAT}\n\n想在首页投放广告或其它合作，邮件 / 微信联系，并备注来意（公司或品牌 + 想投放的内容）。`,
+      content: `邮箱：${COOP_EMAIL}\n微信 / 电话：${COOP_WECHAT}\n\n想在首页投放广告或其它合作，邮件 / 微信联系，并备注来意（公司或品牌 + 想投放的内容）。`,
       confirmText: '复制邮箱',
       cancelText: '关闭',
       confirmColor: '#193543',
