@@ -23,7 +23,9 @@
     </scroll-view>
     <view class="subfilters">
       <view class="chip-sf {{official ? 'on' : ''}}" hover-class="pressed" bindtap="toggleOfficial">只看官方</view>
-      <view class="chip-sf {{area ? 'on' : ''}}" hover-class="pressed" bindtap="pickArea">{{areaLabel}}</view>
+      <picker class="chip-sf-pick" mode="selector" range="{{areaOptions}}" bindchange="onAreaPick">
+        <view class="chip-sf {{area ? 'on' : ''}}" hover-class="pressed">{{areaLabel}}</view>
+      </picker>
       <view class="chip-sf {{sort !== 'soon' ? 'on' : ''}}" hover-class="pressed" bindtap="pickSort">{{sortLabel}}</view>
     </view>
   </view>

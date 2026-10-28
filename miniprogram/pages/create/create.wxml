@@ -55,14 +55,16 @@
         </view>
         <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
       </view>
-      <view class="pick-row divider-top" hover-class="pressed" bindtap="pickArea" aria-role="button" aria-label="片区">
-        <image class="ico-20" src="/assets/icons/pin-gray.svg" />
-        <view class="flex1 col">
-          <text class="row-label">片区</text>
-          <text class="row-value {{area ? '' : 'ph'}}">{{area || '选一个片区，方便别人按片区找到'}}</text>
+      <picker mode="selector" range="{{areaOptions}}" bindchange="onAreaPick">
+        <view class="pick-row divider-top" hover-class="pressed" aria-role="button" aria-label="片区">
+          <image class="ico-20" src="/assets/icons/pin-gray.svg" />
+          <view class="flex1 col">
+            <text class="row-label">片区</text>
+            <text class="row-value {{area ? '' : 'ph'}}">{{area || '选一个片区，方便别人按片区找到'}}</text>
+          </view>
+          <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
         </view>
-        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
-      </view>
+      </picker>
       <view class="pick-row divider-top" hover-class="pressed" bindtap="openExit" aria-role="button" aria-label="最晚退出时间">
         <image class="ico-20" src="/assets/icons/hourglass-gray.svg" />
         <view class="flex1 col">

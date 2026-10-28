@@ -20,6 +20,7 @@ Page({
     official: false,
     area: '',
     areaLabel: '片区',
+    areaOptions: ['全部片区'].concat(AREAS),
     sort: 'soon',
     sortLabel: '排序',
     events: [],
@@ -147,14 +148,10 @@ Page({
     this.setData({ official: !this.data.official }, () => this.applyFilter());
   },
 
-  pickArea() {
-    wx.showActionSheet({
-      itemList: ['全部片区'].concat(AREAS),
-      success: (r) => {
-        const area = r.tapIndex === 0 ? '' : AREAS[r.tapIndex - 1];
-        this.setData({ area, areaLabel: area || '片区' }, () => this.applyFilter());
-      }
-    });
+  onAreaPick(e) {
+    const i = Number(e.detail.value);
+    const area = i === 0 ? '' : AREAS[i - 1];
+    this.setData({ area, areaLabel: area || '片区' }, () => this.applyFilter());
   },
 
   pickSort() {

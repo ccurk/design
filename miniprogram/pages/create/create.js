@@ -38,6 +38,7 @@ Page({
     place: '',
     location: null,
     area: '',
+    areaOptions: ['不设置'].concat(AREAS),
     placeShow: false,
     exitHours: DEFAULT_EXIT,
     exitOptions: [],
@@ -319,8 +320,9 @@ Page({
   },
 
   // ===== 发布 =====
-  pickArea() {
-    wx.showActionSheet({ itemList: AREAS, success: (r) => this.setData({ area: AREAS[r.tapIndex] }) });
+  onAreaPick(e) {
+    const i = Number(e.detail.value);
+    this.setData({ area: i === 0 ? '' : AREAS[i - 1] });
   },
 
   publish() {
