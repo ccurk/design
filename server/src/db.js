@@ -326,6 +326,13 @@ CREATE TABLE IF NOT EXISTS banners (
   title TEXT NOT NULL,
   subtitle TEXT,
   link TEXT,
+  body TEXT,
+  cta_label TEXT,
+  cta_link TEXT,
+  starts_at TEXT,
+  ends_at TEXT,
+  impressions INTEGER NOT NULL DEFAULT 0,
+  clicks INTEGER NOT NULL DEFAULT 0,
   sort INTEGER NOT NULL DEFAULT 0,
   enabled INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
@@ -362,6 +369,14 @@ const COLUMN_MIGRATIONS = [
   ['leader_applications', 'specialties', 'TEXT'],
   ['leader_applications', 'emergency_name', 'TEXT'],
   ['leader_applications', 'emergency_phone', 'TEXT'],
+  // 首页轮播广告：平台内落地页 + 排期 + 曝光/点击
+  ['banners', 'body', 'TEXT'],
+  ['banners', 'cta_label', 'TEXT'],
+  ['banners', 'cta_link', 'TEXT'],
+  ['banners', 'starts_at', 'TEXT'],
+  ['banners', 'ends_at', 'TEXT'],
+  ['banners', 'impressions', 'INTEGER NOT NULL DEFAULT 0'],
+  ['banners', 'clicks', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 function migrate(raw) {

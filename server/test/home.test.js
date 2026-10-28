@@ -66,7 +66,11 @@ describe('轮播图（后台维护）', () => {
     });
     assert.deepEqual(
       { ...a, createdAt: undefined },
-      { id: a.id, image: `${BASE}${path}`, title: '苍山日出', subtitle: '周六清晨一起看日出', link: 'event:12', sort: 0, enabled: true, createdAt: undefined },
+      {
+        id: a.id, image: `${BASE}${path}`, title: '苍山日出', subtitle: '周六清晨一起看日出', link: 'event:12', promo: false,
+        body: null, ctaLabel: null, ctaLink: null, startsAt: null, endsAt: null, impressions: 0, clicks: 0,
+        sort: 0, enabled: true, createdAt: undefined,
+      },
     );
     assert.equal(s.db.get('SELECT image FROM banners WHERE id = ?', a.id).image, path);
     const b = await s.ok('POST', '/api/admin/banners', { token: admin, body: { image: path, title: '洱海骑行', link: 'square' } });
@@ -80,7 +84,7 @@ describe('轮播图（后台维护）', () => {
     // 首页只显示开着的，按顺序
     let home = await s.ok('GET', '/api/home');
     assert.deepEqual(home.banners.map((x) => x.title), ['苍山日出', '洱海骑行']);
-    assert.deepEqual(Object.keys(home.banners[0]).sort(), ['id', 'image', 'link', 'subtitle', 'title']);
+    assert.deepEqual(Object.keys(home.banners[0]).sort(), ['id', 'image', 'link', 'promo', 'subtitle', 'title']);
 
     const updated = await s.ok('PUT', `/api/admin/banners/${c.id}`, { token: admin, body: { enabled: true, subtitle: '先看看社区公约' } });
     assert.deepEqual([updated.enabled, updated.subtitle, updated.title], [true, '先看看社区公约', '新人第一次来']);
@@ -101,6 +105,37 @@ describe('轮播图（后台维护）', () => {
     assert.deepEqual((await s.ok('GET', '/api/admin/banners', { token: admin })).items.map((x) => x.title), ['新人第一次来', '洱海骑行']);
     const user = await s.login(makeUser(s.db));
     assert.equal((await s.api('GET', '/api/admin/banners', { token: user })).status, 401);
+  });
+
+  test('广告位：落地页、曝光/点击统计、排期自动上下架', async () => {
+    const { url } = await s.ok('POST', '/api/admin/upload', { token: admin, form: pngForm() });
+    const ad = await s.ok('POST', '/api/admin/banners', {
+      token: admin,
+      body: { image: url, title: '合作品牌', subtitle: '广告', body: '这是平台内落地页，介绍合作内容。', ctaLabel: '看看', ctaLink: 'square' },
+    });
+    // 有落地页正文 → 首页 promo=true
+    const shown = (await s.ok('GET', '/api/home')).banners.find((x) => x.id === ad.id);
+    assert.ok(shown && shown.promo === true);
+
+    // 落地页详情（不需要登录）
+    const detail = await s.ok('GET', `/api/banners/${ad.id}`);
+    assert.deepEqual([detail.title, detail.body, detail.ctaLabel, detail.ctaLink], ['合作品牌', '这是平台内落地页，介绍合作内容。', '看看', 'square']);
+
+    // 点击累计；曝光来自上面的 GET /home
+    await s.ok('POST', `/api/banners/${ad.id}/click`);
+    await s.ok('POST', `/api/banners/${ad.id}/click`);
+    const row = (await s.ok('GET', '/api/admin/banners', { token: admin })).items.find((x) => x.id === ad.id);
+    assert.ok(row.impressions >= 1 && row.clicks === 2);
+
+    // 排期：已过结束时间 → 不展示；未到开始时间 → 不展示；结束早于开始 → 400
+    await s.ok('PUT', `/api/admin/banners/${ad.id}`, { token: admin, body: { endsAt: '2000-01-01T00:00:00.000Z' } });
+    assert.ok(!(await s.ok('GET', '/api/home')).banners.some((x) => x.id === ad.id));
+    await s.ok('PUT', `/api/admin/banners/${ad.id}`, { token: admin, body: { endsAt: null, startsAt: '2999-01-01T00:00:00.000Z' } });
+    assert.ok(!(await s.ok('GET', '/api/home')).banners.some((x) => x.id === ad.id));
+    assert.equal(
+      (await s.api('PUT', `/api/admin/banners/${ad.id}`, { token: admin, body: { startsAt: '2030-01-01T00:00:00.000Z', endsAt: '2029-01-01T00:00:00.000Z' } })).status,
+      400,
+    );
   });
 });
 

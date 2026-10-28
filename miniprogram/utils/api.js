@@ -30,6 +30,8 @@ module.exports = {
   // v0.3 首页与标签
   home: (opts) => get('/api/home', {}, opts),
   hotTags: (opts) => get('/api/tags/hot', {}, opts),
+  bannerDetail: (id, opts) => get(`/api/banners/${id}`, {}, opts), // 轮播广告落地页
+  bannerClick: (id) => post(`/api/banners/${id}/click`), // 记一次点击
 
   // 4.3 撮合意向与撮合结果。createIntent：{task, when, slot} 或 {task, when, timeFrom, timeTo}
   createIntent: (data, opts) => post('/api/intents', data, opts),

@@ -11,7 +11,16 @@ const RECENT_DAYS = 30;
 const RECENT_SHOWN = 20;
 
 function emptyBannerForm() {
-  return { id: null, images: [], title: '', subtitle: '', linkKind: 'none', eventId: null, enabled: true };
+  return { id: null, images: [], title: '', subtitle: '', linkKind: 'none', eventId: null, body: '', ctaLabel: '', startsAt: '', endsAt: '', enabled: true };
+}
+
+// ISO ↔ datetime-local 输入框的本地格式 "YYYY-MM-DDTHH:MM"
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function emptyTagForm() {
@@ -193,6 +202,10 @@ export default {
           subtitle: b.subtitle || '',
           linkKind: l.kind === 'other' ? 'none' : l.kind,
           eventId: l.kind === 'event' ? l.id : null,
+          body: b.body || '',
+          ctaLabel: b.ctaLabel || '',
+          startsAt: toLocalInput(b.startsAt),
+          endsAt: toLocalInput(b.endsAt),
           enabled: !!b.enabled,
           otherLink: l.kind === 'other' ? b.link : '',
         };
@@ -279,7 +292,19 @@ export default {
         return;
       }
       const link = f.linkKind === 'none' ? null : f.linkKind === 'event' ? `event:${f.eventId}` : f.linkKind;
-      const body = { image: f.images[0], title, subtitle: f.subtitle.trim(), link, enabled: f.enabled };
+      const hasBody = !!f.body.trim();
+      const body = {
+        image: f.images[0],
+        title,
+        subtitle: f.subtitle.trim(),
+        link,
+        body: f.body.trim(),
+        ctaLabel: hasBody ? f.ctaLabel.trim() : '',
+        ctaLink: hasBody ? link : '', // 落地页按钮跳到「点了去哪」
+        startsAt: f.startsAt ? new Date(f.startsAt).toISOString() : '',
+        endsAt: f.endsAt ? new Date(f.endsAt).toISOString() : '',
+        enabled: f.enabled,
+      };
       s.saving = true;
       s.formErr = '';
       try {
@@ -523,6 +548,24 @@ export default {
               </template>
             </div>
           </div>
+          <div class="field">
+            <label for="bf-body" class="field__label">落地页正文<span class="field__hint">选填；填了就变成平台内广告落地页，点轮播图先进落地页</span></label>
+            <textarea id="bf-body" v-model="s.form.body" class="input" rows="4" maxlength="2000" placeholder="介绍合作内容。留空＝不要落地页，点轮播图直接按上面的「点了去哪」跳转。"></textarea>
+          </div>
+          <div v-if="s.form.body.trim()" class="field">
+            <label for="bf-cta" class="field__label">落地页按钮文案<span class="field__hint">选填，比如「立即参加」；按钮跳到上面选的「点了去哪」</span></label>
+            <input id="bf-cta" v-model="s.form.ctaLabel" type="text" class="input" maxlength="12" placeholder="立即参加" autocomplete="off">
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="bf-start" class="field__label">开始展示<span class="field__hint">选填</span></label>
+              <input id="bf-start" v-model="s.form.startsAt" type="datetime-local" class="input">
+            </div>
+            <div class="field">
+              <label for="bf-end" class="field__label">结束展示<span class="field__hint">选填，到点自动下架</span></label>
+              <input id="bf-end" v-model="s.form.endsAt" type="datetime-local" class="input">
+            </div>
+          </div>
           <div class="switch-row">
             <span id="bf-en" class="switch-row__label">在小程序首页展示</span>
             <ToggleSwitch :checked="s.form.enabled" labelledby="bf-en" @toggle="s.form.enabled = !s.form.enabled" />
@@ -558,7 +601,9 @@ export default {
                 <span class="pill" :class="b.enabled ? 'pill--tint' : 'pill--stone'">{{ b.enabled ? '展示中' : '已关闭' }}</span>
               </div>
               <span class="small muted">{{ b.subtitle || '没有副标题' }}</span>
-              <span class="small body">点了去：{{ linkText(b.link) }}</span>
+              <span class="small body">{{ b.promo ? '落地页 → ' : '点了去：' }}{{ linkText(b.link) }}</span>
+              <span class="small muted">曝光 {{ b.impressions }} · 点击 {{ b.clicks }}</span>
+              <span v-if="b.startsAt || b.endsAt" class="small muted">排期：{{ b.startsAt ? fmt.dateTime(b.startsAt) : '现在' }} 至 {{ b.endsAt ? fmt.dateTime(b.endsAt) : '不限' }}</span>
             </div>
             <div class="banner-row__ops">
               <div class="switch-row switch-row--sm">

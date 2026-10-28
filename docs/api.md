@@ -99,7 +99,7 @@
 | `notices` | 站内通知：id, user_id, type, title, body, link, read, created_at |
 | `settings` | key, value（后台设置，如自动成局） |
 | `tags` | 标签：id, name, key(唯一，见 1.2), category, cover（插画 key，null = 按分类默认）, hot(0/1), sort（热门里的顺序）, created_at, last_used_at |
-| `banners` | 首页轮播图：id, image（相对路径）, title, subtitle, link, sort, enabled, created_at |
+| `banners` | 首页轮播图 / 广告位：id, image（相对路径）, title, subtitle, link, body（平台内落地页正文，有值则点击进落地页）, cta_label, cta_link（落地页按钮，站内 link）, starts_at, ends_at（排期，空=不限，不在区间内不展示）, impressions（曝光次数）, clicks（点击次数）, sort, enabled, created_at |
 
 ---
 
@@ -463,13 +463,15 @@
 | 接口 | 说明 |
 | --- | --- |
 | `GET /api/home` | 首页内容（不需要登录；登录了按拉黑和「谁可以报名」过滤）→ `Home`（见下） |
+| `GET /api/banners/:id` | 轮播广告的平台内落地页（不需要登录）→ `{id, image, title, subtitle, body, ctaLabel, ctaLink}`。`ctaLink` 是站内 link（写法见 4.10） |
+| `POST /api/banners/:id/click` | 记一次轮播图点击（不需要登录）→ `{ok: true}`。点轮播图时调用，用于后台看点击数 |
 | `GET /api/tags/hot` | 热门标签（不需要登录，按后台排的顺序）→ `{items: [{name, category, cover}]}`；`cover` 是插画 key |
 
 `Home`：
 
 ```json
 {
-  "banners": [ { "id": 1, "image": "https://.../uploads/seed-sunrise.png", "title": "苍山日出", "subtitle": "周六清晨，古城南门集合，一起上山看日出", "link": "event:1" } ],
+  "banners": [ { "id": 1, "image": "https://.../uploads/seed-sunrise.png", "title": "苍山日出", "subtitle": "周六清晨，古城南门集合，一起上山看日出", "link": "event:1", "promo": false } ],
   "hotTags": [ { "name": "看日出", "category": "outdoor", "cover": "sunrise" } ],
   "highlights": [ { "postId": 12, "image": "https://.../uploads/seed-sunrise.png", "text": "凌晨爬起来真的值……", "user": UserBrief, "eventTitle": "周二清晨 · 苍山看日出" } ],
   "featuredEvents": [ EventCard ],
@@ -477,7 +479,7 @@
 }
 ```
 
-- `banners`：后台开着的轮播图，按顺序。`link` 用通知 link 的写法，另外 `square` = 广场、`create` = 发起局、`feed` = 动态、`rules` = 社区公约；null 不跳转。
+- `banners`：后台开着的、在排期内的轮播图，按顺序，每返回一次记一次曝光。`link` 用通知 link 的写法，另外 `square` = 广场、`create` = 发起局、`feed` = 动态、`rules` = 社区公约；null 不跳转。`promo` = true 时这条有平台内落地页，点击应打开 `GET /api/banners/:id` 的落地页，而不是直接跳 link。
 - `hotTags`：同 `GET /api/tags/hot`。
 - `highlights`「大家最近在玩」：最近带图的公开动态（已通过，排除拉黑和不看的人），最多 10 条；`image` 是第一张图，`eventTitle` 是关联的局（没有为 null）。
 - `featuredEvents` 精选局：广场上（范围同 `GET /api/events`）最近要开始、还有名额的局，最多 6 个。
@@ -521,9 +523,9 @@
 | `PUT /api/admin/tags/:id` | `{name?, category?, cover?, hot?}` → `AdminTag`。改名不影响已经用了旧名字的局和意向；`cover: null` 恢复按分类的默认插画；`hot: true` 时排在热门的最后 |
 | `DELETE /api/admin/tags/:id` | → `{ok: true}`。删掉后如果有人再用这个标签，会自动重新建一条（不是热门） |
 | `GET /api/admin/banners` | 全部轮播图（含停用的），按顺序 → `{items: AdminBanner[]}` |
-| `POST /api/admin/banners` | `{image, title, subtitle?, link?, enabled?}` → `AdminBanner`。image 必须是本站上传的图片（先 `POST /api/admin/upload`）；title 1–20 字；subtitle ≤ 40 字；link 写法见 4.10，不对 → `VALIDATION`；enabled 默认 true；新的排在最后 |
+| `POST /api/admin/banners` | `{image, title, subtitle?, link?, body?, ctaLabel?, ctaLink?, startsAt?, endsAt?, enabled?}` → `AdminBanner`。image 必须是本站上传的图片（先 `POST /api/admin/upload`）；title 1–20 字；subtitle ≤ 40 字；link / ctaLink 写法见 4.10；`body` ≤ 2000 字（填了就有平台内落地页）；`ctaLabel` ≤ 12 字；`startsAt`/`endsAt` 是排期（ISO 时间，空=不限，结束早于开始 → `VALIDATION`）；enabled 默认 true；新的排在最后 |
 | `PUT /api/admin/banners/order` | `{ids: [bannerId]}` → `{items: AdminBanner[]}`：ids 里的按顺序排在前面，没列出的保持原来的先后排在后面 |
-| `PUT /api/admin/banners/:id` | `{image?, title?, subtitle?, link?, enabled?}` → `AdminBanner` |
+| `PUT /api/admin/banners/:id` | `{image?, title?, subtitle?, link?, body?, ctaLabel?, ctaLink?, startsAt?, endsAt?, enabled?}` → `AdminBanner` |
 | `DELETE /api/admin/banners/:id` | → `{ok: true}` |
 | `POST /api/admin/upload` | 后台上传图片：multipart，字段名 `file`，只收图片（jpg / png / gif / webp），≤ 5MB → `{url}`（绝对地址） |
 
@@ -561,7 +563,7 @@
 - `cover`：插画 key（没设时是按分类的默认插画）；`hot`：true / false（提交时也接受 1 / 0）；`sort`：热门里的顺序（从 0 开始，非热门为 0）。
 - `useCount`：撮合意向 + 用户发起的局里用到这个标签（按 key）的总次数；`recentCount`：其中最近 `days` 天（默认 30）的次数；`lastUsedAt`：最近一次用到的时间，没用过为 null。
 
-`AdminBanner`：`{id, image, title, subtitle, link, sort, enabled, createdAt}`（`image` 是绝对地址，`subtitle` / `link` 没填为 null）
+`AdminBanner`：`{id, image, title, subtitle, link, promo, body, ctaLabel, ctaLink, startsAt, endsAt, impressions, clicks, sort, enabled, createdAt}`（`image` 是绝对地址，`subtitle` / `link` / `body` / `ctaLabel` / `ctaLink` / `startsAt` / `endsAt` 没填为 null；`impressions` 曝光、`clicks` 点击）
 
 `AdminReport`：
 

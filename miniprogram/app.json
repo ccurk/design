@@ -24,7 +24,8 @@
     "pages/edit-profile/edit-profile",
     "pages/safety/safety",
     "pages/rules/rules",
-    "pages/leader-apply/leader-apply"
+    "pages/leader-apply/leader-apply",
+    "pages/promo/promo"
   ],
   "window": {
     "navigationBarTitleText": "活动搭子",

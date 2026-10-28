@@ -399,7 +399,13 @@ Page({
 
   onBanner(e) {
     const b = this.data.banners[e.currentTarget.dataset.index];
-    if (b && b.link) nav.openLink(b.link);
+    if (!b) return;
+    api.bannerClick(b.id).catch(() => {}); // 记一次点击，失败不影响跳转
+    if (b.promo) {
+      wx.navigateTo({ url: '/pages/promo/promo?id=' + b.id }); // 平台内广告落地页
+    } else if (b.link) {
+      nav.openLink(b.link);
+    }
   },
 
   onBannerError(e) {

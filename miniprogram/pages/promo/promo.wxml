@@ -1,0 +1,18 @@
+<view wx:if="{{loading}}" class="loading">加载中…</view>
+
+<dz-empty wx:elif="{{error}}" title="看不到这个内容" desc="{{error}}" icon="/assets/icons/compass-primary.svg">
+  <view class="btn btn-sm btn-primary" bindtap="goCoop">返回</view>
+</dz-empty>
+
+<view wx:elif="{{ad}}" class="page">
+  <image class="cover" src="{{ad.image}}" mode="widthFix" />
+  <view class="body">
+    <text class="tag">广告</text>
+    <view class="title">{{ad.title}}</view>
+    <view wx:if="{{ad.subtitle}}" class="subtitle">{{ad.subtitle}}</view>
+    <view wx:if="{{ad.body}}" class="text">{{ad.body}}</view>
+    <view wx:if="{{ad.ctaLabel}}" class="btn btn-primary cta" hover-class="pressed" bindtap="onCta">{{ad.ctaLabel}}</view>
+  </view>
+  <view class="coop" hover-class="pressed" bindtap="goCoop">想在这里投放广告？去「我的 · 商务合作」联系我们 →</view>
+  <view class="bottom-pad"></view>
+</view>

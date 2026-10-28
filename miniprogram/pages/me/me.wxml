@@ -97,6 +97,14 @@
           <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
         </view>
       </button>
+      <view class="menu-row tall" hover-class="pressed" bindtap="openCoop">
+        <view class="menu-ico"><image class="ico-18" src="/assets/icons/sparkle-primary.svg" /></view>
+        <view class="flex1 col gap-2">
+          <text class="t-15 w5">商务合作 · 广告投放</text>
+          <text class="t-12 c-2">想在首页投放 / 合作，点这里联系我们</text>
+        </view>
+        <image class="ico-16" src="/assets/icons/chevron-right-muted.svg" />
+      </view>
     </view>
   </block>
 
