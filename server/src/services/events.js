@@ -342,7 +342,7 @@ export function searchEvents(db, viewer, q) {
   const term = String(q || '').trim().toLowerCase();
   if (!term) return { items: [] };
   const items = squareCandidates(db, viewer)
-    .filter((e) => [e.title, e.place, e.task, e.meeting_point].some((s) => (s || '').toLowerCase().includes(term)))
+    .filter((e) => [e.title, e.place, e.task, e.meeting_point, e.description].some((s) => (s || '').toLowerCase().includes(term)))
     .slice(0, 50);
   return { items: items.map((e) => eventCard(db, e, viewer)) };
 }

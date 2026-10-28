@@ -326,7 +326,7 @@
 | `POST /api/events/:id/arrive` | 我到了 → `{arrivedAt}` |
 | `POST /api/events/:id/safe` | 报平安 |
 | `GET /api/events/mine` | `?tab=ongoing\|ended\|created` → `{items: MyEventCard[]}` |
-| `GET /api/search` `?q=` | `{items: EventCard[]}`（标题、地点、标签、集合点模糊匹配；范围同广场） |
+| `GET /api/search` `?q=` | `{items: EventCard[]}`（标题、地点、标签、集合点、介绍 模糊匹配；范围同广场） |
 | `GET /api/search/hot` | `{terms: ["看日出", ...]}` |
 
 发起局的字段：

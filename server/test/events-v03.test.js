@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, test } from 'node:test';
 import { clock } from '../src/clock.js';
 import { runMinuteJobs } from '../src/jobs.js';
 import { runMatching } from '../src/services/matching.js';
+import { repairBadTitles } from '../src/db.js';
 import { addCredit, makeIntent, makeUser, startServer } from './helpers.js';
 
 let s;
@@ -338,5 +339,37 @@ describe('成群：满员立即成群，群聊只在成群后开启', () => {
     assert.deepEqual([r.eventStatus, r.formed], ['formed', true]);
     assert.equal(notices(host, 'formed').length, 1);
     assert.equal(messages(ev.id).filter((m) => m.text.includes('群已自动建好')).length, 1);
+  });
+});
+
+describe('搜索', () => {
+  test('标题 / 地点 / 标签 / 集合点 / 介绍 都能搜到，不相关的搜不到', async () => {
+    const token = await s.login(makeUser(s.db));
+    await createOk(token, { title: '古城读书会', place: '床单厂', meetingPoint: '书店门口', description: '带上你在看的那本书，顺便拍点银河照片' });
+    assert.equal((await s.ok('GET', `/api/search?q=${encodeURIComponent('银河')}`)).items.length, 1); // 介绍命中
+    assert.equal((await s.ok('GET', `/api/search?q=${encodeURIComponent('读书会')}`)).items.length, 1); // 标题
+    assert.equal((await s.ok('GET', `/api/search?q=${encodeURIComponent('书店')}`)).items.length, 1); // 集合点
+    assert.equal((await s.ok('GET', `/api/search?q=${encodeURIComponent('潜水')}`)).items.length, 0); // 不相关
+  });
+});
+
+describe('修复历史「周undefined」标题', () => {
+  test('repairBadTitles 按 start_at 补成正确星期', () => {
+    const id = s.db.insert('events', {
+      title: '周undefined下午 · 洱海西岸骑行',
+      category: 'outdoor',
+      task: '骑行',
+      start_at: '2026-10-28T07:30:00.000Z', // 北京时间周三
+      duration_min: 180,
+      place: '才村码头',
+      capacity: 6,
+      min_size: 3,
+      source: 'platform',
+      creator_id: null,
+      status: 'open',
+      created_at: '2026-10-26T00:00:00.000Z',
+    });
+    repairBadTitles(s.db);
+    assert.equal(s.db.get('SELECT title FROM events WHERE id = ?', id).title, '周三下午 · 洱海西岸骑行');
   });
 });

@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { bjDate, weekdayName } from './time.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -404,6 +405,15 @@ function bindParams(params) {
   });
 }
 
+/** 一次性修复历史「周undefined」标题（templateTitle 旧 bug 造成）；修过的下次不再命中 */
+export function repairBadTitles(db) {
+  const rows = db.all("SELECT id, title, start_at FROM events WHERE title LIKE '%周undefined%'");
+  for (const e of rows) {
+    const fixed = e.title.replaceAll('周undefined', weekdayName(bjDate(new Date(e.start_at))));
+    db.run('UPDATE events SET title = ? WHERE id = ?', fixed, e.id);
+  }
+}
+
 export function openDb(dbPath = ':memory:') {
   if (dbPath !== ':memory:') fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const raw = new DatabaseSync(dbPath);
@@ -481,6 +491,7 @@ export function openDb(dbPath = ':memory:') {
     },
     close: () => raw.close(),
   };
+  repairBadTitles(db); // 启动时修掉历史「周undefined」标题
   return db;
 }
 
