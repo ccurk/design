@@ -10,6 +10,7 @@ Page({
     q: '',
     term: '',
     hot: [],
+    ranking: [],
     recent: [],
     results: [],
     searching: false,
@@ -29,6 +30,23 @@ Page({
       .hotTerms()
       .then((res) => {
         if (res && res.terms && res.terms.length) this.setData({ hot: res.terms });
+      })
+      .catch(() => {});
+    api
+      .eventRanking({ silent: true })
+      .then((res) => {
+        const ranking = (res.items || []).map((ev) => ({
+          id: ev.id,
+          title: ev.title,
+          tag: ev.tag || ev.task || '',
+          category: ev.category,
+          cover: ev.cover || '',
+          coverKey: ev.coverKey || '',
+          meta: [ev.dateLabel, ev.place].filter(Boolean).join(' · '),
+          memberCount: ev.memberCount,
+          capacity: ev.capacity
+        }));
+        this.setData({ ranking });
       })
       .catch(() => {});
   },

@@ -90,3 +90,28 @@
   border-radius: 40rpx;
   background: #FFFFFF;
 }
+.rank-list {
+  background: #FFFFFF;
+  border-radius: 40rpx;
+  overflow: hidden;
+}
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 24rpx;
+  border-bottom: 1px solid var(--divider);
+}
+.rank-row:last-child {
+  border-bottom: none;
+}
+.rank-no {
+  width: 32rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #A4ABB6;
+}
+.rank-no.rank-top {
+  color: var(--primary);
+}

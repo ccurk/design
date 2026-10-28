@@ -14,6 +14,20 @@
         <view wx:for="{{hot}}" wx:key="*this" class="chip term" hover-class="pressed" data-term="{{item}}" bindtap="pickTerm">{{item}}</view>
       </view>
     </view>
+    <view wx:if="{{ranking.length}}" class="col gap-10">
+      <view class="label">本周人气榜</view>
+      <view class="rank-list">
+        <view wx:for="{{ranking}}" wx:key="id" class="rank-row" hover-class="pressed" data-id="{{item.id}}" bindtap="openEvent">
+          <text class="rank-no {{index < 3 ? 'rank-top' : ''}}">{{index + 1}}</text>
+          <dz-cover variant="tile" size="44" image="{{item.cover}}" cover-key="{{item.coverKey}}" category="{{item.category}}" task="{{item.tag}}" title="{{item.title}}" />
+          <view class="flex1 col gap-2">
+            <text class="t-14 w7 ellipsis">{{item.title}}</text>
+            <text class="t-12 c-2 ellipsis">{{item.meta}}</text>
+          </view>
+          <text class="t-13 c-body shrink0">{{item.memberCount}}/{{item.capacity}} 人</text>
+        </view>
+      </view>
+    </view>
     <view class="col gap-10">
       <view class="row between">
         <text class="label">最近搜过</text>

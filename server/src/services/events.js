@@ -328,6 +328,16 @@ export function squareList(db, viewer, { category, tag, source, area, sort = 'so
   };
 }
 
+/** 本周人气榜：广场可见的局里，按已加入人数排名（并列的最近开始的在前），取前 N 个 */
+export function eventRanking(db, viewer, { limit = 6 } = {}) {
+  const ranked = squareCandidates(db, viewer, {})
+    .map((e) => ({ e, n: joinedCount(db, e.id) }))
+    .sort((a, b) => b.n - a.n || (a.e.start_at < b.e.start_at ? -1 : 1))
+    .slice(0, limit)
+    .map((x) => x.e);
+  return { items: ranked.map((e) => eventCard(db, e, viewer)) };
+}
+
 export function searchEvents(db, viewer, q) {
   const term = String(q || '').trim().toLowerCase();
   if (!term) return { items: [] };

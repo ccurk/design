@@ -45,6 +45,7 @@ module.exports = {
 
   // 4.4 局
   events: (params, opts) => get('/api/events', q(params), opts),
+  eventRanking: (opts) => get('/api/events/ranking', {}, opts), // 本周人气榜
   event: (id, opts) => get(`/api/events/${id}`, {}, opts),
   createEvent: (data, opts) => post('/api/events', data, opts),
   join: (id, body, opts) => post(`/api/events/${id}/join`, body || {}, opts),

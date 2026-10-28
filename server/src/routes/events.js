@@ -11,6 +11,7 @@ import {
   cancelByHost,
   createUserEvent,
   eventDetail,
+  eventRanking,
   hotTerms,
   joinEvent,
   leaveEvent,
@@ -46,6 +47,7 @@ export function eventRoutes({ db }) {
   });
   r.get('/search', maybeAuth, (req, res) => res.json(searchEvents(db, req.user, req.query.q)));
   r.get('/search/hot', (req, res) => res.json(hotTerms(db)));
+  r.get('/events/ranking', maybeAuth, (req, res) => res.json(eventRanking(db, req.user))); // 本周人气榜（在 /events/:id 之前注册）
 
   r.get('/events/mine', auth, (req, res) => {
     const tab = req.query.tab ? String(req.query.tab) : 'ongoing';

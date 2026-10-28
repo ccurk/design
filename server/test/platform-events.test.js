@@ -59,6 +59,17 @@ describe('运营带队的平台局 / 每日自动发布', () => {
     assert.ok(!cai.items.some((e) => e.id === coffeeId), '才村不应有古城的咖啡局');
   });
 
+  test('本周人气榜：参加人数多的局排在前面', async () => {
+    const hot = publishPlatformEvent(s.db, EVENT_TEMPLATES[2], { date: '2026-10-28' }); // 咖啡 cap4，运营先占 1
+    const cold = publishPlatformEvent(s.db, EVENT_TEMPLATES[0], { date: '2026-10-28' }); // 看日出，只有运营 1
+    const t1 = await s.login(makeUser(s.db));
+    const t2 = await s.login(makeUser(s.db));
+    await s.ok('POST', `/api/events/${hot}/join`, { token: t1 });
+    await s.ok('POST', `/api/events/${hot}/join`, { token: t2 });
+    const ids = (await s.ok('GET', '/api/events/ranking')).items.map((e) => e.id);
+    assert.ok(ids.indexOf(hot) >= 0 && ids.indexOf(hot) < ids.indexOf(cold), '人多的局排在前面');
+  });
+
   test('历史已成团的局(撑场面)不进广场,真人加不到;只有未来开放局进广场', async () => {
     // 一个过去的、已成团的平台局(模拟 seed-coldstart 造的撑场面数据)
     const pastId = s.db.insert('events', {

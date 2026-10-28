@@ -314,6 +314,7 @@
 | 接口 | 说明 |
 | --- | --- |
 | `GET /api/events` | 广场：`?category=outdoor&tag=骑行&source=official&area=才村&sort=soon&limit=&cursor=` → `{items: EventCard[], nextCursor}`，默认按开始时间升序，只含 open、还没开始、还没过最晚退出时间的局。`tag` 按规范化后的 key 比较（`?tag=ktv` 也能筛出「KTV」）；`source=official`（即 platform）只看运营局；`area` 按片区筛（`古城`/`才村`/`下关`/`喜洲`/`双廊`/`海东`/`其他`）；`sort`：`soon` 即将开始（默认）/ `new` 最新发布 / `filling` 快满了（报名比例高的在前）。各参数可叠加 |
+| `GET /api/events/ranking` | 本周人气榜（不需要登录）→ `{items: EventCard[]}`：广场可见的局里按已加入人数排名，并列的最近开始的在前，最多 6 个 |
 | `GET /api/events/:id` | `EventDetail`（撮合局只有成员能看；性别不符的人看不到） |
 | `POST /api/events` | 发起局 `{title, tag, startAt, durationMin?, place?, area?, location?, meetingPoint?, capacity, minSize?, feeType, feeEstimate?, requireApproval, genderLimit?, images?, exitDeadline?, description?, invite?}` → `EventDetail`（`area` 是片区，见 `GET /api/events`，用于广场按片区筛选）（过审核则 open，否则 pending_review）。`invite` 是「再约」时上次同行的 userId 列表，发布后给他们发「有人想再约你」通知。字段说明见下 |
 | `POST /api/events/:id/join` `{ref?}` | 报名 → `JoinResult`。`ref` 是分享人的 userId（邀请归因：加入后通知分享人「你邀请的朋友来了」）。不能报名时：满员 / 已经截止报名 / 状态不对 → `CONFLICT`，时间重叠 → `CONFLICT`（3.9），已经开始 → `VALIDATION`，账号受限 → `RESTRICTED` |
