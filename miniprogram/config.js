@@ -1,11 +1,19 @@
 // 运行配置。改完重新编译即可生效。
-module.exports = {
-  // 后端地址。真机预览时改成电脑的局域网 IP（如 http://192.168.1.8:3000），上线必须是 HTTPS 合法域名。
-  baseURL: 'http://localhost:3000',
+//
+// 上线前只改这里：把 PROD 改成 true，并把 prodBaseURL 填成你的生产 HTTPS 域名。
+// PROD = true 时会自动：接口走 HTTPS 生产域名 + 关闭开发自动登录（走真实 wx.login）。
+const PROD = false; // ← 上线改成 true
 
-  // 开发模式：启动时调用 POST /api/auth/dev-login（默认登录演示账号「栗子」），
-  // 手机号验证失败也允许继续。上线前改成 false，改走 wx.login → /api/auth/login。
-  devLogin: true,
+const prodBaseURL = 'https://your-domain.com'; // ← 你的生产 HTTPS 域名（已 ICP 备案，且已加进小程序「服务器域名」白名单）
+const devBaseURL = 'http://localhost:3000'; // 真机预览时改成电脑局域网 IP，如 http://192.168.1.8:3000
+
+module.exports = {
+  // 后端地址。上线必须是 HTTPS 合法域名，由上面的 PROD 开关决定。
+  baseURL: PROD ? prodBaseURL : devBaseURL,
+
+  // 开发模式：启动时调用 POST /api/auth/dev-login（默认登录演示账号「栗子」），手机号验证失败也允许继续。
+  // PROD 下强制 false，走真实 wx.login → /api/auth/login（生产后端已禁用 dev-login）。
+  devLogin: !PROD,
 
   // 开发模式下想换个演示账号登录时填用户 id（如 2），留空 = 默认账号
   devUserId: null,
