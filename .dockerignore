@@ -1,0 +1,10 @@
+.git
+**/node_modules
+server/data
+server/uploads
+server/.env
+**/*.log
+# 后端镜像用不到的部分（Dockerfile 也没 COPY 它们，这里只是减小构建上下文）
+miniprogram
+docs
+design
