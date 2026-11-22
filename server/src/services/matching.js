@@ -26,14 +26,14 @@ import { allBlockPairs, getUser, isNewUser, userBrief } from './users.js';
 /** 过期处理：open 意向过了日期 → expired；待确认建议过了日期 → expired（意向一起过期） */
 async function expireStale(db, now) {
   let expired = 0;
-  for (const intent of await db.all("SELECT * FROM intents WHERE status = 'open'")) {
+  for (const intent of await db.all("SELECT * FROM intents WHERE status = 'open' ORDER BY id")) {
     if (isIntentExpired(intent, now)) {
       await db.update('intents', intent.id, { status: 'expired', updated_at: now.toISOString() });
       expired++;
     }
   }
   const today = bjDate(now);
-  for (const p of await db.all("SELECT * FROM proposals WHERE status = 'pending' AND date < ?", today)) {
+  for (const p of await db.all("SELECT * FROM proposals WHERE status = 'pending' AND date < ? ORDER BY id", today)) {
     await db.update('proposals', p.id, { status: 'expired', reviewed_at: now.toISOString() });
     await db.run(
       "UPDATE intents SET status = 'expired', updated_at = ? WHERE proposal_id = ? AND status = 'proposed'",

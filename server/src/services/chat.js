@@ -45,7 +45,7 @@ export async function listMessages(db, user, eventId, { after = null } = {}) {
       : (await db.all('SELECT * FROM messages WHERE event_id = ? ORDER BY id DESC LIMIT 50', eventId)).reverse();
   const last = (await db.get('SELECT MAX(id) AS id FROM messages WHERE event_id = ?', eventId))?.id || 0;
   await db.run(
-    'UPDATE event_members SET last_read_message_id = MAX(last_read_message_id, ?) WHERE event_id = ? AND user_id = ?',
+    'UPDATE event_members SET last_read_message_id = GREATEST(last_read_message_id, ?) WHERE event_id = ? AND user_id = ?',
     last,
     eventId,
     user.id,

@@ -1,6 +1,6 @@
 // npm run seed：清空数据库并写入演示数据（docs/api.md 第 6 节）。
 import { loadConfig, loadEnvFile } from '../src/config.js';
-import { openDb } from '../src/db.js';
+import { ensureDatabase, openDb } from '../src/db.js';
 import { seed } from '../src/seed.js';
 
 loadEnvFile();
@@ -11,6 +11,7 @@ if (config.isProd && !process.argv.includes('--force')) {
   process.exit(1);
 }
 
+await ensureDatabase(config.db);
 const db = await openDb(config.db);
 const result = await seed(db, { uploadDir: config.uploadDir }); // 配图复制进上传目录
 const count = async (table) => (await db.get(`SELECT COUNT(*) AS n FROM ${table}`)).n;

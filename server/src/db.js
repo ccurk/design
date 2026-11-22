@@ -357,6 +357,60 @@ export async function repairBadTitles(db) {
   }
 }
 
+// 从 CREATE TABLE 语句解析出列定义（给老库补列用）；只认顶层列，跳过 PRIMARY KEY / INDEX 等约束行
+function parseTableSchema(sql) {
+  const head = sql.match(/CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?\s*\(([\s\S]*)\)\s*$/i);
+  if (!head) return null;
+  const parts = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of head[2]) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      parts.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.trim()) parts.push(cur);
+  const skip = /^(PRIMARY\s+KEY|UNIQUE|KEY|INDEX|CONSTRAINT|FOREIGN\s+KEY|CHECK)\b/i;
+  const columns = [];
+  for (const raw of parts) {
+    const def = raw.trim();
+    const m = def.match(/^`?(\w+)`?\s/);
+    if (!def || skip.test(def) || !m) continue;
+    columns.push({ name: m[1], def });
+  }
+  return { table: head[1], columns };
+}
+
+// 老库升级：schema 里新增的列，如果已存在的表里缺了，就 ALTER TABLE 补上（保留老数据，已存在的不重复加）
+async function ensureColumns(pool) {
+  const [tables] = await pool.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()');
+  const existing = new Set(tables.map((r) => r.t));
+  for (const sql of SCHEMA) {
+    const parsed = parseTableSchema(sql);
+    if (!parsed || !existing.has(parsed.table)) continue; // 新表已由 CREATE TABLE 建好，无需补列
+    const [cols] = await pool.query(
+      'SELECT column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?',
+      [parsed.table],
+    );
+    const have = new Set(cols.map((r) => String(r.c).toLowerCase()));
+    for (const { name, def } of parsed.columns) {
+      if (!have.has(name.toLowerCase())) await pool.query(`ALTER TABLE \`${parsed.table}\` ADD COLUMN ${def}`);
+    }
+  }
+}
+
+/** 如果目标数据库还不存在就建一个（本地/seed 用；生产的库由微信云托管预先建好）。 */
+export async function ensureDatabase(conn) {
+  const admin = await mysql.createConnection({ host: conn.host, port: conn.port, user: conn.user, password: conn.password });
+  await admin.query(`CREATE DATABASE IF NOT EXISTS \`${conn.database}\` CHARACTER SET utf8mb4`);
+  await admin.end();
+}
+
 const txStore = new AsyncLocalStorage();
 
 /** 打开数据库（建连接池、建表、修历史标题）。conn: {host, port, user, password, database, connectionLimit?} */
@@ -374,6 +428,7 @@ export async function openDb(conn) {
     decimalNumbers: true, // SUM 等 DECIMAL 结果返回 JS number（否则是字符串，坑严格比较）
   });
   for (const sql of SCHEMA) await pool.query(sql);
+  await ensureColumns(pool); // 老库升级时补上新加的列
 
   const store = () => txStore.getStore();
   const q = (sql, values) => (store() ? store().conn : pool).query(sql, values);

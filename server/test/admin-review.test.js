@@ -1,16 +1,11 @@
 // 后台评审发现的问题（编号对应评审清单 #1–#15）。
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { clock } from '../src/clock.js';
-import { openDb } from '../src/db.js';
 import { addCreditEvent } from '../src/services/credit.js';
 import { runMatching } from '../src/services/matching.js';
 import { setSetting } from '../src/services/settings.js';
-import { DAY, HOUR, addCredit, makeIntent, makeUser, startServer } from './helpers.js';
+import { DAY, HOUR, addCredit, makeIntent, makeUser, openMigratedDb, startServer } from './helpers.js';
 
 let s;
 let admin;
@@ -517,32 +512,28 @@ describe('#15 补充字段', () => {
 
 describe('数据库迁移', () => {
   test('旧库缺新列时自动补上，数据不丢', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dazi-migrate-'));
-    const file = path.join(dir, 'old.db');
-    const raw = new DatabaseSync(file);
-    raw.exec(`
-      CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, openid TEXT NOT NULL UNIQUE, phone TEXT, nickname TEXT NOT NULL,
-        avatar_url TEXT, bio TEXT NOT NULL DEFAULT '', gender TEXT NOT NULL DEFAULT 'unknown', pace TEXT, interests TEXT NOT NULL DEFAULT '[]',
-        phone_verified INTEGER NOT NULL DEFAULT 0, id_verified INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active',
-        restricted_until TEXT, settings TEXT NOT NULL DEFAULT '{}', emergency_contact TEXT, onboarded INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
-      CREATE TABLE event_members (event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, role TEXT NOT NULL DEFAULT 'member', status TEXT NOT NULL,
-        attendance TEXT NOT NULL DEFAULT 'pending', arrived_at TEXT, safe_at TEXT, muted INTEGER NOT NULL DEFAULT 0,
-        last_read_message_id INTEGER NOT NULL DEFAULT 0, invited_at TEXT, applied_at TEXT, joined_at TEXT, left_at TEXT, PRIMARY KEY (event_id, user_id));
-      CREATE TABLE reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter_id INTEGER NOT NULL, target_type TEXT NOT NULL, target_id INTEGER NOT NULL,
-        target_user_id INTEGER, reason TEXT NOT NULL, detail TEXT, images TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'pending',
-        action TEXT, admin_note TEXT, created_at TEXT NOT NULL, resolved_at TEXT);
+    // 老版本的表（缺 restricted_reason / invite_expired / user_message 等新列）
+    const oldSql = `
+      CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, openid VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(32), nickname VARCHAR(64) NOT NULL,
+        avatar_url VARCHAR(512), bio VARCHAR(512) NOT NULL DEFAULT '', gender VARCHAR(16) NOT NULL DEFAULT 'unknown', pace VARCHAR(16),
+        interests TEXT NOT NULL DEFAULT ('[]'), phone_verified INT NOT NULL DEFAULT 0, id_verified INT NOT NULL DEFAULT 0,
+        status VARCHAR(16) NOT NULL DEFAULT 'active', restricted_until VARCHAR(40), settings TEXT NOT NULL DEFAULT ('{}'),
+        emergency_contact TEXT, onboarded INT NOT NULL DEFAULT 0, created_at VARCHAR(40) NOT NULL);
+      CREATE TABLE event_members (event_id INT NOT NULL, user_id INT NOT NULL, role VARCHAR(16) NOT NULL DEFAULT 'member', status VARCHAR(16) NOT NULL,
+        attendance VARCHAR(16) NOT NULL DEFAULT 'pending', arrived_at VARCHAR(40), safe_at VARCHAR(40), muted INT NOT NULL DEFAULT 0,
+        last_read_message_id INT NOT NULL DEFAULT 0, invited_at VARCHAR(40), applied_at VARCHAR(40), joined_at VARCHAR(40), left_at VARCHAR(40),
+        PRIMARY KEY (event_id, user_id));
+      CREATE TABLE reports (id INT AUTO_INCREMENT PRIMARY KEY, reporter_id INT NOT NULL, target_type VARCHAR(16) NOT NULL, target_id INT NOT NULL,
+        target_user_id INT, reason VARCHAR(255) NOT NULL, detail TEXT, images TEXT NOT NULL DEFAULT ('[]'), status VARCHAR(16) NOT NULL DEFAULT 'pending',
+        action VARCHAR(24), admin_note VARCHAR(255), created_at VARCHAR(40) NOT NULL, resolved_at VARCHAR(40));
       INSERT INTO users (openid, nickname, status, created_at) VALUES ('old_1', '老用户', 'restricted', '2026-01-01T00:00:00.000Z');
-    `);
-    raw.close();
-
-    const db = await openDb(file);
-    const cols = async (t) => (await db.all(`PRAGMA table_info(${t})`)).map((c) => c.name);
+    `;
+    const { db, cols, reopen } = await openMigratedDb('migrate', oldSql);
     assert.ok((await cols('users')).includes('restricted_reason'));
     assert.ok((await cols('event_members')).includes('invite_expired'));
     assert.ok((await cols('reports')).includes('user_message'));
     assert.equal((await db.get('SELECT nickname FROM users WHERE id = 1')).nickname, '老用户');
     await db.close();
-    await (await openDb(file)).close(); // 再开一次不会重复加列
-    fs.rmSync(dir, { recursive: true, force: true });
+    await (await reopen()).close(); // 再开一次不会重复加列（不报错）
   });
 });

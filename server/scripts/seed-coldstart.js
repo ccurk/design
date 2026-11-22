@@ -7,7 +7,7 @@
 // 日常新鲜度由服务进程里的每日自动发布(jobs.js → publishDailyEvents)持续补充。
 import { clock, DAY } from '../src/clock.js';
 import { loadConfig, loadEnvFile } from '../src/config.js';
-import { json, openDb } from '../src/db.js';
+import { ensureDatabase, json, openDb } from '../src/db.js';
 import { addDays, bjDate, bjDateTime, slotLabel, weekdayName } from '../src/time.js';
 import { EVENT_TEMPLATES, ensureOperator, publishPlatformEvent } from '../src/services/platformEvents.js';
 import { ensureDefaultTags } from '../src/services/tags.js';
@@ -36,6 +36,7 @@ loadEnvFile();
 const config = loadConfig();
 const force = process.argv.includes('--force');
 
+await ensureDatabase(config.db);
 const db = await openDb(config.db);
 
 const already = (await db.get("SELECT COUNT(*) AS n FROM users WHERE openid LIKE 'seedc_%'")).n;

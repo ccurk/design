@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import { clock } from '../src/clock.js';
 import { runMatching } from '../src/services/matching.js';
-import { openDb } from '../src/db.js';
 import { ensureDefaultTags, normalizeTagName, parseTag, tagKey } from '../src/services/tags.js';
-import { DAY, makeUser, startServer } from './helpers.js';
+import { DAY, makeUser, openFreshDb, startServer } from './helpers.js';
 
 let s;
 let admin;
@@ -16,7 +15,7 @@ beforeEach(async () => {
 });
 afterEach(() => s.close());
 
-const tagRow = (name) => s.db.get('SELECT * FROM tags WHERE key = ?', tagKey(name));
+const tagRow = (name) => s.db.get('SELECT * FROM tags WHERE `key` = ?', tagKey(name));
 
 describe('标签：规范化与校验', () => {
   test('NFKC、去首尾空格、合并连续空白；key 再把拉丁字母转小写', () => {
@@ -61,7 +60,7 @@ describe('标签：用户添加、撮合按 key 比较', () => {
     clock.advance(60000);
     const second = await s.ok('POST', '/api/intents', { token: tokens[1], body: { task: ' ｋｔｖ ', when: '2026-10-31', slot: 'evening' } });
     assert.equal(second.task, 'KTV'); // 用标签表里的写法
-    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM tags WHERE key = 'ktv'")).n, 1);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM tags WHERE `key` = 'ktv'")).n, 1);
     assert.equal((await tagRow('ktv')).last_used_at, clock.iso());
     const third = await s.ok('POST', '/api/intents', { token: tokens[2], body: { task: 'Ktv', when: '2026-10-31', slot: 'evening' } });
     assert.equal(third.status, 'proposed');
@@ -92,7 +91,7 @@ describe('标签：用户添加、撮合按 key 比较', () => {
 
 describe('标签：老库升级', () => {
   test('标签表是空的才写默认标签，并按已有的意向和局补上 last_used_at；用过的新标签补一条', async () => {
-    const db = await openDb(':memory:');
+    const db = await openFreshDb('tagsold');
     const u = await db.insert('users', { openid: 'old', nickname: '老用户', created_at: '2026-09-01T00:00:00.000Z' });
     const intent = (task, created_at) =>
       db.insert('intents', {
@@ -107,7 +106,7 @@ describe('标签：老库升级', () => {
       status: 'formed', created_at: '2026-09-08T00:00:00.000Z',
     });
     assert.equal(await ensureDefaultTags(db), true);
-    const row = (name) => db.get('SELECT * FROM tags WHERE key = ?', tagKey(name));
+    const row = (name) => db.get('SELECT * FROM tags WHERE `key` = ?', tagKey(name));
     assert.equal((await row('看日出')).last_used_at, '2026-09-05T01:00:00.000Z');
     assert.equal((await row('桌游')).last_used_at, '2026-09-08T00:00:00.000Z');
     assert.deepEqual([(await row('飞盘')).hot, (await row('飞盘')).category, (await row('飞盘')).last_used_at], [0, 'outdoor', '2026-09-03T01:00:00.000Z']);

@@ -34,11 +34,46 @@ function ensureTestDb() {
   return dbReady;
 }
 
+/** 开一个独立的干净库（不经过 createApp，所以不会写入默认标签）——用于测老库/初始化逻辑 */
+export async function openFreshDb(suffix = Math.random().toString(36).slice(2, 8)) {
+  const name = `dazi_test_${process.pid}_${suffix}`;
+  const admin = await mysql.createConnection(MYSQL);
+  await admin.query(`CREATE DATABASE IF NOT EXISTS \`${name}\` CHARACTER SET utf8mb4`);
+  await admin.end();
+  const db = await openDb({ ...MYSQL, database: name, connectionLimit: 1 });
+  await db.reset();
+  return db;
+}
+
+/** 用一段「老库」DDL + 数据建一个独立库，再用 openDb 打开（会触发补列迁移）。
+ * 返回 {db, cols(table), reopen()}，用于测老库升级不丢数据、不重复加列。 */
+export async function openMigratedDb(suffix, setupSql) {
+  const name = `dazi_test_${process.pid}_${suffix}`;
+  const admin = await mysql.createConnection({ ...MYSQL, multipleStatements: true });
+  await admin.query(`DROP DATABASE IF EXISTS \`${name}\`; CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4;`);
+  await admin.end();
+  const raw = await mysql.createConnection({ ...MYSQL, database: name, multipleStatements: true });
+  await raw.query(setupSql);
+  await raw.end();
+  const reopen = () => openDb({ ...MYSQL, database: name, connectionLimit: 1 });
+  const db = await reopen();
+  const cols = async (table) =>
+    (
+      await db.all(
+        'SELECT column_name AS c FROM information_schema.columns WHERE table_schema = ? AND table_name = ?',
+        name,
+        table,
+      )
+    ).map((r) => r.c);
+  return { db, cols, reopen };
+}
+
 export async function startServer({ now = MONDAY_10AM } = {}) {
   clock.set(now);
   await ensureTestDb();
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dazi-test-uploads-'));
-  const config = loadConfig({ NODE_ENV: 'test', MYSQL_DATABASE: TEST_DB, UPLOAD_DIR: uploadDir, ADMIN_PASSWORD });
+  // 测试用单连接池：让 Promise.all 的插入在同一连接上按调用顺序串行，AUTO_INCREMENT 的 id 才确定
+  const config = loadConfig({ NODE_ENV: 'test', MYSQL_DATABASE: TEST_DB, MYSQL_POOL: '1', UPLOAD_DIR: uploadDir, ADMIN_PASSWORD, LOG_LEVEL: process.env.LOG_LEVEL });
   const db = await openDb(config.db);
   await db.reset(); // 清掉上一个测试留下的数据
   const app = await createApp({ db, config });

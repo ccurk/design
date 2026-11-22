@@ -199,7 +199,7 @@ export async function deleteBill(db, user, eventId) {
 async function setTransferStatus(db, eventId, from, to, status) {
   await db.run(
     `INSERT INTO aa_transfers (event_id, from_user_id, to_user_id, status, updated_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(event_id, from_user_id, to_user_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`,
+     ON DUPLICATE KEY UPDATE status = VALUES(status), updated_at = VALUES(updated_at)`,
     eventId,
     from,
     to,
