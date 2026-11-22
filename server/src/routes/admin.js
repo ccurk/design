@@ -80,7 +80,7 @@ export function adminRoutes({ db, config }) {
   const r = Router();
   const guard = loginGuard();
 
-  r.post('/login', (req, res) => {
+  r.post('/login', async (req, res) => {
     const locked = guard.lockedMinutes(req.ip);
     if (locked) throw tooMany(`密码输错太多次了，请 ${locked} 分钟后再试`);
     if (!checkPassword(body(req).password, config.adminPassword)) {
@@ -88,119 +88,119 @@ export function adminRoutes({ db, config }) {
       throw unauthorized('密码不对');
     }
     guard.clear(req.ip);
-    res.json({ token: createAdminSession(db) });
+    res.json({ token: await createAdminSession(db) });
   });
 
   r.use(requireAdmin(db));
 
-  r.get('/stats', (req, res) => res.json(stats(db)));
+  r.get('/stats', async (req, res) => res.json(await stats(db)));
 
   // 撮合
-  r.get('/proposals', (req, res) => res.json(listProposals(db, statusQuery(req, 'pending'))));
-  r.post('/proposals/:id/confirm', (req, res) => res.json(confirmProposal(db, pid(req), body(req))));
-  r.post('/proposals/:id/reject', (req, res) => res.json(rejectProposal(db, pid(req), note(req))));
-  r.post('/proposals/:id/members', (req, res) => {
+  r.get('/proposals', async (req, res) => res.json(await listProposals(db, statusQuery(req, 'pending'))));
+  r.post('/proposals/:id/confirm', async (req, res) => res.json(await confirmProposal(db, pid(req), body(req))));
+  r.post('/proposals/:id/reject', async (req, res) => res.json(await rejectProposal(db, pid(req), note(req))));
+  r.post('/proposals/:id/members', async (req, res) => {
     const { remove = [], add = [] } = body(req);
     const toIds = (list) => (Array.isArray(list) ? list.map(Number) : list);
-    res.json(adjustProposalMembers(db, pid(req), { remove: toIds(remove), add: toIds(add) }));
+    res.json(await adjustProposalMembers(db, pid(req), { remove: toIds(remove), add: toIds(add) }));
   });
-  r.get('/intents', (req, res) => res.json(listPoolIntents(db, statusQuery(req, 'open'))));
-  r.post('/match/run', (req, res) => res.json(runMatching(db)));
-  r.get('/settings', (req, res) => res.json(allSettings(db)));
-  r.put('/settings', (req, res) => {
+  r.get('/intents', async (req, res) => res.json(await listPoolIntents(db, statusQuery(req, 'open'))));
+  r.post('/match/run', async (req, res) => res.json(await runMatching(db)));
+  r.get('/settings', async (req, res) => res.json(await allSettings(db)));
+  r.put('/settings', async (req, res) => {
     const { autoConfirm } = body(req);
     if (autoConfirm !== undefined) {
       if (!autoConfirm || typeof autoConfirm !== 'object') throw invalid('autoConfirm 格式不正确');
-      const current = allSettings(db).autoConfirm;
-      setSetting(db, 'autoConfirm', {
+      const current = (await allSettings(db)).autoConfirm;
+      await setSetting(db, 'autoConfirm', {
         enabled: bool(autoConfirm.enabled, '是否开启', { optional: true }) ?? current.enabled,
         threshold: int(autoConfirm.threshold, '阈值', { min: 0, max: 100, optional: true }) ?? current.threshold,
       });
     }
-    res.json(allSettings(db));
+    res.json(await allSettings(db));
   });
 
   // 局
-  r.get('/events', (req, res) =>
+  r.get('/events', async (req, res) =>
     res.json(
-      adminListEvents(db, {
+      await adminListEvents(db, {
         status: req.query.status ? String(req.query.status) : null,
         source: req.query.source ? String(req.query.source) : null,
         q: req.query.q ? String(req.query.q).trim() : null,
       }),
     ),
   );
-  r.get('/events/:id', (req, res) => res.json(adminEventDetail(db, pid(req))));
-  r.post('/events', (req, res) => res.json({ eventId: createPlatformEvent(db, body(req)).id }));
-  r.post('/events/:id/approve', (req, res) => res.json(reviewUserEvent(db, pid(req), true, note(req))));
-  r.post('/events/:id/reject', (req, res) => res.json(reviewUserEvent(db, pid(req), false, note(req))));
-  r.post('/events/:id/cancel', (req, res) => res.json(adminCancelEvent(db, pid(req), body(req).reason)));
-  r.post('/events/:id/remind', (req, res) => res.json(remindInvitees(db, pid(req))));
+  r.get('/events/:id', async (req, res) => res.json(await adminEventDetail(db, pid(req))));
+  r.post('/events', async (req, res) => res.json({ eventId: (await createPlatformEvent(db, body(req))).id }));
+  r.post('/events/:id/approve', async (req, res) => res.json(await reviewUserEvent(db, pid(req), true, note(req))));
+  r.post('/events/:id/reject', async (req, res) => res.json(await reviewUserEvent(db, pid(req), false, note(req))));
+  r.post('/events/:id/cancel', async (req, res) => res.json(await adminCancelEvent(db, pid(req), body(req).reason)));
+  r.post('/events/:id/remind', async (req, res) => res.json(await remindInvitees(db, pid(req))));
 
   // 举报、动态、申诉
-  r.get('/reports', (req, res) => res.json(adminListReports(db, statusQuery(req, 'pending'))));
+  r.get('/reports', async (req, res) => res.json(await adminListReports(db, statusQuery(req, 'pending'))));
   // note 只有后台能看到；message 会发给被处理的人（不填就用默认文案）
-  r.post('/reports/:id/resolve', (req, res) =>
+  r.post('/reports/:id/resolve', async (req, res) =>
     res.json(
-      resolveReport(db, pid(req), {
+      await resolveReport(db, pid(req), {
         action: body(req).action,
         note: note(req),
         message: str(body(req).message, '给用户的说明', { max: 200, optional: true }),
       }),
     ),
   );
-  r.get('/posts', (req, res) => res.json(adminListPosts(db, statusQuery(req, 'pending'))));
-  r.post('/posts/:id/approve', (req, res) => res.json(moderatePost(db, pid(req), true, note(req))));
-  r.post('/posts/:id/reject', (req, res) => res.json(moderatePost(db, pid(req), false, note(req))));
-  r.get('/appeals', (req, res) => res.json(listAppeals(db, statusQuery(req, 'pending'))));
-  r.post('/appeals/:id/resolve', (req, res) =>
-    res.json(resolveAppeal(db, pid(req), { approve: body(req).approve, note: note(req) })),
+  r.get('/posts', async (req, res) => res.json(await adminListPosts(db, statusQuery(req, 'pending'))));
+  r.post('/posts/:id/approve', async (req, res) => res.json(await moderatePost(db, pid(req), true, note(req))));
+  r.post('/posts/:id/reject', async (req, res) => res.json(await moderatePost(db, pid(req), false, note(req))));
+  r.get('/appeals', async (req, res) => res.json(await listAppeals(db, statusQuery(req, 'pending'))));
+  r.post('/appeals/:id/resolve', async (req, res) =>
+    res.json(await resolveAppeal(db, pid(req), { approve: body(req).approve, note: note(req) })),
   );
-  r.get('/leader-applications', (req, res) => res.json(listLeaderApplications(db, statusQuery(req, 'pending'))));
-  r.post('/leader-applications/:id/review', (req, res) =>
-    res.json(reviewLeaderApplication(db, pid(req), body(req).approve, note(req))),
+  r.get('/leader-applications', async (req, res) => res.json(await listLeaderApplications(db, statusQuery(req, 'pending'))));
+  r.post('/leader-applications/:id/review', async (req, res) =>
+    res.json(await reviewLeaderApplication(db, pid(req), body(req).approve, note(req))),
   );
 
   // 标签（/tags/hot 要写在 /tags/:id 前面）
-  r.get('/tags', (req, res) =>
+  r.get('/tags', async (req, res) =>
     res.json(
-      adminListTags(db, {
+      await adminListTags(db, {
         scope: req.query.scope ? String(req.query.scope) : 'all',
         days: req.query.days === undefined ? 30 : String(req.query.days),
       }),
     ),
   );
-  r.post('/tags', (req, res) => res.json(adminCreateTag(db, body(req))));
-  r.put('/tags/hot', (req, res) => res.json(adminSetHotTags(db, body(req).ids)));
-  r.put('/tags/:id', (req, res) => res.json(adminUpdateTag(db, pid(req), body(req))));
-  r.delete('/tags/:id', (req, res) => res.json(adminDeleteTag(db, pid(req))));
+  r.post('/tags', async (req, res) => res.json(await adminCreateTag(db, body(req))));
+  r.put('/tags/hot', async (req, res) => res.json(await adminSetHotTags(db, body(req).ids)));
+  r.put('/tags/:id', async (req, res) => res.json(await adminUpdateTag(db, pid(req), body(req))));
+  r.delete('/tags/:id', async (req, res) => res.json(await adminDeleteTag(db, pid(req))));
 
   // 首页轮播图（/banners/order 要写在 /banners/:id 前面）
-  r.get('/banners', (req, res) => res.json(adminListBanners(db)));
-  r.post('/banners', (req, res) => res.json(adminCreateBanner(db, body(req))));
-  r.put('/banners/order', (req, res) => res.json(adminOrderBanners(db, body(req).ids)));
-  r.put('/banners/:id', (req, res) => res.json(adminUpdateBanner(db, pid(req), body(req))));
-  r.delete('/banners/:id', (req, res) => res.json(adminDeleteBanner(db, pid(req))));
+  r.get('/banners', async (req, res) => res.json(await adminListBanners(db)));
+  r.post('/banners', async (req, res) => res.json(await adminCreateBanner(db, body(req))));
+  r.put('/banners/order', async (req, res) => res.json(await adminOrderBanners(db, body(req).ids)));
+  r.put('/banners/:id', async (req, res) => res.json(await adminUpdateBanner(db, pid(req), body(req))));
+  r.delete('/banners/:id', async (req, res) => res.json(await adminDeleteBanner(db, pid(req))));
 
   // 上传图片（轮播图、平台局配图）：multipart 字段 file，只收图片 ≤ 5MB
   const upload = uploader(config.uploadDir);
   r.post('/upload', upload.single('file'), (req, res) => res.json(uploadResult(req, config)));
 
   // 用户
-  r.get('/users', (req, res) =>
+  r.get('/users', async (req, res) =>
     res.json(
-      adminListUsers(db, {
+      await adminListUsers(db, {
         q: req.query.q ? String(req.query.q).trim() : null,
         level: req.query.level ? String(req.query.level) : null,
         status: req.query.status ? String(req.query.status) : null,
       }),
     ),
   );
-  r.get('/users/:id', (req, res) => res.json(adminUserDetail(db, pid(req))));
-  r.post('/users/:id/credit', (req, res) => res.json(adjustCredit(db, pid(req), body(req))));
-  r.post('/users/:id/restrict', (req, res) => res.json(adminRestrict(db, pid(req), body(req))));
-  r.post('/users/:id/ban', (req, res) => res.json(adminBan(db, pid(req), body(req))));
-  r.post('/users/:id/unban', (req, res) => res.json(adminUnban(db, pid(req))));
+  r.get('/users/:id', async (req, res) => res.json(await adminUserDetail(db, pid(req))));
+  r.post('/users/:id/credit', async (req, res) => res.json(await adjustCredit(db, pid(req), body(req))));
+  r.post('/users/:id/restrict', async (req, res) => res.json(await adminRestrict(db, pid(req), body(req))));
+  r.post('/users/:id/ban', async (req, res) => res.json(await adminBan(db, pid(req), body(req))));
+  r.post('/users/:id/unban', async (req, res) => res.json(await adminUnban(db, pid(req))));
 
   return r;
 }

@@ -9,12 +9,12 @@ export function contentRoutes({ db }) {
   const r = Router();
   const maybeAuth = requireUser(db, { optional: true });
 
-  r.get('/tags/hot', (req, res) => res.json(hotTags(db)));
-  r.get('/home', maybeAuth, (req, res) => res.json(homeView(db, req.user)));
+  r.get('/tags/hot', async (req, res) => res.json(await hotTags(db)));
+  r.get('/home', maybeAuth, async (req, res) => res.json(await homeView(db, req.user)));
 
   // 轮播广告：平台内落地页 + 点击统计（都不需要登录）
-  r.get('/banners/:id', (req, res) => res.json(bannerDetail(db, Number(req.params.id))));
-  r.post('/banners/:id/click', (req, res) => res.json(clickBanner(db, Number(req.params.id))));
+  r.get('/banners/:id', async (req, res) => res.json(await bannerDetail(db, Number(req.params.id))));
+  r.post('/banners/:id/click', async (req, res) => res.json(await clickBanner(db, Number(req.params.id))));
 
   return r;
 }

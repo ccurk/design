@@ -5,23 +5,23 @@ const DEFAULTS = {
   autoConfirm: { enabled: false, threshold: 90 },
 };
 
-export function getSetting(db, key) {
-  const row = db.get('SELECT value FROM settings WHERE key = ?', key);
+export async function getSetting(db, key) {
+  const row = await db.get('SELECT `value` FROM settings WHERE `key` = ?', key);
   const value = json.parse(row?.value, null);
   const def = DEFAULTS[key];
   if (def && typeof def === 'object' && !Array.isArray(def)) return { ...def, ...(value || {}) };
   return value ?? def ?? null;
 }
 
-export function setSetting(db, key, value) {
-  db.run(
-    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+export async function setSetting(db, key, value) {
+  await db.run(
+    'INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
     key,
     json.str(value),
   );
-  return getSetting(db, key);
+  return await getSetting(db, key);
 }
 
-export function allSettings(db) {
-  return { autoConfirm: getSetting(db, 'autoConfirm') };
+export async function allSettings(db) {
+  return { autoConfirm: await getSetting(db, 'autoConfirm') };
 }

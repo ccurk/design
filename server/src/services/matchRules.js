@@ -99,9 +99,9 @@ export function customStartMinute([from, to]) {
 const minutesOf = ([h, m]) => h * 60 + m;
 
 /** 给意向附上撮合需要的用户信息 */
-export function enrichIntent(db, intent, now = clock.now()) {
-  const user = db.get('SELECT * FROM users WHERE id = ?', intent.user_id);
-  const credit = creditOf(db, user, now);
+export async function enrichIntent(db, intent, now = clock.now()) {
+  const user = await db.get('SELECT * FROM users WHERE id = ?', intent.user_id);
+  const credit = await creditOf(db, user, now);
   return {
     ...intent,
     taskKey: tagKey(intent.task),
@@ -115,7 +115,7 @@ export function enrichIntent(db, intent, now = clock.now()) {
     sameSexOnly: userSettings(user).sameSexOnly || Boolean(intent.same_sex_only),
     userStatus: effectiveStatus(user, now),
     creditLevel: credit.level,
-    isNew: isNewUser(db, user.id),
+    isNew: await isNewUser(db, user.id),
   };
 }
 

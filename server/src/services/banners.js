@@ -6,7 +6,7 @@ import { str } from '../validate.js';
 
 const LINK_RE = /^((match|event|chat|review|post):[1-9]\d*|credit|square|create|feed|rules)$/;
 
-export function bannerView(db, b, { admin = false } = {}) {
+export async function bannerView(db, b, { admin = false } = {}) {
   const view = {
     id: b.id,
     image: absUrl(db, b.image),
@@ -33,9 +33,9 @@ export function bannerView(db, b, { admin = false } = {}) {
 }
 
 /** 首页用：开着的、在排期内的，按顺序；每返回一次给某个人展示就记一次曝光 */
-export function homeBanners(db) {
+export async function homeBanners(db) {
   const now = clock.iso();
-  const rows = db.all(
+  const rows = await db.all(
     `SELECT * FROM banners WHERE enabled = 1
        AND (starts_at IS NULL OR starts_at <= ?)
        AND (ends_at IS NULL OR ends_at >= ?)
@@ -45,14 +45,14 @@ export function homeBanners(db) {
   );
   if (rows.length) {
     const marks = rows.map(() => '?').join(',');
-    db.run(`UPDATE banners SET impressions = impressions + 1 WHERE id IN (${marks})`, ...rows.map((b) => b.id));
+    await db.run(`UPDATE banners SET impressions = impressions + 1 WHERE id IN (${marks})`, ...rows.map((b) => b.id));
   }
-  return rows.map((b) => bannerView(db, b));
+  return await Promise.all(rows.map((b) => bannerView(db, b)));
 }
 
 /** 平台内广告落地页：图文 + 可选按钮（按钮跳转仍是站内 link） */
-export function bannerDetail(db, id) {
-  const b = requireBanner(db, id);
+export async function bannerDetail(db, id) {
+  const b = await requireBanner(db, id);
   return {
     id: b.id,
     image: absUrl(db, b.image),
@@ -65,14 +65,18 @@ export function bannerDetail(db, id) {
 }
 
 /** 记一次点击（点轮播图时调用） */
-export function clickBanner(db, id) {
-  requireBanner(db, id);
-  db.run('UPDATE banners SET clicks = clicks + 1 WHERE id = ?', id);
+export async function clickBanner(db, id) {
+  await requireBanner(db, id);
+  await db.run('UPDATE banners SET clicks = clicks + 1 WHERE id = ?', id);
   return { ok: true };
 }
 
-export function adminListBanners(db) {
-  return { items: db.all('SELECT * FROM banners ORDER BY sort, id').map((b) => bannerView(db, b, { admin: true })) };
+export async function adminListBanners(db) {
+  return {
+    items: await Promise.all(
+      (await db.all('SELECT * FROM banners ORDER BY sort, id')).map((b) => bannerView(db, b, { admin: true })),
+    ),
+  };
 }
 
 function parseLink(value) {
@@ -97,16 +101,16 @@ function parseWhen(value, label) {
   return new Date(t).toISOString();
 }
 
-function requireBanner(db, id) {
-  const b = db.get('SELECT * FROM banners WHERE id = ?', id);
+async function requireBanner(db, id) {
+  const b = await db.get('SELECT * FROM banners WHERE id = ?', id);
   if (!b) throw notFound('轮播图不存在');
   return b;
 }
 
-const view = (db, id) => bannerView(db, requireBanner(db, id), { admin: true });
+const view = async (db, id) => await bannerView(db, await requireBanner(db, id), { admin: true });
 
 /** {image, title, subtitle?, link?, body?, ctaLabel?, ctaLink?, startsAt?, endsAt?, enabled?}：新的排在最后 */
-export function adminCreateBanner(db, body = {}) {
+export async function adminCreateBanner(db, body = {}) {
   const startsAt = parseWhen(body.startsAt, '开始时间');
   const endsAt = parseWhen(body.endsAt, '结束时间');
   if (startsAt && endsAt && endsAt < startsAt) throw invalid('结束时间要晚于开始时间');
@@ -121,14 +125,14 @@ export function adminCreateBanner(db, body = {}) {
     starts_at: startsAt,
     ends_at: endsAt,
     enabled: body.enabled === undefined || body.enabled === null ? 1 : parseEnabled(body.enabled),
-    sort: Number(db.get('SELECT COALESCE(MAX(sort), -1) + 1 AS n FROM banners').n),
+    sort: Number((await db.get('SELECT COALESCE(MAX(sort), -1) + 1 AS n FROM banners')).n),
     created_at: clock.iso(),
   };
-  return view(db, db.insert('banners', row));
+  return await view(db, await db.insert('banners', row));
 }
 
-export function adminUpdateBanner(db, id, body = {}) {
-  const b = requireBanner(db, id);
+export async function adminUpdateBanner(db, id, body = {}) {
+  const b = await requireBanner(db, id);
   const patch = {};
   if (body.image !== undefined) patch.image = parseImage(body.image);
   if (body.title !== undefined) patch.title = str(body.title, '标题', { min: 1, max: 20 });
@@ -143,29 +147,28 @@ export function adminUpdateBanner(db, id, body = {}) {
   const effStarts = patch.starts_at !== undefined ? patch.starts_at : b.starts_at;
   const effEnds = patch.ends_at !== undefined ? patch.ends_at : b.ends_at;
   if (effStarts && effEnds && effEnds < effStarts) throw invalid('结束时间要晚于开始时间');
-  db.update('banners', id, patch);
-  return view(db, id);
+  await db.update('banners', id, patch);
+  return await view(db, id);
 }
 
 /** 排序：ids 里的按顺序排在前面，没列出的保持原来的先后排在后面 */
-export function adminOrderBanners(db, ids) {
+export async function adminOrderBanners(db, ids) {
   if (!Array.isArray(ids)) throw invalid('ids 需要是数组');
   const list = ids.map(Number);
   if (list.some((x) => !Number.isInteger(x) || x <= 0)) throw invalid('ids 格式不正确');
   if (new Set(list).size !== list.length) throw invalid('ids 有重复');
-  return db.tx(() => {
-    for (const id of list) requireBanner(db, id);
-    const rest = db
-      .all('SELECT id FROM banners ORDER BY sort, id')
+  return await db.tx(async () => {
+    for (const id of list) await requireBanner(db, id);
+    const rest = (await db.all('SELECT id FROM banners ORDER BY sort, id'))
       .map((b) => b.id)
       .filter((id) => !list.includes(id));
-    [...list, ...rest].forEach((id, i) => db.run('UPDATE banners SET sort = ? WHERE id = ?', i, id));
-    return adminListBanners(db);
+    for (const [i, id] of [...list, ...rest].entries()) await db.run('UPDATE banners SET sort = ? WHERE id = ?', i, id);
+    return await adminListBanners(db);
   });
 }
 
-export function adminDeleteBanner(db, id) {
-  requireBanner(db, id);
-  db.run('DELETE FROM banners WHERE id = ?', id);
+export async function adminDeleteBanner(db, id) {
+  await requireBanner(db, id);
+  await db.run('DELETE FROM banners WHERE id = ?', id);
   return { ok: true };
 }

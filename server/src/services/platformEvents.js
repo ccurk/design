@@ -27,10 +27,10 @@ export const EVENT_TEMPLATES = [
 ];
 
 /** 运营账号：平台局的组织者，会真实到场。没有就建一个（按 openid 幂等）。 */
-export function ensureOperator(db) {
-  const row = db.get('SELECT id FROM users WHERE openid = ?', OPERATOR_OPENID);
+export async function ensureOperator(db) {
+  const row = await db.get('SELECT id FROM users WHERE openid = ?', OPERATOR_OPENID);
   if (row) return row.id;
-  return db.insert('users', {
+  return await db.insert('users', {
     openid: OPERATOR_OPENID,
     nickname: '大理活动小助手',
     bio: '官方组织的兴趣局，带你认识同频的人。',
@@ -55,12 +55,12 @@ export function templateTitle(template, startAt) {
  * 发一个运营带队的平台局：开放报名，运营号先占一位（会到场），其余名额留给真人。
  * 返回 eventId。整个过程在一个事务里。
  */
-export function publishPlatformEvent(db, template, { date, operatorId } = {}) {
+export async function publishPlatformEvent(db, template, { date, operatorId } = {}) {
   const [h, m] = template.start;
   const startAt = bjDateTime(date, h, m);
-  return db.tx(() => {
-    const opId = operatorId ?? ensureOperator(db);
-    const event = createPlatformEvent(db, {
+  return await db.tx(async () => {
+    const opId = operatorId ?? (await ensureOperator(db));
+    const event = await createPlatformEvent(db, {
       title: templateTitle(template, startAt),
       tag: template.task,
       startAt: startAt.toISOString(),
@@ -74,7 +74,7 @@ export function publishPlatformEvent(db, template, { date, operatorId } = {}) {
       description: template.description,
     });
     // 运营带队：运营号先加入一位，其余名额留给真人（绝不塞假的种子账号占位）
-    db.insert('event_members', {
+    await db.insert('event_members', {
       event_id: event.id,
       user_id: opId,
       role: 'host',
@@ -91,10 +91,10 @@ export function publishPlatformEvent(db, template, { date, operatorId } = {}) {
  * 给未来 1..aheadDays 天各发 perDay 个局，轮换模板、运营带队、开放报名。
  * 返回 { created } 或 { created: 0, skipped: true }（当天已发过）。
  */
-export function publishDailyEvents(db, { perDay = 2, aheadDays = 3 } = {}) {
+export async function publishDailyEvents(db, { perDay = 2, aheadDays = 3 } = {}) {
   const today = bjDate(clock.now());
-  if (!markOnce(db, `daily-platform:${today}`)) return { created: 0, skipped: true };
-  const operatorId = ensureOperator(db);
+  if (!(await markOnce(db, `daily-platform:${today}`))) return { created: 0, skipped: true };
+  const operatorId = await ensureOperator(db);
   // 不同天从模板池不同位置起头，内容更丰富
   let i = Math.floor(clock.now().getTime() / DAY) * perDay * aheadDays;
   let created = 0;
@@ -103,7 +103,7 @@ export function publishDailyEvents(db, { perDay = 2, aheadDays = 3 } = {}) {
     for (let n = 0; n < perDay; n++) {
       const template = EVENT_TEMPLATES[i++ % EVENT_TEMPLATES.length];
       try {
-        publishPlatformEvent(db, template, { date, operatorId });
+        await publishPlatformEvent(db, template, { date, operatorId });
         created++;
       } catch {
         // 单个局校验 / 时间重叠失败就跳过，不影响其它

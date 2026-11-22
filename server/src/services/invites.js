@@ -67,8 +67,8 @@ export function eventInviteDeadline(event, rows) {
   return new Date(Math.min(lastInvite + INVITE_TTL, Date.parse(event.start_at) - lastCall(event)));
 }
 
-function inviteNotice(db, userId, event) {
-  notify(db, userId, {
+async function inviteNotice(db, userId, event) {
+  await notify(db, userId, {
     type: 'match',
     title: '撮合成功',
     body: `配到了！「${shortTitle(event.title)}」，去看看同行的人，确认加入吧`,
@@ -77,22 +77,21 @@ function inviteNotice(db, userId, event) {
 }
 
 /** 后台确认建议 → 创建撮合局（inviting），成员全部 invited，并通知「撮合成功」 */
-export function confirmProposal(db, proposalId, overrides = {}) {
-  return db.tx(() => {
-    const p = db.get('SELECT * FROM proposals WHERE id = ?', proposalId);
+export async function confirmProposal(db, proposalId, overrides = {}) {
+  return await db.tx(async () => {
+    const p = await db.get('SELECT * FROM proposals WHERE id = ?', proposalId);
     if (!p) throw notFound('建议不存在');
     if (p.status !== 'pending') throw conflict('这条建议已经处理过了');
-    const intents = json
-      .parse(p.intent_ids, [])
-      .map((id) => db.get('SELECT * FROM intents WHERE id = ?', id))
-      .filter((i) => i && i.status === 'proposed');
+    const intents = (
+      await Promise.all(json.parse(p.intent_ids, []).map((id) => db.get('SELECT * FROM intents WHERE id = ?', id)))
+    ).filter((i) => i && i.status === 'proposed');
     if (intents.length < 2) throw conflict('人数不够了，请调整成员或退回');
     // 大家约好的人数：size_min 的最大值 ~ size_max 的最小值（开了「2–6 人都可以」按 2–6 算）
     const { min: minSize, max: maxSize } = groupBounds(intents);
     if (intents.length < minSize) {
       throw invalid(`人数不够：这组人约好至少 ${minSize} 人成局，现在只有 ${intents.length} 人`);
     }
-    const blocks = allBlockPairs(db);
+    const blocks = await allBlockPairs(db);
     for (let i = 0; i < intents.length; i++) {
       for (let j = i + 1; j < intents.length; j++) {
         const a = intents[i].user_id;
@@ -119,18 +118,20 @@ export function confirmProposal(db, proposalId, overrides = {}) {
     }
     const location = parseLocation(overrides.location);
     const images = parseImages(overrides.images, { max: 9 });
-    const users = intents.map((i) => getUser(db, i.user_id));
+    const users = await Promise.all(intents.map((i) => getUser(db, i.user_id)));
     // 成员在这个时间已经有别的局：写明是谁
-    const clashes = users
-      .map((u) => ({ u, hit: firstOverlap(db, u.id, startAt, durationMin) }))
+    const withHit = await Promise.all(
+      users.map(async (u) => ({ u, hit: await firstOverlap(db, u.id, startAt, durationMin) })),
+    );
+    const clashes = withHit
       .filter((x) => x.hit)
       .map(({ u, hit }) => `${u.nickname} 和已加入的${overlapLabel(hit)}时间重叠了`);
     if (clashes.length) throw conflict(clashes.join('；'));
     const sameSex = users.some((u) => userSettings(u).sameSexOnly);
 
-    const eventId = db.insert('events', {
+    const eventId = await db.insert('events', {
       title: str(overrides.title, '标题', { min: 2, max: 30, optional: true }) ?? p.title,
-      category: p.category || tagCategory(db, p.task),
+      category: p.category || (await tagCategory(db, p.task)),
       task: p.task,
       description: str(overrides.description, '说明', { max: 500, optional: true }) ?? '',
       start_at: startAt.toISOString(),
@@ -156,7 +157,7 @@ export function confirmProposal(db, proposalId, overrides = {}) {
       created_at: now.toISOString(),
     });
     for (const intent of intents) {
-      db.insert('event_members', {
+      await db.insert('event_members', {
         event_id: eventId,
         user_id: intent.user_id,
         role: 'member',
@@ -164,28 +165,30 @@ export function confirmProposal(db, proposalId, overrides = {}) {
         attendance: 'pending',
         invited_at: now.toISOString(),
       });
-      db.update('intents', intent.id, { status: 'invited', event_id: eventId, updated_at: now.toISOString() });
+      await db.update('intents', intent.id, { status: 'invited', event_id: eventId, updated_at: now.toISOString() });
     }
-    db.update('proposals', p.id, { status: 'confirmed', event_id: eventId, reviewed_at: now.toISOString() });
-    const event = getEvent(db, eventId);
-    for (const intent of intents) inviteNotice(db, intent.user_id, event);
+    await db.update('proposals', p.id, { status: 'confirmed', event_id: eventId, reviewed_at: now.toISOString() });
+    const event = await getEvent(db, eventId);
+    for (const intent of intents) await inviteNotice(db, intent.user_id, event);
     return { eventId };
   });
 }
 
 /** 被邀请人查看撮合结果 */
-export function matchView(db, user, eventId) {
-  const event = requireEvent(db, eventId);
-  const mine = memberRow(db, eventId, user.id);
+export async function matchView(db, user, eventId) {
+  const event = await requireEvent(db, eventId);
+  const mine = await memberRow(db, eventId, user.id);
   if (event.source !== 'matched' || !mine) throw notFound('没有找到这个撮合结果');
-  const rows = db.all(
+  const rows = await db.all(
     "SELECT * FROM event_members WHERE event_id = ? AND status IN ('invited', 'joined') ORDER BY joined_at IS NULL, joined_at, invited_at, user_id",
     eventId,
   );
   return {
-    event: eventDetail(db, event, user),
-    members: rows.map((r) => ({ ...userBrief(db, r.user_id), status: r.status, isMe: r.user_id === user.id })),
-    commonPoints: matchCommonPoints(db, event, rows.map((r) => r.user_id)),
+    event: await eventDetail(db, event, user),
+    members: await Promise.all(
+      rows.map(async (r) => ({ ...(await userBrief(db, r.user_id)), status: r.status, isMe: r.user_id === user.id })),
+    ),
+    commonPoints: await matchCommonPoints(db, event, rows.map((r) => r.user_id)),
     myStatus: mine.status,
     joinedCount: rows.filter((r) => r.status === 'joined').length,
     deadline: mine.status === 'invited' ? inviteDeadline(event, mine).toISOString() : null,
@@ -195,86 +198,86 @@ export function matchView(db, user, eventId) {
 const PACE_POINTS = { slow: '都偏安静', warm: '都是熟了就话多', open: '都随时能聊' };
 
 /** 撮合成功页的「共同点」：都想做的事、节奏、共同兴趣、新人 */
-function matchCommonPoints(db, event, userIds) {
-  const users = userIds.map((id) => getUser(db, id)).filter(Boolean);
+async function matchCommonPoints(db, event, userIds) {
+  const users = (await Promise.all(userIds.map((id) => getUser(db, id)))).filter(Boolean);
   const points = [`都想${taskPhrase(event.task).replace(/^去/, '')}`];
   const paces = users.map((u) => u.pace);
   if (paces.length && paces[0] && paces.every((p) => p === paces[0])) points.push(PACE_POINTS[paces[0]]);
   const lists = users.map((u) => json.parse(u.interests, []));
   const common = lists.length ? lists.reduce((acc, list) => acc.filter((x) => list.includes(x))) : [];
   for (const interest of common.filter((x) => x !== event.task).slice(0, 2)) points.push(`都喜欢${interest}`);
-  const newbies = users.filter((u) => isNewUser(db, u.id)).length;
+  const newbies = (await Promise.all(users.map((u) => isNewUser(db, u.id)))).filter(Boolean).length;
   if (newbies && newbies * 2 >= users.length) points.push('大多是第一次参加');
   return points.slice(0, 4);
 }
 
-export function acceptInvite(db, user, eventId) {
-  const outcome = db.tx(() => {
-    const event = requireEvent(db, eventId);
-    const mine = memberRow(db, eventId, user.id);
+export async function acceptInvite(db, user, eventId) {
+  const outcome = await db.tx(async () => {
+    const event = await requireEvent(db, eventId);
+    const mine = await memberRow(db, eventId, user.id);
     if (event.source !== 'matched' || !mine) throw notFound('没有找到这个撮合结果');
-    if (mine.status === 'joined') return joinResult(db, eventId, 'joined');
+    if (mine.status === 'joined') return await joinResult(db, eventId, 'joined');
     if (mine.status !== 'invited') throw conflict('邀请已经失效了');
     if (event.status !== 'inviting') throw conflict('这个局已经不再邀请了');
-    if (effectiveStatus(user) !== 'active' || creditOf(db, user).level === 'restricted') {
+    if (effectiveStatus(user) !== 'active' || (await creditOf(db, user)).level === 'restricted') {
       throw restricted('账号受限中，暂时不能加入');
     }
     if (clock.now().getTime() >= inviteDeadline(event, mine).getTime()) {
       // 过期了：本人还在线，意向退回撮合池继续撮合（先提交，再报错）
-      expireInvite(db, event, mine, { reopen: true });
-      evaluateInviting(db, eventId);
+      await expireInvite(db, event, mine, { reopen: true });
+      await evaluateInviting(db, eventId);
       return { expired: true };
     }
-    assertNoOverlap(db, user.id, event.start_at, event.duration_min, { excludeEventId: eventId });
-    db.run(
+    await assertNoOverlap(db, user.id, event.start_at, event.duration_min, { excludeEventId: eventId });
+    await db.run(
       "UPDATE event_members SET status = 'joined', joined_at = ? WHERE event_id = ? AND user_id = ?",
       clock.iso(),
       eventId,
       user.id,
     );
-    evaluateInviting(db, eventId);
-    return joinResult(db, eventId, 'joined');
+    await evaluateInviting(db, eventId);
+    return await joinResult(db, eventId, 'joined');
   });
   if (outcome.expired) throw conflict('邀请已经过期了，已帮你继续撮合');
   return outcome;
 }
 
 /** 换一批：declined，意向回到 open；随后尝试从撮合池补邀 */
-export function declineInvite(db, user, eventId) {
-  return db.tx(() => {
-    const event = requireEvent(db, eventId);
-    const mine = memberRow(db, eventId, user.id);
+export async function declineInvite(db, user, eventId) {
+  return await db.tx(async () => {
+    const event = await requireEvent(db, eventId);
+    const mine = await memberRow(db, eventId, user.id);
     if (event.source !== 'matched' || !mine) throw notFound('没有找到这个撮合结果');
     const pendingJoin = mine.status === 'joined' && event.status === 'inviting';
     if (mine.status !== 'invited' && !pendingJoin) throw conflict('现在不能换一批了');
     if (pendingJoin && exitDeadlinePassed(event)) throw conflict(exitDeadlineMessage(event));
     const now = clock.iso();
-    db.run(
+    await db.run(
       "UPDATE event_members SET status = 'declined', left_at = ? WHERE event_id = ? AND user_id = ?",
       now,
       eventId,
       user.id,
     );
-    const intent = db.get('SELECT * FROM intents WHERE event_id = ? AND user_id = ?', eventId, user.id);
+    const intent = await db.get('SELECT * FROM intents WHERE event_id = ? AND user_id = ?', eventId, user.id);
     if (intent) {
-      db.update('intents', intent.id, { status: 'open', event_id: null, proposal_id: null, updated_at: now });
+      await db.update('intents', intent.id, { status: 'open', event_id: null, proposal_id: null, updated_at: now });
     }
-    backfillEvent(db, getEvent(db, eventId));
-    evaluateInviting(db, eventId);
+    await backfillEvent(db, await getEvent(db, eventId));
+    await evaluateInviting(db, eventId);
     return { ok: true, intentId: intent?.id ?? null };
   });
 }
 
 /** 邀请到期视为放弃：declined；意向标记为 expired（reopen=true 时退回 open 继续撮合） */
-function expireInvite(db, event, member, { reopen = false } = {}) {
+async function expireInvite(db, event, member, { reopen = false } = {}) {
   const now = clock.iso();
-  db.run(
+  await db.run(
     "UPDATE event_members SET status = 'declined', invite_expired = 1, left_at = ? WHERE event_id = ? AND user_id = ?",
     now,
     event.id,
     member.user_id,
   );
-  db.run(
+  await db.run(
     "UPDATE intents SET status = ?, event_id = NULL, proposal_id = NULL, updated_at = ? WHERE event_id = ? AND user_id = ? AND status = 'invited'",
     reopen ? 'open' : 'expired',
     now,
@@ -284,52 +287,52 @@ function expireInvite(db, event, member, { reopen = false } = {}) {
 }
 
 /** 全员加入 → 成局；没人在等回应时：够 min_size 成局，否则等补邀直到期限后取消 */
-export function evaluateInviting(db, eventId) {
-  const event = getEvent(db, eventId);
+export async function evaluateInviting(db, eventId) {
+  const event = await getEvent(db, eventId);
   if (!event || event.status !== 'inviting') return event?.status;
-  const rows = db.all('SELECT * FROM event_members WHERE event_id = ?', eventId);
+  const rows = await db.all('SELECT * FROM event_members WHERE event_id = ?', eventId);
   const pending = rows.filter((r) => r.status === 'invited');
   const joined = rows.filter((r) => r.status === 'joined');
   if (pending.length) return 'inviting';
   if (joined.length >= event.min_size) {
-    formMatchedEvent(db, event);
+    await formMatchedEvent(db, event);
     return 'formed';
   }
   if (clock.now().getTime() >= eventInviteDeadline(event, rows).getTime()) {
-    cancelUnderfilled(db, event);
+    await cancelUnderfilled(db, event);
     return 'cancelled';
   }
   return 'inviting';
 }
 
 /** 撮合局成群：满员（加入人数 = 人数上限）用「满员啦…」，到期够人用「人数够了…」 */
-function formMatchedEvent(db, event) {
+async function formMatchedEvent(db, event) {
   const now = clock.iso();
-  db.update('events', event.id, { status: 'formed', formed_at: now });
-  const members = joinedMembers(db, event.id);
+  await db.update('events', event.id, { status: 'formed', formed_at: now });
+  const members = await joinedMembers(db, event.id);
   for (const m of members) {
-    db.run(
+    await db.run(
       "UPDATE intents SET status = 'matched', updated_at = ? WHERE event_id = ? AND user_id = ? AND status = 'invited'",
       now,
       event.id,
       m.user_id,
     );
   }
-  announceFormed(db, event, { atDeadline: members.length < event.capacity });
+  await announceFormed(db, event, { atDeadline: members.length < event.capacity });
 }
 
-function cancelUnderfilled(db, event) {
+async function cancelUnderfilled(db, event) {
   const now = clock.iso();
-  db.update('events', event.id, { status: 'cancelled', cancel_reason: '人数没凑齐' });
-  const members = db.all("SELECT * FROM event_members WHERE event_id = ? AND status IN ('joined', 'invited')", event.id);
+  await db.update('events', event.id, { status: 'cancelled', cancel_reason: '人数没凑齐' });
+  const members = await db.all("SELECT * FROM event_members WHERE event_id = ? AND status IN ('joined', 'invited')", event.id);
   for (const m of members) {
-    db.run(
+    await db.run(
       "UPDATE intents SET status = 'open', event_id = NULL, proposal_id = NULL, updated_at = ? WHERE event_id = ? AND user_id = ? AND status IN ('invited', 'matched')",
       now,
       event.id,
       m.user_id,
     );
-    notify(db, m.user_id, {
+    await notify(db, m.user_id, {
       type: 'match_failed',
       title: '这次没凑齐',
       body: '这次没凑齐，已帮你继续撮合',
@@ -342,19 +345,21 @@ function cancelUnderfilled(db, event) {
  * 补邀：撮合局还在邀请中且有空位时，从同条件的 open 意向里直接邀请（不再经过后台）。
  * pool 为已附带用户信息的 open 意向（可选，默认现查）。
  */
-export function backfillEvent(db, event, pool = null, used = new Set()) {
+export async function backfillEvent(db, event, pool = null, used = new Set()) {
   if (!event || event.status !== 'inviting' || event.source !== 'matched') return 0;
   const now = clock.now();
   if (now.getTime() >= Date.parse(event.start_at) - lastCall(event)) return 0;
-  const rows = db.all('SELECT * FROM event_members WHERE event_id = ?', event.id);
+  const rows = await db.all('SELECT * FROM event_members WHERE event_id = ?', event.id);
   const active = rows.filter((r) => ['invited', 'joined'].includes(r.status));
   let seats = event.capacity - active.length;
   if (seats <= 0) return 0;
 
   const known = new Set(rows.map((r) => r.user_id));
-  const memberIntents = db
-    .all("SELECT * FROM intents WHERE event_id = ? AND status IN ('invited', 'matched')", event.id)
-    .map((i) => enrichIntent(db, i, now));
+  const memberIntents = await Promise.all(
+    (await db.all("SELECT * FROM intents WHERE event_id = ? AND status IN ('invited', 'matched')", event.id)).map((i) =>
+      enrichIntent(db, i, now),
+    ),
+  );
   const eventDate = bjDate(new Date(event.start_at));
   // 候选人的时间窗要覆盖 [开始, 开始 + 60 分钟]
   const startMinute = bjMinuteOfDay(new Date(event.start_at));
@@ -364,9 +369,11 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
   };
   const key = tagKey(event.task);
   const genderLimit = genderLimitOf(event);
-  const blocks = allBlockPairs(db);
-  const candidates = (pool ?? openPool(db, now)).filter(
-    (c) =>
+  const blocks = await allBlockPairs(db);
+  const pooled = pool ?? (await openPool(db, now));
+  const candidates = [];
+  for (const c of pooled) {
+    if (
       !used.has(c.id) &&
       !known.has(c.user_id) &&
       (c.taskKey ?? tagKey(c.task)) === key &&
@@ -375,8 +382,11 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
       eventDate <= c.date_to &&
       covers(c) &&
       (genderLimit === 'any' || c.gender === genderLimit) &&
-      !firstOverlap(db, c.user_id, event.start_at, event.duration_min, { excludeEventId: event.id }),
-  );
+      !(await firstOverlap(db, c.user_id, event.start_at, event.duration_min, { excludeEventId: event.id }))
+    ) {
+      candidates.push(c);
+    }
+  }
 
   let invited = 0;
   const group = [...memberIntents];
@@ -386,8 +396,8 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
     const bounds = sizeBounds(c);
     if (bounds.min > event.capacity || bounds.max < event.capacity - seats + 1) continue;
     const ts = now.toISOString();
-    db.run(
-      'INSERT OR REPLACE INTO event_members (event_id, user_id, role, status, attendance, invited_at) VALUES (?, ?, ?, ?, ?, ?)',
+    await db.run(
+      'REPLACE INTO event_members (event_id, user_id, role, status, attendance, invited_at) VALUES (?, ?, ?, ?, ?, ?)',
       event.id,
       c.user_id,
       'member',
@@ -395,8 +405,8 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
       'pending',
       ts,
     );
-    db.update('intents', c.id, { status: 'invited', event_id: event.id, proposal_id: event.proposal_id, updated_at: ts });
-    inviteNotice(db, c.user_id, event);
+    await db.update('intents', c.id, { status: 'invited', event_id: event.id, proposal_id: event.proposal_id, updated_at: ts });
+    await inviteNotice(db, c.user_id, event);
     used.add(c.id);
     group.push(c);
     known.add(c.user_id);
@@ -407,16 +417,16 @@ export function backfillEvent(db, event, pool = null, used = new Set()) {
 }
 
 /** 后台「催一下」：给还没回复、也还没过期的被邀请人发提醒 */
-export function remindInvitees(db, eventId) {
-  return db.tx(() => {
-    const event = requireEvent(db, eventId);
+export async function remindInvitees(db, eventId) {
+  return await db.tx(async () => {
+    const event = await requireEvent(db, eventId);
     if (event.source !== 'matched' || event.status !== 'inviting') throw conflict('这个局不在邀请中，不用催了');
     const now = clock.now();
-    const pending = db
-      .all("SELECT * FROM event_members WHERE event_id = ? AND status = 'invited'", eventId)
-      .filter((m) => inviteDeadline(event, m).getTime() > now.getTime());
+    const pending = (await db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'invited'", eventId)).filter(
+      (m) => inviteDeadline(event, m).getTime() > now.getTime(),
+    );
     for (const m of pending) {
-      notify(db, m.user_id, {
+      await notify(db, m.user_id, {
         type: 'match_reminder',
         title: `还没回复：${event.title}`,
         body: `${dateLabel(inviteDeadline(event, m), now)} 前点「加入」`,
@@ -428,47 +438,47 @@ export function remindInvitees(db, eventId) {
 }
 
 /** 撮合池：open 且未过期的意向（账号受限 / 封禁的人不参与），按提交时间排序 */
-export function openPool(db, now = clock.now()) {
-  return db
-    .all("SELECT * FROM intents WHERE status = 'open' ORDER BY created_at, id")
-    .map((i) => enrichIntent(db, i, now))
-    .filter((i) => i.userStatus === 'active' && i.creditLevel !== 'restricted');
+export async function openPool(db, now = clock.now()) {
+  const enriched = await Promise.all(
+    (await db.all("SELECT * FROM intents WHERE status = 'open' ORDER BY created_at, id")).map((i) => enrichIntent(db, i, now)),
+  );
+  return enriched.filter((i) => i.userStatus === 'active' && i.creditLevel !== 'restricted');
 }
 
-export function backfillInvitingEvents(db, pool, used) {
-  const events = db.all("SELECT * FROM events WHERE status = 'inviting' AND source = 'matched' ORDER BY start_at");
+export async function backfillInvitingEvents(db, pool, used) {
+  const events = await db.all("SELECT * FROM events WHERE status = 'inviting' AND source = 'matched' ORDER BY start_at");
   let count = 0;
-  for (const e of events) count += backfillEvent(db, e, pool, used);
+  for (const e of events) count += await backfillEvent(db, e, pool, used);
   return count;
 }
 
 /** 每分钟：处理过期邀请，必要时成局或取消 */
-export function processInviteDeadlines(db) {
-  return db.tx(() => {
+export async function processInviteDeadlines(db) {
+  return await db.tx(async () => {
     const now = clock.now().getTime();
-    const events = db.all("SELECT * FROM events WHERE status = 'inviting'");
+    const events = await db.all("SELECT * FROM events WHERE status = 'inviting'");
     const result = { expiredInvites: 0, formed: 0, cancelled: 0 };
     for (const event of events) {
-      const pending = db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'invited'", event.id);
+      const pending = await db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'invited'", event.id);
       for (const m of pending) {
         if (now >= inviteDeadline(event, m).getTime()) {
-          expireInvite(db, event, m);
+          await expireInvite(db, event, m);
           result.expiredInvites++;
         }
       }
       if (now >= Date.parse(event.start_at)) {
         // 开场时间到了还在邀请中：够人就成群，不够才取消（原来无条件取消会误杀已满足 min_size 的局）
-        const joined = db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'joined'", event.id);
+        const joined = await db.all("SELECT * FROM event_members WHERE event_id = ? AND status = 'joined'", event.id);
         if (joined.length >= event.min_size) {
-          formMatchedEvent(db, event);
+          await formMatchedEvent(db, event);
           result.formed++;
         } else {
-          cancelUnderfilled(db, event);
+          await cancelUnderfilled(db, event);
           result.cancelled++;
         }
         continue;
       }
-      const status = evaluateInviting(db, event.id);
+      const status = await evaluateInviting(db, event.id);
       if (status === 'formed') result.formed++;
       if (status === 'cancelled') result.cancelled++;
     }

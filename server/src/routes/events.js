@@ -37,80 +37,80 @@ export function eventRoutes({ db }) {
   const leaveDeps = { declineInvite };
 
   // 广场与搜索（未登录也能看）
-  r.get('/events', maybeAuth, (req, res) => {
+  r.get('/events', maybeAuth, async (req, res) => {
     const category = req.query.category && req.query.category !== 'all' ? String(req.query.category) : null;
     const tag = req.query.tag ? String(req.query.tag) : null; // 按标签筛（规范化后比较）
     const source = req.query.source === 'official' || req.query.source === 'platform' ? 'platform' : null; // 只看官方
     const area = req.query.area && req.query.area !== 'all' ? String(req.query.area) : null; // 按片区
     const sort = req.query.sort ? String(req.query.sort) : undefined; // soon / new / filling
-    res.json(squareList(db, req.user, { category, tag, source, area, sort, ...page(req) }));
+    res.json(await squareList(db, req.user, { category, tag, source, area, sort, ...page(req) }));
   });
-  r.get('/search', maybeAuth, (req, res) => res.json(searchEvents(db, req.user, req.query.q)));
-  r.get('/search/hot', (req, res) => res.json(hotTerms(db)));
-  r.get('/events/ranking', maybeAuth, (req, res) => res.json(eventRanking(db, req.user))); // 本周人气榜（在 /events/:id 之前注册）
+  r.get('/search', maybeAuth, async (req, res) => res.json(await searchEvents(db, req.user, req.query.q)));
+  r.get('/search/hot', async (req, res) => res.json(await hotTerms(db)));
+  r.get('/events/ranking', maybeAuth, async (req, res) => res.json(await eventRanking(db, req.user))); // 本周人气榜（在 /events/:id 之前注册）
 
-  r.get('/events/mine', auth, (req, res) => {
+  r.get('/events/mine', auth, async (req, res) => {
     const tab = req.query.tab ? String(req.query.tab) : 'ongoing';
     if (!TABS.includes(tab)) throw invalid('tab 只能是 ongoing / ended / created');
-    res.json(myEvents(db, req.user, tab));
+    res.json(await myEvents(db, req.user, tab));
   });
 
-  r.get('/events/:id', maybeAuth, (req, res) => {
-    const event = requireVisibleEvent(db, pid(req), req.user);
-    res.json(eventDetail(db, event, req.user));
+  r.get('/events/:id', maybeAuth, async (req, res) => {
+    const event = await requireVisibleEvent(db, pid(req), req.user);
+    res.json(await eventDetail(db, event, req.user));
   });
 
-  r.post('/events', auth, (req, res) => {
-    const event = createUserEvent(db, req.user, body(req));
-    res.json(eventDetail(db, event, req.user));
+  r.post('/events', auth, async (req, res) => {
+    const event = await createUserEvent(db, req.user, body(req));
+    res.json(await eventDetail(db, event, req.user));
   });
 
-  r.post('/events/:id/join', auth, (req, res) => res.json(joinEvent(db, req.user, pid(req), body(req))));
-  r.post('/events/:id/leave', auth, (req, res) => res.json(leaveEvent(db, req.user, pid(req), leaveDeps)));
-  r.post('/events/:id/cancel', auth, (req, res) => res.json(cancelByHost(db, req.user, pid(req))));
+  r.post('/events/:id/join', auth, async (req, res) => res.json(await joinEvent(db, req.user, pid(req), body(req))));
+  r.post('/events/:id/leave', auth, async (req, res) => res.json(await leaveEvent(db, req.user, pid(req), leaveDeps)));
+  r.post('/events/:id/cancel', auth, async (req, res) => res.json(await cancelByHost(db, req.user, pid(req))));
 
-  r.get('/events/:id/applications', auth, (req, res) => res.json(listApplications(db, req.user, pid(req))));
-  r.post('/events/:id/applications/:userId/approve', auth, (req, res) =>
-    res.json(approveApplication(db, req.user, pid(req), pid(req, 'userId'))),
+  r.get('/events/:id/applications', auth, async (req, res) => res.json(await listApplications(db, req.user, pid(req))));
+  r.post('/events/:id/applications/:userId/approve', auth, async (req, res) =>
+    res.json(await approveApplication(db, req.user, pid(req), pid(req, 'userId'))),
   );
-  r.post('/events/:id/applications/:userId/reject', auth, (req, res) =>
-    res.json(rejectApplication(db, req.user, pid(req), pid(req, 'userId'))),
+  r.post('/events/:id/applications/:userId/reject', auth, async (req, res) =>
+    res.json(await rejectApplication(db, req.user, pid(req), pid(req, 'userId'))),
   );
 
-  r.post('/events/:id/attendance', auth, (req, res) => {
+  r.post('/events/:id/attendance', auth, async (req, res) => {
     const going = bool(body(req).going, '是否出席');
-    res.json(db.tx(() => setAttendance(db, req.user, pid(req), going, leaveDeps)));
+    res.json(await db.tx(() => setAttendance(db, req.user, pid(req), going, leaveDeps)));
   });
-  r.post('/events/:id/arrive', auth, (req, res) => res.json(arrive(db, req.user, pid(req))));
-  r.post('/events/:id/safe', auth, (req, res) => res.json(reportSafe(db, req.user, pid(req))));
+  r.post('/events/:id/arrive', auth, async (req, res) => res.json(await arrive(db, req.user, pid(req))));
+  r.post('/events/:id/safe', auth, async (req, res) => res.json(await reportSafe(db, req.user, pid(req))));
 
   // 群聊
-  r.get('/events/:id/messages', auth, (req, res) => {
+  r.get('/events/:id/messages', auth, async (req, res) => {
     const after = req.query.after === undefined ? null : int(req.query.after, 'after', { min: 0 });
-    res.json(listMessages(db, req.user, pid(req), { after }));
+    res.json(await listMessages(db, req.user, pid(req), { after }));
   });
-  r.post('/events/:id/messages', auth, (req, res) => res.json(postMessage(db, req.user, pid(req), body(req))));
-  r.post('/events/:id/icebreaker/next', auth, (req, res) => res.json(nextIcebreaker(db, req.user, pid(req))));
-  r.get('/events/:id/info', auth, (req, res) => res.json(eventInfo(db, req.user, pid(req))));
-  r.put('/events/:id/mute', auth, (req, res) =>
-    res.json(setMuted(db, req.user, pid(req), bool(body(req).muted, '免打扰'))),
+  r.post('/events/:id/messages', auth, async (req, res) => res.json(await postMessage(db, req.user, pid(req), body(req))));
+  r.post('/events/:id/icebreaker/next', auth, async (req, res) => res.json(await nextIcebreaker(db, req.user, pid(req))));
+  r.get('/events/:id/info', auth, async (req, res) => res.json(await eventInfo(db, req.user, pid(req))));
+  r.put('/events/:id/mute', auth, async (req, res) =>
+    res.json(await setMuted(db, req.user, pid(req), bool(body(req).muted, '免打扰'))),
   );
 
   // AA 记账：每个局一笔，一次声明
-  r.get('/events/:id/aa', auth, (req, res) => res.json(aaView(db, req.user, pid(req))));
-  r.post('/events/:id/aa', auth, (req, res) => res.json(declareBill(db, req.user, pid(req), body(req))));
-  r.put('/events/:id/aa', auth, (req, res) => res.json(updateBill(db, req.user, pid(req), body(req))));
-  r.delete('/events/:id/aa', auth, (req, res) => res.json(deleteBill(db, req.user, pid(req))));
-  r.post('/events/:id/aa/paid', auth, (req, res) =>
-    res.json(markPaid(db, req.user, pid(req), int(body(req).toUserId, '收款人', { min: 1 }))),
+  r.get('/events/:id/aa', auth, async (req, res) => res.json(await aaView(db, req.user, pid(req))));
+  r.post('/events/:id/aa', auth, async (req, res) => res.json(await declareBill(db, req.user, pid(req), body(req))));
+  r.put('/events/:id/aa', auth, async (req, res) => res.json(await updateBill(db, req.user, pid(req), body(req))));
+  r.delete('/events/:id/aa', auth, async (req, res) => res.json(await deleteBill(db, req.user, pid(req))));
+  r.post('/events/:id/aa/paid', auth, async (req, res) =>
+    res.json(await markPaid(db, req.user, pid(req), int(body(req).toUserId, '收款人', { min: 1 }))),
   );
-  r.post('/events/:id/aa/confirm', auth, (req, res) =>
-    res.json(confirmReceived(db, req.user, pid(req), int(body(req).fromUserId, '付款人', { min: 1 }))),
+  r.post('/events/:id/aa/confirm', auth, async (req, res) =>
+    res.json(await confirmReceived(db, req.user, pid(req), int(body(req).fromUserId, '付款人', { min: 1 }))),
   );
 
   // 互评
-  r.get('/events/:id/review', auth, (req, res) => res.json(reviewView(db, req.user, pid(req))));
-  r.post('/events/:id/reviews', auth, (req, res) => res.json(submitReview(db, req.user, pid(req), body(req))));
+  r.get('/events/:id/review', auth, async (req, res) => res.json(await reviewView(db, req.user, pid(req))));
+  r.post('/events/:id/reviews', auth, async (req, res) => res.json(await submitReview(db, req.user, pid(req), body(req))));
 
   return r;
 }

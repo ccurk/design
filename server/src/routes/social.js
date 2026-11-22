@@ -43,26 +43,26 @@ export function socialRoutes({ db, config }) {
   const auth = requireUser(db);
   const maybeAuth = requireUser(db, { optional: true });
 
-  r.get('/posts', maybeAuth, (req, res) => {
+  r.get('/posts', maybeAuth, async (req, res) => {
     const cursor = Number(req.query.cursor);
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
-    res.json(listPosts(db, req.user, { cursor: Number.isInteger(cursor) && cursor > 0 ? cursor : null, limit }));
+    res.json(await listPosts(db, req.user, { cursor: Number.isInteger(cursor) && cursor > 0 ? cursor : null, limit }));
   });
-  r.get('/posts/:id', maybeAuth, (req, res) => res.json(postDetail(db, req.user, pid(req))));
-  r.post('/posts', auth, (req, res) => res.json(createPost(db, req.user, body(req))));
-  r.delete('/posts/:id', auth, (req, res) => res.json(deletePost(db, req.user, pid(req))));
-  r.post('/posts/:id/like', auth, (req, res) => res.json(setLike(db, req.user, pid(req), true)));
-  r.delete('/posts/:id/like', auth, (req, res) => res.json(setLike(db, req.user, pid(req), false)));
-  r.post('/posts/:id/comments', auth, (req, res) => res.json(addComment(db, req.user, pid(req), body(req))));
+  r.get('/posts/:id', maybeAuth, async (req, res) => res.json(await postDetail(db, req.user, pid(req))));
+  r.post('/posts', auth, async (req, res) => res.json(await createPost(db, req.user, body(req))));
+  r.delete('/posts/:id', auth, async (req, res) => res.json(await deletePost(db, req.user, pid(req))));
+  r.post('/posts/:id/like', auth, async (req, res) => res.json(await setLike(db, req.user, pid(req), true)));
+  r.delete('/posts/:id/like', auth, async (req, res) => res.json(await setLike(db, req.user, pid(req), false)));
+  r.post('/posts/:id/comments', auth, async (req, res) => res.json(await addComment(db, req.user, pid(req), body(req))));
 
-  r.post('/reports', auth, (req, res) => res.json(createReport(db, req.user, body(req))));
+  r.post('/reports', auth, async (req, res) => res.json(await createReport(db, req.user, body(req))));
 
   const upload = uploader(config.uploadDir);
   r.post('/upload', auth, upload.single('file'), (req, res) => res.json(uploadResult(req, config)));
 
-  r.get('/inbox', auth, (req, res) => res.json(inbox(db, req.user)));
-  r.post('/notices/read-all', auth, (req, res) => res.json(markAllRead(db, req.user.id)));
-  r.post('/notices/:id/read', auth, (req, res) => res.json(markRead(db, req.user.id, pid(req))));
+  r.get('/inbox', auth, async (req, res) => res.json(await inbox(db, req.user)));
+  r.post('/notices/read-all', auth, async (req, res) => res.json(await markAllRead(db, req.user.id)));
+  r.post('/notices/:id/read', auth, async (req, res) => res.json(await markRead(db, req.user.id, pid(req))));
 
   return r;
 }

@@ -26,8 +26,8 @@ import { allBlockPairs } from './users.js';
 
 const ACTIVE_STATUSES = ['open', 'proposed', 'invited'];
 
-function assertCanMatch(db, user) {
-  if (effectiveStatus(user) !== 'active' || creditOf(db, user).level === 'restricted') {
+async function assertCanMatch(db, user) {
+  if (effectiveStatus(user) !== 'active' || (await creditOf(db, user)).level === 'restricted') {
     throw restricted('账号受限中，暂时不能撮合');
   }
 }
@@ -71,8 +71,8 @@ function parseAreas(raw) {
   return out;
 }
 
-export function createIntent(db, user, body) {
-  assertCanMatch(db, user);
+export async function createIntent(db, user, body) {
+  await assertCanMatch(db, user);
   const now = clock.now();
   const task = parseTag(body.task, '想做的事');
   if (body.when === undefined || body.when === null || body.when === '') throw invalid('请选择什么时候');
@@ -98,24 +98,24 @@ export function createIntent(db, user, body) {
 
   // 同一个标签（按规范化的 key 比较）、日期有重叠的意向只能有一个在撮合中
   const key = tagKey(task);
-  const duplicate = db
+  const duplicate = (await db
     .all(
       `SELECT task FROM intents WHERE user_id = ? AND status IN ('open', 'proposed', 'invited')
        AND date_from <= ? AND date_to >= ?`,
       user.id,
       range.dateTo,
       range.dateFrom,
-    )
+    ))
     .some((row) => tagKey(row.task) === key);
   if (duplicate) throw conflict('你已经有一个相同的意向在撮合中了');
 
   // 时间窗里已经没有连续 60 分钟的空档（都被已加入的局占了）
-  const gap = windowGap(db, user.id, datesBetween(range.dateFrom, range.dateTo), intentWindow(shape), MIN_TOGETHER);
+  const gap = await windowGap(db, user.id, datesBetween(range.dateFrom, range.dateTo), intentWindow(shape), MIN_TOGETHER);
   if (!gap.free) throw conflict(`这个时间你已经有局了：${gap.blockers.slice(0, 2).map(overlapLabel).join('、')}`);
 
-  const id = db.tx(() => {
-    const tag = useTag(db, task);
-    return db.insert('intents', {
+  const id = await db.tx(async () => {
+    const tag = await useTag(db, task);
+    return await db.insert('intents', {
       user_id: user.id,
       task: tag.name,
       category: tag.category,
@@ -136,18 +136,18 @@ export function createIntent(db, user, body) {
       created_at: now.toISOString(),
     });
   });
-  runMatching(db); // 提交后立刻撮合一次
-  return intentView(db.get('SELECT * FROM intents WHERE id = ?', id));
+  await runMatching(db); // 提交后立刻撮合一次
+  return intentView(await db.get('SELECT * FROM intents WHERE id = ?', id));
 }
 
-function requireOwnIntent(db, user, id) {
-  const intent = db.get('SELECT * FROM intents WHERE id = ?', id);
+async function requireOwnIntent(db, user, id) {
+  const intent = await db.get('SELECT * FROM intents WHERE id = ?', id);
   if (!intent || intent.user_id !== user.id) throw notFound('意向不存在');
   return intent;
 }
 
-export function myIntents(db, user) {
-  const rows = db.all(
+export async function myIntents(db, user) {
+  const rows = await db.all(
     `SELECT * FROM intents WHERE user_id = ? AND status IN ('open', 'proposed', 'invited') ORDER BY created_at DESC`,
     user.id,
   );
@@ -155,12 +155,12 @@ export function myIntents(db, user) {
 }
 
 /** 其他条件相同（能和我配到一起）的 open 意向数，按人去重 */
-export function similarCount(db, intent) {
+export async function similarCount(db, intent) {
   const now = clock.now();
-  const me = enrichIntent(db, intent, now);
-  const blocks = allBlockPairs(db);
+  const me = await enrichIntent(db, intent, now);
+  const blocks = await allBlockPairs(db);
   const users = new Set();
-  const rows = db.all(
+  const rows = await db.all(
     "SELECT * FROM intents WHERE status = 'open' AND area = ? AND id != ? AND user_id != ?",
     intent.area,
     intent.id,
@@ -169,16 +169,16 @@ export function similarCount(db, intent) {
   for (const row of rows) {
     if (tagKey(row.task) !== me.taskKey) continue;
     if (isIntentExpired(row, now)) continue;
-    const other = enrichIntent(db, row, now);
+    const other = await enrichIntent(db, row, now);
     if (other.userStatus !== 'active' || other.creditLevel === 'restricted') continue;
     if (pairCompatible(me, other, blocks)) users.add(other.user_id);
   }
   return users.size;
 }
 
-export function intentDetail(db, user, id) {
-  const intent = requireOwnIntent(db, user, id);
-  const similar = similarCount(db, intent);
+export async function intentDetail(db, user, id) {
+  const intent = await requireOwnIntent(db, user, id);
+  const similar = await similarCount(db, intent);
   const needMore = intent.status === 'open' ? Math.max(0, sizeBounds(intent).min - (similar + 1)) : 0;
   return {
     ...intentView(intent),
@@ -189,27 +189,27 @@ export function intentDetail(db, user, id) {
   };
 }
 
-export function updateIntent(db, user, id, body) {
-  const intent = requireOwnIntent(db, user, id);
+export async function updateIntent(db, user, id, body) {
+  const intent = await requireOwnIntent(db, user, id);
   if (!['open', 'proposed'].includes(intent.status)) throw conflict('这个意向已经有结果了，不能再修改');
   const patch = { updated_at: clock.iso() };
   const relaxTime = bool(body.relaxTime, '时间放宽', { optional: true });
   const relaxSize = bool(body.relaxSize, '人数放宽', { optional: true });
   if (relaxTime !== null) patch.relax_time = relaxTime;
   if (relaxSize !== null) patch.relax_size = relaxSize;
-  db.update('intents', id, patch);
-  if (intent.status === 'open') runMatching(db);
-  return intentDetail(db, user, id);
+  await db.update('intents', id, patch);
+  if (intent.status === 'open') await runMatching(db);
+  return await intentDetail(db, user, id);
 }
 
-export function cancelIntent(db, user, id) {
-  return db.tx(() => {
-    const intent = requireOwnIntent(db, user, id);
+export async function cancelIntent(db, user, id) {
+  return await db.tx(async () => {
+    const intent = await requireOwnIntent(db, user, id);
     if (intent.status === 'matched') throw invalid('已经成局了，要退出请到局里操作');
     if (!ACTIVE_STATUSES.includes(intent.status)) return { ok: true };
-    if (intent.status === 'proposed') removeIntentFromProposal(db, intent);
-    if (intent.status === 'invited' && intent.event_id) declineInvite(db, user, intent.event_id);
-    db.update('intents', id, { status: 'cancelled', proposal_id: null, event_id: null, updated_at: clock.iso() });
+    if (intent.status === 'proposed') await removeIntentFromProposal(db, intent);
+    if (intent.status === 'invited' && intent.event_id) await declineInvite(db, user, intent.event_id);
+    await db.update('intents', id, { status: 'cancelled', proposal_id: null, event_id: null, updated_at: clock.iso() });
     return { ok: true };
   });
 }
