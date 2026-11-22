@@ -10,28 +10,28 @@ import { rangeLabel } from '../time.js';
 
 const REVIEW_WINDOW = 7 * DAY;
 
-function needsReview(db, event, member, now) {
+async function needsReview(db, event, member, now) {
   if (member.status !== 'joined' || phaseOf(event, now) !== 'ended') return false;
   if (['cancelled', 'rejected'].includes(event.status)) return false;
   if (now.getTime() > endAt(event).getTime() + REVIEW_WINDOW) return false;
-  if (joinedCount(db, event.id) < 2) return false;
-  return !hasSubmitted(db, event.id, member.user_id);
+  if ((await joinedCount(db, event.id)) < 2) return false;
+  return !(await hasSubmitted(db, event.id, member.user_id));
 }
 
-function myEventCard(db, user, event, member, now) {
-  const intent = db.get('SELECT id FROM intents WHERE event_id = ? AND user_id = ?', event.id, user.id);
+async function myEventCard(db, user, event, member, now) {
+  const intent = await db.get('SELECT id FROM intents WHERE event_id = ? AND user_id = ?', event.id, user.id);
   return {
-    ...eventCard(db, event, user),
+    ...(await eventCard(db, event, user)),
     myStatus: member?.status ?? null,
-    needReview: member ? needsReview(db, event, member, now) : false,
-    reviewed: hasSubmitted(db, event.id, user.id),
+    needReview: member ? await needsReview(db, event, member, now) : false,
+    reviewed: await hasSubmitted(db, event.id, user.id),
     intentId: intent?.id ?? null,
   };
 }
 
 /** 撮合中的意向也以卡片形式出现（id 为 null，带 intentId；成局前看不到是谁） */
-function intentCard(db, intent, now) {
-  const similar = intent.status === 'open' ? similarCount(db, intent) : 0;
+async function intentCard(db, intent, now) {
+  const similar = intent.status === 'open' ? await similarCount(db, intent) : 0;
   const needMore = intent.status === 'open' ? Math.max(0, sizeBounds(intent).min - (similar + 1)) : 0;
   return {
     id: null,
@@ -50,7 +50,7 @@ function intentCard(db, intent, now) {
     phase: 'upcoming',
     tag: intent.task,
     cover: null,
-    coverKey: coverKeyFor(db, intent.task, intent.category),
+    coverKey: await coverKeyFor(db, intent.task, intent.category),
     genderLimit: 'any',
     genderLabel: null,
     exitDeadline: null,
@@ -66,8 +66,8 @@ function intentCard(db, intent, now) {
   };
 }
 
-function memberships(db, userId, statuses) {
-  return db.all(
+async function memberships(db, userId, statuses) {
+  return await db.all(
     `SELECT m.*, e.start_at FROM event_members m JOIN events e ON e.id = m.event_id
      WHERE m.user_id = ? AND m.status IN (${statuses.map(() => '?').join(', ')})`,
     userId,
@@ -75,46 +75,66 @@ function memberships(db, userId, statuses) {
   );
 }
 
-export function myEvents(db, user, tab = 'ongoing') {
+export async function myEvents(db, user, tab = 'ongoing') {
   const now = clock.now();
   if (tab === 'created') {
-    const rows = db.all('SELECT * FROM events WHERE creator_id = ? ORDER BY start_at DESC', user.id);
+    const rows = await db.all('SELECT * FROM events WHERE creator_id = ? ORDER BY start_at DESC', user.id);
     return {
-      items: rows.map((e) => myEventCard(db, user, e, db.get('SELECT * FROM event_members WHERE event_id = ? AND user_id = ?', e.id, user.id), now)),
+      items: await Promise.all(
+        rows.map(async (e) =>
+          myEventCard(
+            db,
+            user,
+            e,
+            await db.get('SELECT * FROM event_members WHERE event_id = ? AND user_id = ?', e.id, user.id),
+            now,
+          ),
+        ),
+      ),
     };
   }
   if (tab === 'ended') {
-    const items = memberships(db, user.id, ['joined'])
-      .map((m) => ({ m, e: getEvent(db, m.event_id) }))
-      .filter(({ e }) => phaseOf(e, now) === 'ended' && !['cancelled', 'rejected', 'pending_review', 'inviting'].includes(e.status))
-      .sort((a, b) => b.e.start_at.localeCompare(a.e.start_at))
-      .slice(0, 50)
-      .map(({ m, e }) => myEventCard(db, user, e, m, now));
+    const withEvents = await Promise.all(
+      (await memberships(db, user.id, ['joined'])).map(async (m) => ({ m, e: await getEvent(db, m.event_id) })),
+    );
+    const items = await Promise.all(
+      withEvents
+        .filter(({ e }) => phaseOf(e, now) === 'ended' && !['cancelled', 'rejected', 'pending_review', 'inviting'].includes(e.status))
+        .sort((a, b) => b.e.start_at.localeCompare(a.e.start_at))
+        .slice(0, 50)
+        .map(({ m, e }) => myEventCard(db, user, e, m, now)),
+    );
     return { items };
   }
-  return { items: ongoingItems(db, user, now) };
+  return { items: await ongoingItems(db, user, now) };
 }
 
-export function ongoingItems(db, user, now = clock.now()) {
-  const events = memberships(db, user.id, ['joined', 'invited', 'applied'])
-    .map((m) => ({ m, e: getEvent(db, m.event_id) }))
-    .filter(({ e }) => phaseOf(e, now) !== 'ended' && !['cancelled', 'rejected'].includes(e.status))
-    .sort((a, b) => a.e.start_at.localeCompare(b.e.start_at))
-    .map(({ m, e }) => myEventCard(db, user, e, m, now));
-  const intents = db
-    .all("SELECT * FROM intents WHERE user_id = ? AND status IN ('open', 'proposed') ORDER BY created_at DESC", user.id)
-    .map((i) => intentCard(db, i, now));
+export async function ongoingItems(db, user, now = clock.now()) {
+  const withEvents = await Promise.all(
+    (await memberships(db, user.id, ['joined', 'invited', 'applied'])).map(async (m) => ({ m, e: await getEvent(db, m.event_id) })),
+  );
+  const events = await Promise.all(
+    withEvents
+      .filter(({ e }) => phaseOf(e, now) !== 'ended' && !['cancelled', 'rejected'].includes(e.status))
+      .sort((a, b) => a.e.start_at.localeCompare(b.e.start_at))
+      .map(({ m, e }) => myEventCard(db, user, e, m, now)),
+  );
+  const intents = await Promise.all(
+    (await db.all("SELECT * FROM intents WHERE user_id = ? AND status IN ('open', 'proposed') ORDER BY created_at DESC", user.id)).map(
+      (i) => intentCard(db, i, now),
+    ),
+  );
   return [...events, ...intents];
 }
 
-export function ongoingCount(db, user, now = clock.now()) {
+export async function ongoingCount(db, user, now = clock.now()) {
   // 只数数量，不构建卡片（原来会连每条 open 意向的 similarCount 全量扫描一起算，挂在高频 /api/me 上）
-  const events = memberships(db, user.id, ['joined', 'invited', 'applied'])
-    .map((m) => getEvent(db, m.event_id))
-    .filter((e) => phaseOf(e, now) !== 'ended' && !['cancelled', 'rejected'].includes(e.status)).length;
-  const intents = db.get(
-    "SELECT COUNT(*) AS n FROM intents WHERE user_id = ? AND status IN ('open', 'proposed')",
-    user.id,
+  const resolvedEvents = await Promise.all(
+    (await memberships(db, user.id, ['joined', 'invited', 'applied'])).map((m) => getEvent(db, m.event_id)),
+  );
+  const events = resolvedEvents.filter((e) => phaseOf(e, now) !== 'ended' && !['cancelled', 'rejected'].includes(e.status)).length;
+  const intents = (
+    await db.get("SELECT COUNT(*) AS n FROM intents WHERE user_id = ? AND status IN ('open', 'proposed')", user.id)
   ).n;
   return events + Number(intents);
 }

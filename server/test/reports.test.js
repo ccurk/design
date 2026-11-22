@@ -12,14 +12,14 @@ describe('举报与处理', () => {
   afterEach(() => s.close());
 
   test('restrict_7d：被举报的人退出撮合，举报人收到处理结果', async () => {
-    const [reporter, bad, x, y] = [makeUser(s.db), makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [reporter, bad, x, y] = [await makeUser(s.db), await makeUser(s.db), await makeUser(s.db), await makeUser(s.db)];
     const tr = await s.login(reporter);
     const r = await s.ok('POST', '/api/reports', {
       token: tr,
       body: { targetType: 'user', targetId: bad, reason: '骚扰或不当言行', detail: '一直问我住哪', alsoBlock: true },
     });
     assert.equal(r.status, 'pending');
-    assert.ok(s.db.get('SELECT 1 FROM blocks WHERE user_id = ? AND blocked_id = ?', reporter, bad));
+    assert.ok(await s.db.get('SELECT 1 FROM blocks WHERE user_id = ? AND blocked_id = ?', reporter, bad));
 
     const admin = await s.adminToken();
     const { items } = await s.ok('GET', '/api/admin/reports?status=pending', { token: admin });
@@ -30,16 +30,16 @@ describe('举报与处理', () => {
     assert.ok(!JSON.stringify(items[0]).includes(`"reporterId"`));
 
     await s.ok('POST', `/api/admin/reports/${r.id}/resolve`, { token: admin, body: { action: 'restrict_7d', note: '核实属实' } });
-    const badUser = s.db.get('SELECT * FROM users WHERE id = ?', bad);
+    const badUser = await s.db.get('SELECT * FROM users WHERE id = ?', bad);
     assert.equal(badUser.status, 'restricted');
 
     // 受限的人不参与撮合：bad + x + y 本来能凑一组
-    [bad, x, y].forEach((u) => makeIntent(s.db, u));
-    assert.equal(runMatching(s.db).created, 0);
-    const z = makeUser(s.db);
-    makeIntent(s.db, z);
-    assert.equal(runMatching(s.db).created, 1);
-    const proposal = s.db.get("SELECT * FROM proposals WHERE status = 'pending'");
+    for (const u of [bad, x, y]) await makeIntent(s.db, u);
+    assert.equal((await runMatching(s.db)).created, 0);
+    const z = await makeUser(s.db);
+    await makeIntent(s.db, z);
+    assert.equal((await runMatching(s.db)).created, 1);
+    const proposal = await s.db.get("SELECT * FROM proposals WHERE status = 'pending'");
     assert.ok(!JSON.parse(proposal.user_ids).includes(bad));
 
     const tb = await s.login(bad);
@@ -59,7 +59,7 @@ describe('举报与处理', () => {
   });
 
   test('delete_content 删除被举报的消息；ban 后对方 token 失效', async () => {
-    const [a, b] = [makeUser(s.db), makeUser(s.db)];
+    const [a, b] = [await makeUser(s.db), await makeUser(s.db)];
     const [ta, tb] = [await s.login(a), await s.login(b)];
     const ev = await s.ok('POST', '/api/events', {
       token: ta,
@@ -85,7 +85,7 @@ describe('举报与处理', () => {
   });
 
   test('不能举报自己；被举报内容不存在时 404', async () => {
-    const a = makeUser(s.db);
+    const a = await makeUser(s.db);
     const ta = await s.login(a);
     assert.equal((await s.api('POST', '/api/reports', { token: ta, body: { targetType: 'user', targetId: a, reason: '其他' } })).status, 400);
     assert.equal((await s.api('POST', '/api/reports', { token: ta, body: { targetType: 'post', targetId: 999, reason: '其他' } })).status, 404);

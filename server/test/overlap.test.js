@@ -26,7 +26,7 @@ async function hostEvent(token, startAt, overrides = {}) {
 
 describe('报名、发起、通过申请时检查重叠', () => {
   test('报名：和已加入的局重叠 → 409（写明哪个局、几点到几点）；首尾相接不算重叠', async () => {
-    const [h1, h2, h3, me] = await Promise.all([1, 2, 3, 4].map(() => s.login(makeUser(s.db))));
+    const [h1, h2, h3, me] = await Promise.all([1, 2, 3, 4].map(async () => s.login(await makeUser(s.db))));
     const a = await hostEvent(h1, sat(14), { title: '周六下午 · 苍山看日出' }); // 14:00–16:00
     const b = await hostEvent(h2, sat(15), { title: '读书局', tag: '读书' }); // 15:00–17:00
     const c = await hostEvent(h3, sat(16), { title: '桌游局', tag: '桌游' }); // 16:00–18:00
@@ -42,7 +42,7 @@ describe('报名、发起、通过申请时检查重叠', () => {
   });
 
   test('申请中（applied）的局也算；发起局时发起人自动加入，同样检查', async () => {
-    const [h1, me] = await Promise.all([1, 2].map(() => s.login(makeUser(s.db))));
+    const [h1, me] = await Promise.all([1, 2].map(async () => s.login(await makeUser(s.db))));
     const a = await hostEvent(h1, sat(14), { requireApproval: true });
     assert.equal((await s.ok('POST', `/api/events/${a.id}/join`, { token: me })).myStatus, 'applied');
     const r = await s.api('POST', '/api/events', {
@@ -51,40 +51,40 @@ describe('报名、发起、通过申请时检查重叠', () => {
     });
     assert.equal(r.status, 409);
     assert.match(r.body.error.message, /^和你已加入的「苍山看日出」（10月31日 14:00–16:00）时间重叠了$/);
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM events WHERE title = '洱海边散步'").n, 0);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM events WHERE title = '洱海边散步'")).n, 0);
     // 已取消的局不算
     await s.ok('POST', `/api/events/${a.id}/cancel`, { token: h1 });
     assert.equal((await hostEvent(me, sat(15, 30))).status, 'open');
   });
 
   test('发起人通过申请时检查申请人（不透露对方另一个局的细节）', async () => {
-    const [host, applicant, other] = [makeUser(s.db), makeUser(s.db), makeUser(s.db, { nickname: '小林' })];
+    const [host, applicant, other] = [await makeUser(s.db), await makeUser(s.db), await makeUser(s.db, { nickname: '小林' })];
     const [th, to] = [await s.login(host), await s.login(other)];
     const ev = await hostEvent(th, sat(14), { requireApproval: true });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: to });
     // 小林在申请后又被拉进了同一时间的另一个局（比如历史数据），通过时拦下
     const busy = await hostEvent(await s.login(applicant), sat(13));
-    s.db.insert('event_members', { event_id: busy.id, user_id: other, role: 'member', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
+    await s.db.insert('event_members', { event_id: busy.id, user_id: other, role: 'member', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
     const r = await s.api('POST', `/api/events/${ev.id}/applications/${other}/approve`, { token: th });
     assert.equal(r.status, 409);
     assert.equal(r.body.error.message, '小林 这个时间已经有别的局了，不能通过');
-    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, other).status, 'applied');
+    assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, other)).status, 'applied');
   });
 });
 
 describe('撮合局：接受邀请、后台确认、引擎排时间', () => {
   async function sunriseProposal(n = 3) {
-    const users = Array.from({ length: n }, (_, i) => makeUser(s.db, { nickname: `日出${i + 1}` }));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    users.forEach((u) => makeIntent(s.db, u)); // 周六上午看日出 → 05:50 开始，4 小时
-    runMatching(s.db);
+    const users = await Promise.all(Array.from({ length: n }, (_, i) => makeUser(s.db, { nickname: `日出${i + 1}` })));
+    for (const u of users) await addCredit(s.db, u, 'attended', 2);
+    for (const u of users) await makeIntent(s.db, u); // 周六上午看日出 → 05:50 开始，4 小时
+    await runMatching(s.db);
     const { items } = await s.ok('GET', '/api/admin/proposals', { token: admin });
     return { proposal: items[0], users, tokens: await Promise.all(users.map((u) => s.login(u))) };
   }
 
   test('后台确认时有成员时间冲突 → 409 并写明是谁', async () => {
     const { proposal, tokens } = await sunriseProposal();
-    const other = await s.login(makeUser(s.db));
+    const other = await s.login(await makeUser(s.db));
     const ev = await hostEvent(other, sat(8), { title: '喜洲吃早餐', tag: '早餐' }); // 08:00–10:00，和 05:50–09:50 重叠
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: tokens[1] });
     const r = await s.api('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
@@ -101,44 +101,44 @@ describe('撮合局：接受邀请、后台确认、引擎排时间', () => {
   test('接受邀请：和已加入的局重叠 → 409，仍然是 invited', async () => {
     const { proposal, users, tokens } = await sunriseProposal();
     const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
-    const other = await s.login(makeUser(s.db));
+    const other = await s.login(await makeUser(s.db));
     const ev = await hostEvent(other, sat(7), { title: '洱海边早餐', tag: '早餐' });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: tokens[0] }); // 被邀请（还没加入）不挡报名
     const r = await s.api('POST', `/api/matches/${eventId}/accept`, { token: tokens[0] });
     assert.equal(r.status, 409);
     assert.equal(r.body.error.message, '和你已加入的「洱海边早餐」（10月31日 07:00–09:00）时间重叠了');
-    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[0]).status, 'invited');
+    assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[0])).status, 'invited');
     const accepted = await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[1] });
     assert.equal(accepted.myStatus, 'joined');
   });
 
   test('撮合引擎排时间时跳过有冲突的成员（留在撮合池里）', async () => {
-    const users = Array.from({ length: 4 }, () => makeUser(s.db));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    const intents = users.map((u) => makeIntent(s.db, u));
+    const users = await Promise.all(Array.from({ length: 4 }, () => makeUser(s.db)));
+    for (const u of users) await addCredit(s.db, u, 'attended', 2);
+    const intents = await Promise.all(users.map((u) => makeIntent(s.db, u)));
     // 第 1 个人周六 08:00 已经有局了（和 05:50–09:50 重叠）
-    const other = await s.login(makeUser(s.db));
+    const other = await s.login(await makeUser(s.db));
     const ev = await hostEvent(other, sat(8), { tag: '早餐', title: '早餐局' });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: await s.login(users[0]) });
-    assert.equal(runMatching(s.db).created, 1);
-    const p = s.db.get("SELECT * FROM proposals WHERE status = 'pending'");
+    assert.equal((await runMatching(s.db)).created, 1);
+    const p = await s.db.get("SELECT * FROM proposals WHERE status = 'pending'");
     assert.deepEqual(JSON.parse(p.user_ids), users.slice(1));
-    assert.equal(s.db.get('SELECT status FROM intents WHERE id = ?', intents[0]).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE id = ?', intents[0])).status, 'open');
 
     // 只剩 2 个没冲突的人：凑不够 3 人就不成组
-    const more = Array.from({ length: 3 }, () => makeUser(s.db));
-    more.forEach((u) => makeIntent(s.db, u, { task: '爬山' }));
+    const more = await Promise.all(Array.from({ length: 3 }, () => makeUser(s.db)));
+    for (const u of more) await makeIntent(s.db, u, { task: '爬山' });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: await s.login(more[0]) });
-    assert.equal(runMatching(s.db).created, 0);
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM intents WHERE task = '爬山' AND status = 'open'").n, 3);
+    assert.equal((await runMatching(s.db)).created, 0);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM intents WHERE task = '爬山' AND status = 'open'")).n, 3);
   });
 });
 
 describe('提交意向：时间窗里已经没有连续 60 分钟的空档 → 409', () => {
   test('被已加入的局占满 → 409「这个时间你已经有局了：…」；还有空档或周末另一天有空就可以', async () => {
-    const me = makeUser(s.db);
+    const me = await makeUser(s.db);
     const token = await s.login(me);
-    const host = await s.login(makeUser(s.db));
+    const host = await s.login(await makeUser(s.db));
     const ev = await hostEvent(host, sat(14), { title: '周六下午 · 读书局', tag: '读书', durationMin: 180 }); // 14:00–17:00
     await s.ok('POST', `/api/events/${ev.id}/join`, { token });
     const post = (body) => s.api('POST', '/api/intents', { token, body: { task: '骑行', when: '2026-10-31', ...body } });

@@ -40,26 +40,26 @@ export function settleTransfers(balances) {
   return transfers;
 }
 
-export function getBill(db, eventId) {
-  return db.get('SELECT * FROM aa_bills WHERE event_id = ?', eventId) || null;
+export async function getBill(db, eventId) {
+  return (await db.get('SELECT * FROM aa_bills WHERE event_id = ?', eventId)) || null;
 }
 
 /** 有人点过「我已转账」（或收款人已经确认收到）之后，账单就不能再改 / 撤回 */
-function anyTransferMarked(db, eventId) {
-  return Boolean(db.get('SELECT 1 FROM aa_transfers WHERE event_id = ? LIMIT 1', eventId));
+async function anyTransferMarked(db, eventId) {
+  return Boolean(await db.get('SELECT 1 FROM aa_transfers WHERE event_id = ? LIMIT 1', eventId));
 }
 
 /** 汇总：账单、总额、每人、转账（含状态） */
-export function aaSummary(db, event, viewerId) {
-  const bill = getBill(db, event.id);
-  const members = joinedMembers(db, event.id).map((m) => m.user_id);
+export async function aaSummary(db, event, viewerId) {
+  const bill = await getBill(db, event.id);
+  const members = (await joinedMembers(db, event.id)).map((m) => m.user_id);
   const totalCents = bill ? toCents(bill.amount) : 0;
   const eachCents = members.length ? Math.round(totalCents / members.length) : 0;
 
   const balances = new Map(members.map((id) => [id, -eachCents]));
   // 记账人如果已经退出，不再分摊，但仍然要拿回垫付的钱
   if (bill) balances.set(bill.payer_id, (balances.get(bill.payer_id) ?? 0) + totalCents);
-  const statusRows = db.all('SELECT * FROM aa_transfers WHERE event_id = ?', event.id);
+  const statusRows = await db.all('SELECT * FROM aa_transfers WHERE event_id = ?', event.id);
   const statusOf = (from, to) =>
     statusRows.find((r) => r.from_user_id === from && r.to_user_id === to)?.status ?? 'pending';
 
@@ -73,18 +73,18 @@ export function aaSummary(db, event, viewerId) {
   return { bill, total: toYuan(totalCents), each: toYuan(eachCents), memberCount: members.length, transfers };
 }
 
-function requireAaMember(db, user, eventId) {
-  const event = requireEvent(db, eventId);
-  const mine = memberRow(db, eventId, user.id);
+async function requireAaMember(db, user, eventId) {
+  const event = await requireEvent(db, eventId);
+  const mine = await memberRow(db, eventId, user.id);
   if (!mine || mine.status !== 'joined') throw forbidden('加入这个局后才能记账');
   return event;
 }
 
 const closed = (event) => ['cancelled', 'rejected'].includes(event.status);
 
-export function aaView(db, user, eventId) {
-  const event = requireAaMember(db, user, eventId);
-  const summary = aaSummary(db, event, user.id);
+export async function aaView(db, user, eventId) {
+  const event = await requireAaMember(db, user, eventId);
+  const summary = await aaSummary(db, event, user.id);
   const cache = new Map();
   const brief = (id) => {
     if (!cache.has(id)) cache.set(id, userBrief(db, id));
@@ -95,24 +95,26 @@ export function aaView(db, user, eventId) {
   return {
     bill: bill
       ? {
-          payer: brief(bill.payer_id),
+          payer: await brief(bill.payer_id),
           amount: toYuan(toCents(bill.amount)),
           note: bill.note || null,
           createdAt: bill.created_at,
           mine,
-          editable: mine && !closed(event) && !anyTransferMarked(db, eventId),
+          editable: mine && !closed(event) && !(await anyTransferMarked(db, eventId)),
         }
       : null,
     total: summary.total,
     each: summary.each,
     memberCount: summary.memberCount,
-    transfers: summary.transfers.map((t) => ({
-      from: brief(t.fromId),
-      to: brief(t.toId),
-      amount: t.amount,
-      status: t.status,
-      role: t.role,
-    })),
+    transfers: await Promise.all(
+      summary.transfers.map(async (t) => ({
+        from: await brief(t.fromId),
+        to: await brief(t.toId),
+        amount: t.amount,
+        status: t.status,
+        role: t.role,
+      })),
+    ),
     canDeclare: !bill && !closed(event),
   };
 }
@@ -132,15 +134,15 @@ function parseBill(body) {
 const money = (yuan) => `¥${Number(yuan)}`;
 
 /** 通知其他成员：「阿野 记了这个局的 AA：共 ¥150（车费 + 早餐），每人 ¥30，转给阿野」 */
-function notifyBill(db, event, payer, verb) {
-  const summary = aaSummary(db, event, payer.id);
+async function notifyBill(db, event, payer, verb) {
+  const summary = await aaSummary(db, event, payer.id);
   const bill = summary.bill;
   const body = bill
     ? `${payer.nickname} ${verb}这个局的 AA：共 ${money(summary.total)}${bill.note ? `（${bill.note}）` : ''}，每人 ${money(summary.each)}，转给${payer.nickname}`
     : `${payer.nickname} 撤回了这个局的 AA`;
-  for (const m of joinedMembers(db, event.id)) {
+  for (const m of await joinedMembers(db, event.id)) {
     if (m.user_id === payer.id) continue;
-    notify(db, m.user_id, {
+    await notify(db, m.user_id, {
       type: 'aa_bill',
       title: `AA 记账 · ${shortTitle(event.title)}`,
       body,
@@ -150,52 +152,52 @@ function notifyBill(db, event, payer, verb) {
 }
 
 /** 声明 AA：任何已加入的成员，每个局只能一次 */
-export function declareBill(db, user, eventId, body) {
-  return db.tx(() => {
-    const event = requireAaMember(db, user, eventId);
+export async function declareBill(db, user, eventId, body) {
+  return await db.tx(async () => {
+    const event = await requireAaMember(db, user, eventId);
     if (closed(event)) throw invalid('这个局已经取消了');
-    if (getBill(db, eventId)) throw conflict('这个局已经有人记过 AA 了');
+    if (await getBill(db, eventId)) throw conflict('这个局已经有人记过 AA 了');
     const { amount, note } = parseBill(body);
     const now = clock.iso();
-    db.insert('aa_bills', { event_id: eventId, payer_id: user.id, amount, note, created_at: now, updated_at: now });
-    notifyBill(db, event, user, '记了');
-    return aaView(db, user, eventId);
+    await db.insert('aa_bills', { event_id: eventId, payer_id: user.id, amount, note, created_at: now, updated_at: now });
+    await notifyBill(db, event, user, '记了');
+    return await aaView(db, user, eventId);
   });
 }
 
 /** 只有记账人，且还没人点过「我已转账」 */
-function requireEditableBill(db, user, event) {
-  const bill = getBill(db, event.id);
+async function requireEditableBill(db, user, event) {
+  const bill = await getBill(db, event.id);
   if (!bill) throw conflict('这个局还没有记 AA');
   if (bill.payer_id !== user.id) throw forbidden('只有记账的人可以修改');
   if (closed(event)) throw invalid('这个局已经取消了');
-  if (anyTransferMarked(db, event.id)) throw conflict('已经有人转账了，不能再改');
+  if (await anyTransferMarked(db, event.id)) throw conflict('已经有人转账了，不能再改');
   return bill;
 }
 
-export function updateBill(db, user, eventId, body) {
-  return db.tx(() => {
-    const event = requireAaMember(db, user, eventId);
-    requireEditableBill(db, user, event);
+export async function updateBill(db, user, eventId, body) {
+  return await db.tx(async () => {
+    const event = await requireAaMember(db, user, eventId);
+    await requireEditableBill(db, user, event);
     const { amount, note } = parseBill(body);
-    db.run('UPDATE aa_bills SET amount = ?, note = ?, updated_at = ? WHERE event_id = ?', amount, note, clock.iso(), eventId);
-    notifyBill(db, event, user, '改了');
-    return aaView(db, user, eventId);
+    await db.run('UPDATE aa_bills SET amount = ?, note = ?, updated_at = ? WHERE event_id = ?', amount, note, clock.iso(), eventId);
+    await notifyBill(db, event, user, '改了');
+    return await aaView(db, user, eventId);
   });
 }
 
-export function deleteBill(db, user, eventId) {
-  return db.tx(() => {
-    const event = requireAaMember(db, user, eventId);
-    requireEditableBill(db, user, event);
-    db.run('DELETE FROM aa_bills WHERE event_id = ?', eventId);
-    notifyBill(db, event, user, '撤回了');
-    return aaView(db, user, eventId);
+export async function deleteBill(db, user, eventId) {
+  return await db.tx(async () => {
+    const event = await requireAaMember(db, user, eventId);
+    await requireEditableBill(db, user, event);
+    await db.run('DELETE FROM aa_bills WHERE event_id = ?', eventId);
+    await notifyBill(db, event, user, '撤回了');
+    return await aaView(db, user, eventId);
   });
 }
 
-function setTransferStatus(db, eventId, from, to, status) {
-  db.run(
+async function setTransferStatus(db, eventId, from, to, status) {
+  await db.run(
     `INSERT INTO aa_transfers (event_id, from_user_id, to_user_id, status, updated_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(event_id, from_user_id, to_user_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`,
     eventId,
@@ -207,39 +209,39 @@ function setTransferStatus(db, eventId, from, to, status) {
 }
 
 /** 付款方：我已转账 */
-export function markPaid(db, user, eventId, toUserId) {
-  return db.tx(() => {
-    const event = requireAaMember(db, user, eventId);
-    const t = aaSummary(db, event, user.id).transfers.find((x) => x.fromId === user.id && x.toId === toUserId);
+export async function markPaid(db, user, eventId, toUserId) {
+  return await db.tx(async () => {
+    const event = await requireAaMember(db, user, eventId);
+    const t = (await aaSummary(db, event, user.id)).transfers.find((x) => x.fromId === user.id && x.toId === toUserId);
     if (!t) throw invalid('没有需要转给 TA 的钱');
     if (t.status !== 'confirmed') {
-      setTransferStatus(db, eventId, user.id, toUserId, 'paid');
-      notify(db, toUserId, {
+      await setTransferStatus(db, eventId, user.id, toUserId, 'paid');
+      await notify(db, toUserId, {
         type: 'aa_paid',
         title: 'AA 转账提醒',
         body: `${user.nickname} 说已经转给你 ¥${t.amount}，收到后点一下「确认收到」`,
         link: `chat:${eventId}`,
       });
     }
-    return aaView(db, user, eventId);
+    return await aaView(db, user, eventId);
   });
 }
 
 /** 收款方：确认收到 */
-export function confirmReceived(db, user, eventId, fromUserId) {
-  return db.tx(() => {
-    const event = requireAaMember(db, user, eventId);
-    const t = aaSummary(db, event, user.id).transfers.find((x) => x.fromId === fromUserId && x.toId === user.id);
+export async function confirmReceived(db, user, eventId, fromUserId) {
+  return await db.tx(async () => {
+    const event = await requireAaMember(db, user, eventId);
+    const t = (await aaSummary(db, event, user.id)).transfers.find((x) => x.fromId === fromUserId && x.toId === user.id);
     if (!t) throw invalid('TA 不需要转钱给你');
-    setTransferStatus(db, eventId, fromUserId, user.id, 'confirmed');
-    if (getUser(db, fromUserId)) {
-      notify(db, fromUserId, {
+    await setTransferStatus(db, eventId, fromUserId, user.id, 'confirmed');
+    if (await getUser(db, fromUserId)) {
+      await notify(db, fromUserId, {
         type: 'aa_confirmed',
         title: 'AA 已清账',
         body: `${user.nickname} 确认收到了你的 ¥${t.amount}`,
         link: `chat:${eventId}`,
       });
     }
-    return aaView(db, user, eventId);
+    return await aaView(db, user, eventId);
   });
 }

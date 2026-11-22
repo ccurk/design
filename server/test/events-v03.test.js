@@ -181,7 +181,7 @@ describe('最晚退出时间 exitDeadline', () => {
     assert.deepEqual((await runMinuteJobs({ db: s.db })).exitDeadlines, { formed: 0, cancelled: 0 });
     clock.set('2026-10-30T06:00:00.000Z');
     assert.deepEqual((await runMinuteJobs({ db: s.db })).exitDeadlines, { formed: 1, cancelled: 0 });
-    const row = s.db.get('SELECT status, formed_at FROM events WHERE id = ?', ev.id);
+    const row = await s.db.get('SELECT status, formed_at FROM events WHERE id = ?', ev.id);
     assert.deepEqual([row.status, row.formed_at], ['formed', '2026-10-30T06:00:00.000Z']);
     assert.equal((await messages(ev.id)).at(-1).text, '人数够了，群已自动建好 · 第一次见面，慢慢来');
     for (const u of [host, a]) {
@@ -204,43 +204,43 @@ describe('最晚退出时间 exitDeadline', () => {
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
     clock.set('2026-10-30T06:00:00.000Z');
     assert.deepEqual((await runMinuteJobs({ db: s.db })).exitDeadlines, { formed: 0, cancelled: 1 });
-    const row = s.db.get('SELECT status, cancel_reason FROM events WHERE id = ?', ev.id);
+    const row = await s.db.get('SELECT status, cancel_reason FROM events WHERE id = ?', ev.id);
     assert.deepEqual([row.status, row.cancel_reason], ['cancelled', '没凑齐人']);
     for (const u of [host, a]) {
-      const [n] = notices(u, 'event_cancelled');
+      const [n] = await notices(u, 'event_cancelled');
       assert.equal(n.body, '「洱海边散步」已取消：没凑齐人。不影响你的信用。');
     }
     // 只有发起人一个人的局也会取消
     const lonely = await createOk(await s.login(await makeUser(s.db)), { startAt: '2026-11-01T06:00:00.000Z' });
     clock.set('2026-10-31T06:00:00.000Z');
-    runMinuteJobs({ db: s.db });
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', lonely.id).status, 'cancelled');
+    await runMinuteJobs({ db: s.db });
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', lonely.id)).status, 'cancelled');
   });
 
   test('早就结束了的 open 局（老库升级）：只改状态，不发通知、不加系统消息', async () => {
     const [host, a] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
-    const old = (title, members) => {
-      const id = s.db.insert('events', {
+    const old = async (title, members) => {
+      const id = await s.db.insert('events', {
         title, category: 'coffee', task: '咖啡', start_at: '2026-10-20T06:00:00.000Z', duration_min: 120, place: '古城',
         capacity: 4, min_size: 2, source: 'user', creator_id: host, status: 'open', created_at: '2026-10-15T00:00:00.000Z',
       });
-      for (const u of members) s.db.insert('event_members', { event_id: id, user_id: u, role: u === host ? 'host' : 'member', status: 'joined', joined_at: '2026-10-16T00:00:00.000Z' });
+      for (const u of members) await s.db.insert('event_members', { event_id: id, user_id: u, role: u === host ? 'host' : 'member', status: 'joined', joined_at: '2026-10-16T00:00:00.000Z' });
       return id;
     };
-    const enough = old('上周的咖啡局', [host, a]);
-    const lonely = old('没人来的咖啡局', [host]);
+    const enough = await old('上周的咖啡局', [host, a]);
+    const lonely = await old('没人来的咖啡局', [host]);
     assert.deepEqual((await runMinuteJobs({ db: s.db })).exitDeadlines, { formed: 1, cancelled: 1 });
-    const row = s.db.get('SELECT status, formed_at FROM events WHERE id = ?', enough);
+    const row = await s.db.get('SELECT status, formed_at FROM events WHERE id = ?', enough);
     assert.deepEqual([row.status, row.formed_at], ['formed', '2026-10-19T06:00:00.000Z']);
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', lonely).status, 'cancelled');
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type IN ('formed', 'event_cancelled')").n, 0);
-    assert.equal(s.db.get('SELECT COUNT(*) AS n FROM messages').n, 0);
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', lonely)).status, 'cancelled');
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type IN ('formed', 'event_cancelled')")).n, 0);
+    assert.equal((await s.db.get('SELECT COUNT(*) AS n FROM messages')).n, 0);
     // 成群的那个照常进入「去评价」
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'review'").n, 2);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'review'")).n, 2);
   });
 
   test('过了最晚退出时间不再接受报名，广场也不显示', async () => {
-    const [th, ta] = await Promise.all([makeUser(s.db), makeUser(s.db)].map((u) => s.login(u)));
+    const [th, ta] = await Promise.all([await makeUser(s.db), await makeUser(s.db)].map((u) => s.login(u)));
     const ev = await createOk(th, { capacity: 5, exitDeadline: '2026-10-28T06:00:00.000Z' });
     assert.equal((await s.ok('GET', '/api/events')).items.length, 1);
     clock.set('2026-10-28T06:00:00.000Z'); // 定时任务还没跑，局还是 open
@@ -254,10 +254,10 @@ describe('最晚退出时间 exitDeadline', () => {
 
   test('撮合局：确认时默认 max(开始前 24 小时, 现在 + 30 分钟)；已加入的人过了最晚退出时间不能「换一批」，还没回复的人可以', async () => {
     clock.set('2026-10-29T02:00:00.000Z'); // 周四 10:00，离周六 05:50 不到 44 小时
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    users.forEach((u) => makeIntent(s.db, u));
-    runMatching(s.db);
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    for (const u of users) await addCredit(s.db, u, 'attended', 2);
+    for (const u of users) await makeIntent(s.db, u);
+    await runMatching(s.db);
     const admin = await s.adminToken();
     const { items } = await s.ok('GET', '/api/admin/proposals', { token: admin });
     const bad = await s.api('POST', `/api/admin/proposals/${items[0].id}/confirm`, { token: admin, body: { exitDeadline: '2026-10-31T00:00:00.000Z' } });
@@ -278,7 +278,7 @@ describe('最晚退出时间 exitDeadline', () => {
   });
 
   test('需要同意的局：过了最晚退出时间发起人也不能再通过申请', async () => {
-    const [host, applicantId] = [makeUser(s.db), makeUser(s.db)];
+    const [host, applicantId] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
     const [th, ta] = [await s.login(host), await s.login(applicantId)];
     const ev = await createOk(th, { requireApproval: true, exitDeadline: '2026-10-28T06:00:00.000Z' });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
@@ -293,7 +293,7 @@ describe('成群：满员立即成群，群聊只在成群后开启', () => {
   test('平台局满员 → 成群：系统消息「满员啦…」+ 给每个成员发 formed 通知；成群前不能发消息', async () => {
     const admin = await s.adminToken();
     const { eventId } = await s.ok('POST', '/api/admin/events', { token: admin, body: body({ capacity: 2, tag: '咖啡', title: '平台咖啡局' }) });
-    const [a, b] = [makeUser(s.db), makeUser(s.db)];
+    const [a, b] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
     const [ta, tb] = [await s.login(a), await s.login(b)];
     let r = await s.ok('POST', `/api/events/${eventId}/join`, { token: ta });
     assert.deepEqual(r, {
@@ -313,7 +313,7 @@ describe('成群：满员立即成群，群聊只在成群后开启', () => {
 
     r = await s.ok('POST', `/api/events/${eventId}/join`, { token: tb });
     assert.deepEqual([r.myStatus, r.eventStatus, r.formed, r.remaining, r.memberCount], ['joined', 'formed', true, 0, 2]);
-    assert.equal(messages(eventId).at(-1).text, '满员啦，群已自动建好 · 第一次见面，慢慢来');
+    assert.equal((await messages(eventId)).at(-1).text, '满员啦，群已自动建好 · 第一次见面，慢慢来');
     for (const u of [a, b]) {
       const [n] = await notices(u, 'formed');
       assert.deepEqual([n.title, n.link], ['满员啦，群已建好', `chat:${eventId}`]);
@@ -325,7 +325,7 @@ describe('成群：满员立即成群，群聊只在成群后开启', () => {
   });
 
   test('成群后有人（在最晚退出时间前）退出：局回到 open 继续招人，群聊照常；再满员不重复发成群通知', async () => {
-    const [host, a, b, c] = [makeUser(s.db), makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [host, a, b, c] = await Promise.all([makeUser(s.db), makeUser(s.db), makeUser(s.db), makeUser(s.db)]);
     const [th, ta, tb, tc] = await Promise.all([host, a, b, c].map((u) => s.login(u)));
     const ev = await createOk(th, { capacity: 3 });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
@@ -338,7 +338,7 @@ describe('成群：满员立即成群，群聊只在成群后开启', () => {
     const r = await s.ok('POST', `/api/events/${ev.id}/join`, { token: tc });
     assert.deepEqual([r.eventStatus, r.formed], ['formed', true]);
     assert.equal((await notices(host, 'formed')).length, 1);
-    assert.equal(messages(ev.id).filter((m) => m.text.includes('群已自动建好')).length, 1);
+    assert.equal((await messages(ev.id)).filter((m) => m.text.includes('群已自动建好')).length, 1);
   });
 });
 
@@ -354,8 +354,8 @@ describe('搜索', () => {
 });
 
 describe('修复历史「周undefined」标题', () => {
-  test('repairBadTitles 按 start_at 补成正确星期', () => {
-    const id = s.db.insert('events', {
+  test('repairBadTitles 按 start_at 补成正确星期', async () => {
+    const id = await s.db.insert('events', {
       title: '周undefined下午 · 洱海西岸骑行',
       category: 'outdoor',
       task: '骑行',
@@ -369,7 +369,7 @@ describe('修复历史「周undefined」标题', () => {
       status: 'open',
       created_at: '2026-10-26T00:00:00.000Z',
     });
-    repairBadTitles(s.db);
-    assert.equal(s.db.get('SELECT title FROM events WHERE id = ?', id).title, '周三下午 · 洱海西岸骑行');
+    await repairBadTitles(s.db);
+    assert.equal((await s.db.get('SELECT title FROM events WHERE id = ?', id)).title, '周三下午 · 洱海西岸骑行');
   });
 });

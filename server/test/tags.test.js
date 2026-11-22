@@ -29,7 +29,7 @@ describe('标签：规范化与校验', () => {
   });
 
   test('1–8 个字；只允许文字、数字、空格和 ·-_；审核不过 → 422「这个标签不能用」', async () => {
-    const token = await s.login(makeUser(s.db));
+    const token = await s.login(await makeUser(s.db));
     const post = (task) => s.api('POST', '/api/intents', { token, body: { task, when: 'tomorrow' } });
     for (const [task, status, message] of [
       ['', 400, '请填写想做的事'],
@@ -50,32 +50,32 @@ describe('标签：规范化与校验', () => {
 
 describe('标签：用户添加、撮合按 key 比较', () => {
   test('新标签自动建一条（hot=0）并记 last_used_at；「KTV」和「ktv」是同一个标签，能配到一起', async () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
     const tokens = await Promise.all(users.map((u) => s.login(u)));
     const first = await s.ok('POST', '/api/intents', { token: tokens[0], body: { task: 'KTV', when: '2026-10-31', slot: 'evening' } });
     assert.equal(first.task, 'KTV');
     assert.equal(first.category, 'other');
-    const row = tagRow('KTV');
+    const row = await tagRow('KTV');
     assert.deepEqual([row.name, row.hot, row.category, row.last_used_at], ['KTV', 0, 'other', clock.iso()]);
 
     clock.advance(60000);
     const second = await s.ok('POST', '/api/intents', { token: tokens[1], body: { task: ' ｋｔｖ ', when: '2026-10-31', slot: 'evening' } });
     assert.equal(second.task, 'KTV'); // 用标签表里的写法
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM tags WHERE key = 'ktv'").n, 1);
-    assert.equal(tagRow('ktv').last_used_at, clock.iso());
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM tags WHERE key = 'ktv'")).n, 1);
+    assert.equal((await tagRow('ktv')).last_used_at, clock.iso());
     const third = await s.ok('POST', '/api/intents', { token: tokens[2], body: { task: 'Ktv', when: '2026-10-31', slot: 'evening' } });
     assert.equal(third.status, 'proposed');
-    const p = s.db.get("SELECT * FROM proposals WHERE status = 'pending'");
+    const p = await s.db.get("SELECT * FROM proposals WHERE status = 'pending'");
     assert.deepEqual(JSON.parse(p.user_ids), users);
     // 同一个人同一天、同一个标签（大小写不同）算重复
     const dup = await s.api('POST', '/api/intents', { token: tokens[0], body: { task: 'ktv', when: '2026-10-31', slot: 'afternoon' } });
     assert.equal(dup.status, 409);
   });
 
-  test('只用内置任务名时行为不变：不同标签不会配到一起', () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    users.forEach((u, i) =>
-      s.db.insert('intents', {
+  test('只用内置任务名时行为不变：不同标签不会配到一起', async () => {
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    for (const [i, u] of users.entries())
+      await s.db.insert('intents', {
         user_id: u,
         task: ['看日出', '爬山', '看日出'][i],
         category: 'outdoor',
@@ -85,36 +85,35 @@ describe('标签：用户添加、撮合按 key 比较', () => {
         area: '古城',
         status: 'open',
         created_at: clock.iso(),
-      }),
-    );
-    assert.equal(runMatching(s.db).created, 0);
+      });
+    assert.equal((await runMatching(s.db)).created, 0);
   });
 });
 
 describe('标签：老库升级', () => {
-  test('标签表是空的才写默认标签，并按已有的意向和局补上 last_used_at；用过的新标签补一条', () => {
-    const db = openDb(':memory:');
-    const u = db.insert('users', { openid: 'old', nickname: '老用户', created_at: '2026-09-01T00:00:00.000Z' });
+  test('标签表是空的才写默认标签，并按已有的意向和局补上 last_used_at；用过的新标签补一条', async () => {
+    const db = await openDb(':memory:');
+    const u = await db.insert('users', { openid: 'old', nickname: '老用户', created_at: '2026-09-01T00:00:00.000Z' });
     const intent = (task, created_at) =>
       db.insert('intents', {
         user_id: u, task, category: 'outdoor', date_from: '2026-09-02', date_to: '2026-09-02', slot: 'morning', area: '古城',
         status: 'expired', created_at,
       });
-    intent('看日出', '2026-09-01T01:00:00.000Z');
-    intent('看日出', '2026-09-05T01:00:00.000Z');
-    intent('飞盘', '2026-09-03T01:00:00.000Z');
-    db.insert('events', {
+    await intent('看日出', '2026-09-01T01:00:00.000Z');
+    await intent('看日出', '2026-09-05T01:00:00.000Z');
+    await intent('飞盘', '2026-09-03T01:00:00.000Z');
+    await db.insert('events', {
       title: '桌游局', category: 'game', task: '桌游', start_at: '2026-09-10T12:00:00.000Z', capacity: 4, source: 'user',
       status: 'formed', created_at: '2026-09-08T00:00:00.000Z',
     });
-    assert.equal(ensureDefaultTags(db), true);
+    assert.equal(await ensureDefaultTags(db), true);
     const row = (name) => db.get('SELECT * FROM tags WHERE key = ?', tagKey(name));
-    assert.equal(row('看日出').last_used_at, '2026-09-05T01:00:00.000Z');
-    assert.equal(row('桌游').last_used_at, '2026-09-08T00:00:00.000Z');
-    assert.deepEqual([row('飞盘').hot, row('飞盘').category, row('飞盘').last_used_at], [0, 'outdoor', '2026-09-03T01:00:00.000Z']);
-    assert.equal(row('拍照').last_used_at, null);
-    assert.equal(ensureDefaultTags(db), false); // 已经有标签了就不再动
-    db.close();
+    assert.equal((await row('看日出')).last_used_at, '2026-09-05T01:00:00.000Z');
+    assert.equal((await row('桌游')).last_used_at, '2026-09-08T00:00:00.000Z');
+    assert.deepEqual([(await row('飞盘')).hot, (await row('飞盘')).category, (await row('飞盘')).last_used_at], [0, 'outdoor', '2026-09-03T01:00:00.000Z']);
+    assert.equal((await row('拍照')).last_used_at, null);
+    assert.equal(await ensureDefaultTags(db), false); // 已经有标签了就不再动
+    await db.close();
   });
 });
 
@@ -130,10 +129,10 @@ describe('标签：热门列表（后台维护）', () => {
   });
 
   test('后台：scope=hot 按顺序；scope=all 按最近使用次数倒序；PUT /tags/hot 整体替换热门列表', async () => {
-    const [a, b] = [makeUser(s.db), makeUser(s.db)];
+    const [a, b] = [await makeUser(s.db), await makeUser(s.db)];
     const [ta, tb] = [await s.login(a), await s.login(b)];
     // 「徒步」40 天前用过 1 次，最近用了 2 次；「早餐」最近 1 次
-    s.db.insert('intents', {
+    await s.db.insert('intents', {
       user_id: a, task: '徒步', category: 'outdoor', date_from: '2026-09-15', date_to: '2026-09-15', slot: 'morning', area: '古城',
       status: 'expired', created_at: new Date(clock.now().getTime() - 40 * DAY).toISOString(),
     });
@@ -162,7 +161,7 @@ describe('标签：热门列表（后台维护）', () => {
     const replaced = await s.ok('PUT', '/api/admin/tags/hot', { token: admin, body: { ids: [byName['徒步'], byName['看日出'], byName['拍照']] } });
     assert.deepEqual(replaced.items.map((t) => t.name), ['徒步', '看日出', '拍照']);
     assert.deepEqual((await s.ok('GET', '/api/tags/hot')).items.map((t) => t.name), ['徒步', '看日出', '拍照']);
-    assert.equal(tagRow('爬山').hot, 0);
+    assert.equal((await tagRow('爬山')).hot, 0);
     assert.equal((await s.api('PUT', '/api/admin/tags/hot', { token: admin, body: { ids: [byName['徒步'], 99999] } })).status, 404);
     assert.equal((await s.api('PUT', '/api/admin/tags/hot', { token: admin, body: { ids: [byName['徒步'], byName['徒步']] } })).status, 400);
     assert.equal((await s.api('PUT', '/api/admin/tags/hot', { token: admin, body: { ids: 'x' } })).status, 400);
@@ -195,7 +194,7 @@ describe('标签：热门列表（后台维护）', () => {
     assert.equal((await s.api('PUT', `/api/admin/tags/${created.id}`, { token: admin, body: { hot: true } })).status, 404);
     assert.equal((await s.api('DELETE', `/api/admin/tags/${created.id}`, { token: admin })).status, 404);
     // 用户 token 不能调
-    const user = await s.login(makeUser(s.db));
+    const user = await s.login(await makeUser(s.db));
     assert.equal((await s.api('GET', '/api/admin/tags', { token: user })).status, 401);
   });
 });
@@ -209,21 +208,21 @@ describe('局的标签', () => {
   }
 
   test('用 tag 发起，分类由标签推出；旧的 category 仍接受；新标签用 category 当分类', async () => {
-    const tokens = await Promise.all([1, 2, 3, 4].map(() => s.login(makeUser(s.db))));
+    const tokens = await Promise.all([1, 2, 3, 4].map(async () => s.login(await makeUser(s.db))));
     const photo = await create(tokens[0], { tag: '拍照' });
     assert.deepEqual([photo.tag, photo.task, photo.category, photo.coverKey], ['拍照', '拍照', 'outdoor', 'lake']);
     const legacy = await create(tokens[1], { title: '周六喝咖啡', category: 'coffee' });
     assert.deepEqual([legacy.tag, legacy.category, legacy.coverKey], ['咖啡', 'coffee', 'coffee']);
     const fresh = await create(tokens[2], { tag: '剧本杀', category: 'game' });
     assert.deepEqual([fresh.tag, fresh.category, fresh.coverKey], ['剧本杀', 'game', 'boardgame']);
-    assert.equal(tagRow('剧本杀').hot, 0);
+    assert.equal((await tagRow('剧本杀')).hot, 0);
     const noHint = await create(tokens[3], { tag: 'Live' });
     assert.deepEqual([noHint.category, noHint.coverKey], ['other', 'oldtown']);
     assert.equal((await s.api('POST', '/api/events', { token: tokens[3], body: { title: '没标签的局', startAt: SAT_2PM, place: '古城', capacity: 4 } })).status, 400);
   });
 
   test('GET /api/events?tag= 按规范化后的标签筛', async () => {
-    const tokens = await Promise.all([1, 2, 3].map(() => s.login(makeUser(s.db))));
+    const tokens = await Promise.all([1, 2, 3].map(async () => s.login(await makeUser(s.db))));
     const ktv = await create(tokens[0], { tag: 'KTV' });
     const cycling = await create(tokens[1], { tag: '骑行' });
     await create(tokens[2], { tag: '咖啡' });

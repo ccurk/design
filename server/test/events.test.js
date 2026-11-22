@@ -34,7 +34,7 @@ describe('用户发起的局', () => {
   afterEach(() => s.close());
 
   test('发起 → open，进广场；满员自动 formed；有人退出回到 open', async () => {
-    const [host, a, b] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [host, a, b] = await Promise.all([makeUser(s.db), makeUser(s.db), makeUser(s.db)]);
     const [th, ta, tb] = await Promise.all([host, a, b].map((u) => s.login(u)));
     const ev = await hostEvent(th);
     assert.equal(ev.status, 'open');
@@ -76,16 +76,16 @@ describe('用户发起的局', () => {
 
     // 满员后不在广场（只展示 open）
     assert.equal((await s.ok('GET', '/api/events')).items.length, 0);
-    const full = await s.api('POST', `/api/events/${ev.id}/join`, { token: await s.login(makeUser(s.db)) });
+    const full = await s.api('POST', `/api/events/${ev.id}/join`, { token: await s.login(await makeUser(s.db)) });
     assert.equal(full.status, 409);
 
     r = await s.ok('POST', `/api/events/${ev.id}/leave`, { token: tb });
     assert.deepEqual(r, { penalty: null }); // 提前 5 天退出，不扣分
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', ev.id).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', ev.id)).status, 'open');
   });
 
   test('开场前 24 小时内退出 → 临时鸽（cancel_late）；24 小时以上 → 不记录', async () => {
-    const [host, a, b] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [host, a, b] = await Promise.all([makeUser(s.db), makeUser(s.db), makeUser(s.db)]);
     const [th, ta, tb] = await Promise.all([host, a, b].map((u) => s.login(u)));
     // 最晚退出时间设成开场前 2 小时，开场前 24 小时内还能退（但要记临时鸽）
     const ev = await hostEvent(th, { capacity: 5, exitDeadline: '2026-10-31T04:00:00.000Z' });
@@ -95,12 +95,12 @@ describe('用户发起的局', () => {
     clock.set('2026-10-30T05:00:00.000Z'); // 开场前 25 小时
     let r = await s.ok('POST', `/api/events/${ev.id}/leave`, { token: ta });
     assert.equal(r.penalty, null);
-    assert.equal(s.db.get('SELECT COUNT(*) AS n FROM credit_events WHERE user_id = ?', a).n, 0);
+    assert.equal((await s.db.get('SELECT COUNT(*) AS n FROM credit_events WHERE user_id = ?', a)).n, 0);
 
     clock.set('2026-10-30T07:00:00.000Z'); // 开场前 23 小时
     r = await s.ok('POST', `/api/events/${ev.id}/attendance`, { token: tb, body: { going: false } });
     assert.deepEqual(r, { attendance: 'no', penalty: 'cancel_late' });
-    const ce = s.db.get('SELECT * FROM credit_events WHERE user_id = ?', b);
+    const ce = await s.db.get('SELECT * FROM credit_events WHERE user_id = ?', b);
     assert.equal(ce.type, 'cancel_late');
     assert.equal(ce.event_id, ev.id);
     assert.equal(ce.source, 'system');
@@ -114,7 +114,7 @@ describe('用户发起的局', () => {
   });
 
   test('轻确认「去」、到场打卡、报平安', async () => {
-    const [host, a] = [makeUser(s.db), makeUser(s.db)];
+    const [host, a] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
     const [th, ta] = await Promise.all([host, a].map((u) => s.login(u)));
     const ev = await hostEvent(th);
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
@@ -134,7 +134,7 @@ describe('用户发起的局', () => {
   });
 
   test('需要发起人同意的局：报名 → applied → 同意后 joined', async () => {
-    const [host, a, b] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [host, a, b] = await Promise.all([makeUser(s.db), makeUser(s.db), makeUser(s.db)]);
     const [th, ta, tb] = await Promise.all([host, a, b].map((u) => s.login(u)));
     const ev = await hostEvent(th, { requireApproval: true, capacity: 4 });
     const applied = await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
@@ -155,7 +155,7 @@ describe('用户发起的局', () => {
   });
 
   test('拉黑：看不到对方发起 / 参加的局，也不能报名', async () => {
-    const [host, me, other] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [host, me, other] = await Promise.all([makeUser(s.db), makeUser(s.db), makeUser(s.db)]);
     const [th, tm, to] = await Promise.all([host, me, other].map((u) => s.login(u)));
     const ev = await hostEvent(th);
     await s.ok('POST', `/api/blocks/${host}`, { token: tm });
@@ -169,9 +169,9 @@ describe('用户发起的局', () => {
   });
 
   test('同性局：只有同性别的人能看到和报名', async () => {
-    const host = makeUser(s.db, { gender: 'female' });
-    const male = makeUser(s.db, { gender: 'male' });
-    const female = makeUser(s.db, { gender: 'female' });
+    const host = await makeUser(s.db, { gender: 'female' });
+    const male = await makeUser(s.db, { gender: 'male' });
+    const female = await makeUser(s.db, { gender: 'female' });
     const ev = await hostEvent(await s.login(host), { sameSexOnly: true });
     assert.equal((await s.ok('GET', '/api/events', { token: await s.login(male) })).items.length, 0);
     assert.equal((await s.ok('GET', '/api/events', { token: await s.login(female) })).items.length, 1);
@@ -181,17 +181,17 @@ describe('用户发起的局', () => {
   });
 
   test('开了「只参加同性局」的人仍能在广场看到并加入混合局（该设置只约束撮合，不过滤浏览）', async () => {
-    const ev = await hostEvent(await s.login(makeUser(s.db))); // 默认 any 混合局
-    const viewer = await s.login(makeUser(s.db, { gender: 'female', settings: { sameSexOnly: true } }));
+    const ev = await hostEvent(await s.login(await makeUser(s.db))); // 默认 any 混合局
+    const viewer = await s.login(await makeUser(s.db, { gender: 'female', settings: { sameSexOnly: true } }));
     const square = await s.ok('GET', '/api/events', { token: viewer });
     assert.ok(square.items.some((e) => e.id === ev.id), '开了「只参加同性局」也应看到混合局');
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: viewer }); // 看得到也加得进，前后一致
   });
 
-  test('组局有效期：超过 1 个月还没凑够人 → 自动解散并通知（即使还没到最晚退出时间）', () => {
-    const host = makeUser(s.db);
+  test('组局有效期：超过 1 个月还没凑够人 → 自动解散并通知（即使还没到最晚退出时间）', async () => {
+    const host = await makeUser(s.db);
     const start = new Date(clock.now().getTime() + 20 * DAY); // 开场还在 20 天后
-    const eventId = s.db.insert('events', {
+    const eventId = await s.db.insert('events', {
       title: '很久以后 · 苍山看日出',
       category: 'outdoor',
       task: '看日出',
@@ -206,18 +206,18 @@ describe('用户发起的局', () => {
       exit_deadline: new Date(start.getTime() - DAY).toISOString(),
       created_at: new Date(clock.now().getTime() - 31 * DAY).toISOString(), // 31 天前建的（超过 1 个月有效期）
     });
-    s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: new Date(clock.now().getTime() - 31 * DAY).toISOString() });
+    await s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: new Date(clock.now().getTime() - 31 * DAY).toISOString() });
 
-    const r = processExitDeadlines(s.db); // 还没到最晚退出时间，但超过了 1 个月组局有效期
+    const r = await processExitDeadlines(s.db); // 还没到最晚退出时间，但超过了 1 个月组局有效期
     assert.equal(r.cancelled, 1);
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'cancelled');
-    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'event_cancelled'", host), '发起人应收到解散通知');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'cancelled');
+    assert.ok(await s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'event_cancelled'", host), '发起人应收到解散通知');
   });
 
-  test('组局有效期内（没超）、还没到最晚退出时间的 open 局不受影响', () => {
-    const host = makeUser(s.db);
+  test('组局有效期内（没超）、还没到最晚退出时间的 open 局不受影响', async () => {
+    const host = await makeUser(s.db);
     const start = new Date(clock.now().getTime() + 20 * DAY);
-    const eventId = s.db.insert('events', {
+    const eventId = await s.db.insert('events', {
       title: '很久以后 · 洱海骑行',
       category: 'outdoor',
       task: '骑行',
@@ -232,17 +232,17 @@ describe('用户发起的局', () => {
       exit_deadline: new Date(start.getTime() - DAY).toISOString(),
       created_at: new Date(clock.now().getTime() - 2 * DAY).toISOString(), // 才 2 天前建的
     });
-    s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
+    await s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
 
-    const r = processExitDeadlines(s.db);
+    const r = await processExitDeadlines(s.db);
     assert.equal(r.cancelled, 0);
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'open'); // 还在凑人
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'open'); // 还在凑人
   });
 
-  test('组局有效期最后 3 天：还没凑够人 → 每天提醒发起人一次', () => {
-    const host = makeUser(s.db);
+  test('组局有效期最后 3 天：还没凑够人 → 每天提醒发起人一次', async () => {
+    const host = await makeUser(s.db);
     const start = new Date(clock.now().getTime() + 10 * DAY);
-    const eventId = s.db.insert('events', {
+    const eventId = await s.db.insert('events', {
       title: '快到期 · 苍山看日出',
       category: 'outdoor',
       task: '看日出',
@@ -257,51 +257,51 @@ describe('用户发起的局', () => {
       exit_deadline: new Date(start.getTime() - DAY).toISOString(),
       created_at: new Date(clock.now().getTime() - 28 * DAY).toISOString(), // 建 28 天，离 30 天有效期还剩 2 天
     });
-    s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
+    await s.db.insert('event_members', { event_id: eventId, user_id: host, role: 'host', status: 'joined', attendance: 'pending', joined_at: clock.iso() });
 
-    const r1 = runReminders(s.db);
+    const r1 = await runReminders(s.db);
     assert.equal(r1.organizeReminders, 1);
-    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'organize_expiring'", host), '发起人应收到快到期提醒');
-    assert.equal(runReminders(s.db).organizeReminders, 0); // 同一天不重复提醒
+    assert.ok(await s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'organize_expiring'", host), '发起人应收到快到期提醒');
+    assert.equal((await runReminders(s.db)).organizeReminders, 0); // 同一天不重复提醒
   });
 
   test('邀请归因：通过分享(ref)加入 → 记录 invited_by 并通知分享人', async () => {
-    const host = makeUser(s.db);
-    const sharer = makeUser(s.db); // 分享这个局的人
+    const host = await makeUser(s.db);
+    const sharer = await makeUser(s.db); // 分享这个局的人
     const ev = await hostEvent(await s.login(host)); // 默认 any 局、无需审核、capacity 3
-    const joiner = makeUser(s.db);
+    const joiner = await makeUser(s.db);
     const token = await s.login(joiner);
     await s.ok('POST', `/api/events/${ev.id}/join`, { token, body: { ref: sharer } });
 
-    assert.equal(s.db.get('SELECT invited_by FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, joiner).invited_by, sharer);
-    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'invite_joined'", sharer), '分享人应收到「你邀请的朋友来了」');
+    assert.equal((await s.db.get('SELECT invited_by FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, joiner)).invited_by, sharer);
+    assert.ok(await s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'invite_joined'", sharer), '分享人应收到「你邀请的朋友来了」');
   });
 
   test('邀请归因：ref 是自己或非法用户 → 不记录、不通知', async () => {
-    const host = makeUser(s.db);
+    const host = await makeUser(s.db);
     const ev = await hostEvent(await s.login(host));
-    const joiner = makeUser(s.db);
+    const joiner = await makeUser(s.db);
     const token = await s.login(joiner);
     await s.ok('POST', `/api/events/${ev.id}/join`, { token, body: { ref: joiner } }); // ref 填自己
-    assert.equal(s.db.get('SELECT invited_by FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, joiner).invited_by, null);
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'invite_joined'").n, 0);
+    assert.equal((await s.db.get('SELECT invited_by FROM event_members WHERE event_id = ? AND user_id = ?', ev.id, joiner)).invited_by, null);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM notices WHERE type = 'invite_joined'")).n, 0);
   });
 
   test('再约：发起时带 invite → 通知上次同行的人（不含自己）', async () => {
-    const host = makeUser(s.db);
-    const mate = makeUser(s.db);
+    const host = await makeUser(s.db);
+    const mate = await makeUser(s.db);
     await hostEvent(await s.login(host), { invite: [mate, host] }); // host 自己会被忽略
-    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'reunion_invite'", mate), '同行的人应收到再约通知');
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM notices WHERE user_id = ? AND type = 'reunion_invite'", host).n, 0);
+    assert.ok(await s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'reunion_invite'", mate), '同行的人应收到再约通知');
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM notices WHERE user_id = ? AND type = 'reunion_invite'", host)).n, 0);
   });
 
   test('内容审核不过 → pending_review，只有发起人看得到；后台通过后进广场', async () => {
-    const host = makeUser(s.db);
+    const host = await makeUser(s.db);
     const th = await s.login(host);
     const ev = await hostEvent(th, { description: '想来的加我微信 lizi2024 拉群' });
     assert.equal(ev.status, 'pending_review');
     assert.equal((await s.ok('GET', '/api/events')).items.length, 0);
-    assert.equal((await s.api('GET', `/api/events/${ev.id}`, { token: await s.login(makeUser(s.db)) })).status, 404);
+    assert.equal((await s.api('GET', `/api/events/${ev.id}`, { token: await s.login(await makeUser(s.db)) })).status, 404);
     const created = await s.ok('GET', '/api/events/mine?tab=created', { token: th });
     assert.equal(created.items[0].status, 'pending_review');
 
@@ -313,7 +313,7 @@ describe('用户发起的局', () => {
   });
 
   test('发起人取消 / 后台取消都会通知成员', async () => {
-    const [host, a] = [makeUser(s.db), makeUser(s.db)];
+    const [host, a] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
     const [th, ta] = await Promise.all([host, a].map((u) => s.login(u)));
     const ev = await hostEvent(th);
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
@@ -345,7 +345,7 @@ describe('用户发起的局', () => {
   });
 
   test('广场分页与参数校验', async () => {
-    const th = await s.login(makeUser(s.db));
+    const th = await s.login(await makeUser(s.db));
     for (let i = 0; i < 3; i++) {
       // 同一个发起人的局时间不能重叠：每个 1 小时，前后接上
       await hostEvent(th, { title: `读书局 ${i + 1}`, startAt: new Date(Date.parse(SAT_2PM) + i * 3600000).toISOString(), durationMin: 60 });

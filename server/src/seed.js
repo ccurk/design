@@ -61,8 +61,8 @@ const HISTORY = {
 };
 
 /** 清空数据库并写入演示数据。uploadDir：把配图复制到这个上传目录（不传就只写库） */
-export function seed(db, { uploadDir = null } = {}) {
-  resetDb(db);
+export async function seed(db, { uploadDir = null } = {}) {
+  await resetDb(db);
   const now = clock.now();
   const t = now.getTime();
   const ago = (ms) => new Date(t - ms).toISOString();
@@ -77,12 +77,12 @@ export function seed(db, { uploadDir = null } = {}) {
   const exitOpen = (start) =>
     new Date(Math.max(start.getTime() - DAY, Math.min(start.getTime() - 2 * HOUR, t + 12 * HOUR))).toISOString();
 
-  return db.tx(() => {
-    ensureDefaultTags(db);
+  return await db.tx(async () => {
+    await ensureDefaultTags(db);
 
     // ---- 用户 ----
     for (const [key, nickname, gender, pace, interests, bio, extra] of USERS) {
-      U[key] = db.insert('users', {
+      U[key] = await db.insert('users', {
         openid: `demo_${key}`,
         phone: extra.phone ?? null,
         nickname,
@@ -103,9 +103,9 @@ export function seed(db, { uploadDir = null } = {}) {
 
     // ---- 历史信用记录 ----
     for (const [key, [attended, late, cancelLate, noShow]] of Object.entries(HISTORY)) {
-      const add = (type, n, source, note, daysAgo) => {
+      const add = async (type, n, source, note, daysAgo) => {
         for (let i = 0; i < n; i++) {
-          db.insert('credit_events', {
+          await db.insert('credit_events', {
             user_id: U[key],
             event_id: null,
             type,
@@ -116,15 +116,15 @@ export function seed(db, { uploadDir = null } = {}) {
           });
         }
       };
-      add('attended', attended, 'review', '历史记录');
-      add('late', late, 'review', '历史记录 · 迟到 20 分钟', 75);
-      add('cancel_late', cancelLate, 'system', '开场前 20 小时说去不了', 90);
-      add('no_show', noShow, 'review', '没来也没说', key === 'dapeng' ? 20 : 60);
+      await add('attended', attended, 'review', '历史记录');
+      await add('late', late, 'review', '历史记录 · 迟到 20 分钟', 75);
+      await add('cancel_late', cancelLate, 'system', '开场前 20 小时说去不了', 90);
+      await add('no_show', noShow, 'review', '没来也没说', key === 'dapeng' ? 20 : 60);
     }
 
     // ---- 工具 ----
-    const event = (row) =>
-      db.insert('events', {
+    const event = async (row) =>
+      await db.insert('events', {
         description: '',
         meeting_point: '',
         min_size: 2,
@@ -137,8 +137,8 @@ export function seed(db, { uploadDir = null } = {}) {
         moderation: '[]',
         ...row,
       });
-    const member = (eventId, key, row = {}) =>
-      db.insert('event_members', {
+    const member = async (eventId, key, row = {}) =>
+      await db.insert('event_members', {
         event_id: eventId,
         user_id: U[key],
         role: 'member',
@@ -146,23 +146,23 @@ export function seed(db, { uploadDir = null } = {}) {
         attendance: 'pending',
         ...row,
       });
-    const say = (eventId, key, text, at) =>
-      db.insert('messages', { event_id: eventId, user_id: key ? U[key] : null, kind: key ? 'text' : 'system', text, created_at: at });
-    const readAll = (eventId) =>
-      db.run(
+    const say = async (eventId, key, text, at) =>
+      await db.insert('messages', { event_id: eventId, user_id: key ? U[key] : null, kind: key ? 'text' : 'system', text, created_at: at });
+    const readAll = async (eventId) =>
+      await db.run(
         'UPDATE event_members SET last_read_message_id = (SELECT COALESCE(MAX(id), 0) FROM messages WHERE event_id = ?) WHERE event_id = ?',
         eventId,
         eventId,
       );
-    const reviewed = (eventId, keys, endIso) => {
+    const reviewed = async (eventId, keys, endIso) => {
       for (const key of keys) {
-        db.insert('review_feelings', { event_id: eventId, reviewer_id: U[key], feelings: json.str(['很放松', '不尴尬']), created_at: endIso });
+        await db.insert('review_feelings', { event_id: eventId, reviewer_id: U[key], feelings: json.str(['很放松', '不尴尬']), created_at: endIso });
         for (const other of keys) {
           if (other !== key) {
-            db.insert('reviews', { event_id: eventId, reviewer_id: U[key], target_id: U[other], attendance: 'on_time', created_at: endIso });
+            await db.insert('reviews', { event_id: eventId, reviewer_id: U[key], target_id: U[other], attendance: 'on_time', created_at: endIso });
           }
         }
-        db.insert('credit_events', { user_id: U[key], event_id: eventId, type: 'attended', source: 'review', note: '互评结果', revoked: 0, created_at: endIso });
+        await db.insert('credit_events', { user_id: U[key], event_id: eventId, type: 'attended', source: 'review', note: '互评结果', revoked: 0, created_at: endIso });
       }
     };
 
@@ -174,24 +174,28 @@ export function seed(db, { uploadDir = null } = {}) {
 
     // ---- 周六清晨 · 苍山看日出（撮合局，已成局，含群聊和 AA）----
     const sunriseKeys = ['aye', 'xiaoman', 'mumu', 'qiqi', 'lizi'];
-    const sunriseIntents = sunriseKeys.map((key, i) =>
-      db.insert('intents', {
-        user_id: U[key],
-        task: '看日出',
-        category: 'outdoor',
-        date_from: sat,
-        date_to: sat,
-        slot: 'morning',
-        area: '古城',
-        size_min: 3,
-        size_max: 5,
-        status: 'matched',
-        created_at: ago(DAY + (5 - i) * HOUR),
-      }),
+    const sunriseIntents = await Promise.all(
+      sunriseKeys.map((key, i) =>
+        db.insert('intents', {
+          user_id: U[key],
+          task: '看日出',
+          category: 'outdoor',
+          date_from: sat,
+          date_to: sat,
+          slot: 'morning',
+          area: '古城',
+          size_min: 3,
+          size_max: 5,
+          status: 'matched',
+          created_at: ago(DAY + (5 - i) * HOUR),
+        }),
+      ),
     );
-    const group = sunriseIntents.map((id) => enrichIntent(db, db.get('SELECT * FROM intents WHERE id = ?', id), now));
+    const group = await Promise.all(
+      sunriseIntents.map(async (id) => await enrichIntent(db, await db.get('SELECT * FROM intents WHERE id = ?', id), now)),
+    );
     const scored = scoreGroup(group, { date: sat, slot: 'morning' });
-    const proposalId = db.insert('proposals', {
+    const proposalId = await db.insert('proposals', {
       task: '看日出',
       category: 'outdoor',
       date: sat,
@@ -208,7 +212,7 @@ export function seed(db, { uploadDir = null } = {}) {
       reviewed_at: ago(8 * HOUR),
     });
     const sunriseStart = bjDateTime(sat, 5, 50);
-    E.sunrise = event({
+    E.sunrise = await event({
       title: '周六清晨 · 苍山看日出',
       category: 'outdoor',
       task: '看日出',
@@ -232,27 +236,27 @@ export function seed(db, { uploadDir = null } = {}) {
       formed_at: ago(6 * HOUR),
       created_at: ago(8 * HOUR),
     });
-    db.update('proposals', proposalId, { event_id: E.sunrise });
-    sunriseKeys.forEach((key, i) => {
-      member(E.sunrise, key, { invited_at: ago(8 * HOUR), joined_at: ago(7 * HOUR - i * 10 * MINUTE) });
-      db.update('intents', sunriseIntents[i], { event_id: E.sunrise, proposal_id: proposalId });
-    });
-    say(E.sunrise, null, SYSTEM_MESSAGES.formed, ago(6 * HOUR));
-    say(E.sunrise, 'xiaoman', '第一次看日出，有点期待', ago(5 * HOUR));
-    const liziLast = say(E.sunrise, 'lizi', '我也是第一次！', ago(4 * HOUR + 50 * MINUTE));
-    say(E.sunrise, 'qiqi', '山上会冷吗？要不要带厚外套', ago(3 * HOUR));
-    say(E.sunrise, 'aye', '车费和早餐我先垫了，一起记在 AA 里，最后大家转我就行', ago(2 * HOUR));
-    say(E.sunrise, 'aye', '我带了几个暖宝宝，山上清晨挺冷的', ago(HOUR));
-    readAll(E.sunrise);
-    db.run('UPDATE event_members SET last_read_message_id = ? WHERE event_id = ? AND user_id = ?', liziLast, E.sunrise, U.lizi);
+    await db.update('proposals', proposalId, { event_id: E.sunrise });
+    for (const [i, key] of sunriseKeys.entries()) {
+      await member(E.sunrise, key, { invited_at: ago(8 * HOUR), joined_at: ago(7 * HOUR - i * 10 * MINUTE) });
+      await db.update('intents', sunriseIntents[i], { event_id: E.sunrise, proposal_id: proposalId });
+    }
+    await say(E.sunrise, null, SYSTEM_MESSAGES.formed, ago(6 * HOUR));
+    await say(E.sunrise, 'xiaoman', '第一次看日出，有点期待', ago(5 * HOUR));
+    const liziLast = await say(E.sunrise, 'lizi', '我也是第一次！', ago(4 * HOUR + 50 * MINUTE));
+    await say(E.sunrise, 'qiqi', '山上会冷吗？要不要带厚外套', ago(3 * HOUR));
+    await say(E.sunrise, 'aye', '车费和早餐我先垫了，一起记在 AA 里，最后大家转我就行', ago(2 * HOUR));
+    await say(E.sunrise, 'aye', '我带了几个暖宝宝，山上清晨挺冷的', ago(HOUR));
+    await readAll(E.sunrise);
+    await db.run('UPDATE event_members SET last_read_message_id = ? WHERE event_id = ? AND user_id = ?', liziLast, E.sunrise, U.lizi);
     // AA：阿野一次记下 ¥150（车费 + 早餐），5 人每人 ¥30；木木已经转过、阿野确认收到
-    db.insert('aa_bills', { event_id: E.sunrise, payer_id: U.aye, amount: 150, note: '车费 + 早餐', created_at: ago(2 * HOUR), updated_at: ago(2 * HOUR) });
-    db.insert('aa_transfers', { event_id: E.sunrise, from_user_id: U.mumu, to_user_id: U.aye, status: 'confirmed', updated_at: ago(30 * MINUTE) });
+    await db.insert('aa_bills', { event_id: E.sunrise, payer_id: U.aye, amount: 150, note: '车费 + 早餐', created_at: ago(2 * HOUR), updated_at: ago(2 * HOUR) });
+    await db.insert('aa_transfers', { event_id: E.sunrise, from_user_id: U.mumu, to_user_id: U.aye, status: 'confirmed', updated_at: ago(30 * MINUTE) });
 
     // ---- 桌游夜 · 新手友好（已结束，待评价）----
     const gameStart = bjDateTime(lastFri, 20, 0);
     const gameFormed = new Date(gameStart.getTime() - DAY - 5 * MINUTE).toISOString(); // 到最晚退出时间够人，成群
-    E.boardgame = event({
+    E.boardgame = await event({
       title: '桌游夜 · 新手友好',
       category: 'game',
       task: '桌游',
@@ -273,23 +277,22 @@ export function seed(db, { uploadDir = null } = {}) {
       created_at: new Date(gameStart.getTime() - 5 * DAY).toISOString(),
     });
     const gameKeys = ['nanfeng', 'lizi', 'mumu', 'aye', 'qiqi'];
-    gameKeys.forEach((key, i) =>
-      member(E.boardgame, key, {
+    for (const [i, key] of gameKeys.entries())
+      await member(E.boardgame, key, {
         role: key === 'nanfeng' ? 'host' : 'member',
         attendance: 'yes',
         joined_at: new Date(gameStart.getTime() - (5 - i * 0.5) * DAY).toISOString(),
-      }),
-    );
-    say(E.boardgame, null, SYSTEM_MESSAGES.formedAtDeadline, gameFormed);
-    say(E.boardgame, 'nanfeng', '欢迎大家，规则我来讲，不会玩完全没关系', new Date(gameStart.getTime() - DAY).toISOString());
-    say(E.boardgame, 'qiqi', '好期待！我带点零食', new Date(gameStart.getTime() - 20 * HOUR).toISOString());
-    say(E.boardgame, 'mumu', '下次还来！', new Date(gameStart.getTime() + 3.5 * HOUR).toISOString());
-    readAll(E.boardgame);
+      });
+    await say(E.boardgame, null, SYSTEM_MESSAGES.formedAtDeadline, gameFormed);
+    await say(E.boardgame, 'nanfeng', '欢迎大家，规则我来讲，不会玩完全没关系', new Date(gameStart.getTime() - DAY).toISOString());
+    await say(E.boardgame, 'qiqi', '好期待！我带点零食', new Date(gameStart.getTime() - 20 * HOUR).toISOString());
+    await say(E.boardgame, 'mumu', '下次还来！', new Date(gameStart.getTime() + 3.5 * HOUR).toISOString());
+    await readAll(E.boardgame);
 
     // ---- 历史局（已结束、已评价）----
     const h1Date = addDays(today, -6);
     const h1Start = bjDateTime(h1Date, 5, 50);
-    E.pastSunrise = event({
+    E.pastSunrise = await event({
       title: `${weekdayName(h1Date)}清晨 · 苍山看日出`,
       category: 'outdoor',
       task: '看日出',
@@ -310,20 +313,19 @@ export function seed(db, { uploadDir = null } = {}) {
       created_at: new Date(h1Start.getTime() - 2.2 * DAY).toISOString(),
     });
     const h1Keys = ['aye', 'xiaoman', 'qiqi', 'laozhou', 'nanfeng'];
-    h1Keys.forEach((key) =>
-      member(E.pastSunrise, key, {
+    for (const key of h1Keys)
+      await member(E.pastSunrise, key, {
         attendance: 'yes',
         invited_at: new Date(h1Start.getTime() - 2.2 * DAY).toISOString(),
         joined_at: new Date(h1Start.getTime() - 2 * DAY).toISOString(),
         arrived_at: new Date(h1Start.getTime() - 5 * MINUTE).toISOString(),
-      }),
-    );
-    say(E.pastSunrise, null, SYSTEM_MESSAGES.formed, new Date(h1Start.getTime() - 2 * DAY).toISOString());
-    readAll(E.pastSunrise);
-    reviewed(E.pastSunrise, h1Keys, new Date(h1Start.getTime() + 5 * HOUR).toISOString());
+      });
+    await say(E.pastSunrise, null, SYSTEM_MESSAGES.formed, new Date(h1Start.getTime() - 2 * DAY).toISOString());
+    await readAll(E.pastSunrise);
+    await reviewed(E.pastSunrise, h1Keys, new Date(h1Start.getTime() + 5 * HOUR).toISOString());
 
     const h2Start = bjDateTime(addDays(today, -8), 8, 30);
-    E.pastBreakfast = event({
+    E.pastBreakfast = await event({
       title: '喜洲稻田边吃早餐',
       category: 'food',
       task: '早餐',
@@ -340,17 +342,16 @@ export function seed(db, { uploadDir = null } = {}) {
       formed_at: exitBefore(h2Start),
       created_at: new Date(h2Start.getTime() - 3 * DAY).toISOString(),
     });
-    ['qiqi', 'lizi', 'nanfeng'].forEach((key, i) =>
-      member(E.pastBreakfast, key, {
+    for (const [i, key] of ['qiqi', 'lizi', 'nanfeng'].entries())
+      await member(E.pastBreakfast, key, {
         role: key === 'qiqi' ? 'host' : 'member',
         attendance: 'yes',
         joined_at: new Date(h2Start.getTime() - (3 - i) * DAY).toISOString(),
-      }),
-    );
-    reviewed(E.pastBreakfast, ['qiqi', 'lizi', 'nanfeng'], new Date(h2Start.getTime() + 3 * HOUR).toISOString());
+      });
+    await reviewed(E.pastBreakfast, ['qiqi', 'lizi', 'nanfeng'], new Date(h2Start.getTime() + 3 * HOUR).toISOString());
 
     const h3Start = bjDateTime(addDays(today, -9), 14, 0);
-    E.pastReading = event({
+    E.pastReading = await event({
       title: '安静读书局 · 不用聊天',
       category: 'coffee',
       task: '读书',
@@ -368,17 +369,16 @@ export function seed(db, { uploadDir = null } = {}) {
       formed_at: exitBefore(h3Start),
       created_at: new Date(h3Start.getTime() - 2 * DAY).toISOString(),
     });
-    ['nanfeng', 'lizi', 'mumu'].forEach((key, i) =>
-      member(E.pastReading, key, {
+    for (const [i, key] of ['nanfeng', 'lizi', 'mumu'].entries())
+      await member(E.pastReading, key, {
         role: key === 'nanfeng' ? 'host' : 'member',
         attendance: 'yes',
         joined_at: new Date(h3Start.getTime() - (2 - i * 0.5) * DAY).toISOString(),
-      }),
-    );
-    reviewed(E.pastReading, ['nanfeng', 'lizi', 'mumu'], new Date(h3Start.getTime() + 3 * HOUR).toISOString());
+      });
+    await reviewed(E.pastReading, ['nanfeng', 'lizi', 'mumu'], new Date(h3Start.getTime() + 3 * HOUR).toISOString());
 
     const h4Start = bjDateTime(addDays(today, -4), 19, 0);
-    E.pastNightMarket = event({
+    E.pastNightMarket = await event({
       title: '人民路夜市 · 边走边吃',
       category: 'food',
       task: '夜市',
@@ -395,28 +395,27 @@ export function seed(db, { uploadDir = null } = {}) {
       formed_at: exitBefore(h4Start),
       created_at: new Date(h4Start.getTime() - 2 * DAY).toISOString(),
     });
-    ['qiqi', 'dapeng', 'qingqing'].forEach((key, i) =>
-      member(E.pastNightMarket, key, {
+    for (const [i, key] of ['qiqi', 'dapeng', 'qingqing'].entries())
+      await member(E.pastNightMarket, key, {
         role: key === 'qiqi' ? 'host' : 'member',
         attendance: 'yes',
         joined_at: new Date(h4Start.getTime() - (2 - i * 0.5) * DAY).toISOString(),
-      }),
-    );
-    say(E.pastNightMarket, null, SYSTEM_MESSAGES.formedAtDeadline, exitBefore(h4Start));
-    say(E.pastNightMarket, 'qiqi', '七点人民路口见～', new Date(h4Start.getTime() - 3 * HOUR).toISOString());
-    const spam = say(
+      });
+    await say(E.pastNightMarket, null, SYSTEM_MESSAGES.formedAtDeadline, exitBefore(h4Start));
+    await say(E.pastNightMarket, 'qiqi', '七点人民路口见～', new Date(h4Start.getTime() - 3 * HOUR).toISOString());
+    const spam = await say(
       E.pastNightMarket,
       'dapeng',
       '下次去双廊我带你们去个朋友的店，能拿内部价，回头私下找我',
       new Date(h4Start.getTime() - 2 * HOUR).toISOString(),
     );
-    say(E.pastNightMarket, 'qingqing', '我就随便吃吃～', new Date(h4Start.getTime() - HOUR).toISOString());
-    readAll(E.pastNightMarket);
-    reviewed(E.pastNightMarket, ['qiqi', 'dapeng', 'qingqing'], new Date(h4Start.getTime() + 3 * HOUR).toISOString());
+    await say(E.pastNightMarket, 'qingqing', '我就随便吃吃～', new Date(h4Start.getTime() - HOUR).toISOString());
+    await readAll(E.pastNightMarket);
+    await reviewed(E.pastNightMarket, ['qiqi', 'dapeng', 'qingqing'], new Date(h4Start.getTime() + 3 * HOUR).toISOString());
 
     // 60 天前的咖啡局：木木开场前 3 小时在群里说发烧去不了，但没点退出，被大家评成「没来」
     const h5Start = bjDateTime(addDays(today, -60), 14, 0);
-    E.pastCoffee = event({
+    E.pastCoffee = await event({
       title: '慢书房咖啡局',
       category: 'coffee',
       task: '咖啡',
@@ -434,17 +433,16 @@ export function seed(db, { uploadDir = null } = {}) {
       formed_at: exitBefore(h5Start),
       created_at: new Date(h5Start.getTime() - 3 * DAY).toISOString(),
     });
-    ['nanfeng', 'qiqi', 'mumu'].forEach((key, i) =>
-      member(E.pastCoffee, key, {
+    for (const [i, key] of ['nanfeng', 'qiqi', 'mumu'].entries())
+      await member(E.pastCoffee, key, {
         role: key === 'nanfeng' ? 'host' : 'member',
         attendance: key === 'mumu' ? 'pending' : 'yes',
         joined_at: new Date(h5Start.getTime() - (3 - i * 0.5) * DAY).toISOString(),
-      }),
-    );
-    say(E.pastCoffee, null, SYSTEM_MESSAGES.formedAtDeadline, exitBefore(h5Start));
-    say(E.pastCoffee, 'nanfeng', '明天下午两点慢书房见～', new Date(h5Start.getTime() - 20 * HOUR).toISOString());
-    say(E.pastCoffee, 'mumu', '抱歉，我发烧了，今天去不了了', new Date(h5Start.getTime() - 3 * HOUR).toISOString());
-    readAll(E.pastCoffee);
+      });
+    await say(E.pastCoffee, null, SYSTEM_MESSAGES.formedAtDeadline, exitBefore(h5Start));
+    await say(E.pastCoffee, 'nanfeng', '明天下午两点慢书房见～', new Date(h5Start.getTime() - 20 * HOUR).toISOString());
+    await say(E.pastCoffee, 'mumu', '抱歉，我发烧了，今天去不了了', new Date(h5Start.getTime() - 3 * HOUR).toISOString());
+    await readAll(E.pastCoffee);
     const h5End = new Date(h5Start.getTime() + 3 * HOUR).toISOString();
     for (const [from, to, attendance] of [
       ['nanfeng', 'qiqi', 'on_time'],
@@ -452,13 +450,13 @@ export function seed(db, { uploadDir = null } = {}) {
       ['qiqi', 'nanfeng', 'on_time'],
       ['qiqi', 'mumu', 'no_show'],
     ]) {
-      db.insert('reviews', { event_id: E.pastCoffee, reviewer_id: U[from], target_id: U[to], attendance, created_at: h5End });
+      await db.insert('reviews', { event_id: E.pastCoffee, reviewer_id: U[from], target_id: U[to], attendance, created_at: h5End });
     }
     for (const key of ['nanfeng', 'qiqi']) {
-      db.insert('review_feelings', { event_id: E.pastCoffee, reviewer_id: U[key], feelings: '[]', created_at: h5End });
-      db.insert('credit_events', { user_id: U[key], event_id: E.pastCoffee, type: 'attended', source: 'review', note: '互评结果', revoked: 0, created_at: h5End });
+      await db.insert('review_feelings', { event_id: E.pastCoffee, reviewer_id: U[key], feelings: '[]', created_at: h5End });
+      await db.insert('credit_events', { user_id: U[key], event_id: E.pastCoffee, type: 'attended', source: 'review', note: '互评结果', revoked: 0, created_at: h5End });
     }
-    const mumuNoShow = db.insert('credit_events', {
+    const mumuNoShow = await db.insert('credit_events', {
       user_id: U.mumu,
       event_id: E.pastCoffee,
       type: 'no_show',
@@ -469,8 +467,8 @@ export function seed(db, { uploadDir = null } = {}) {
     });
 
     // ---- 广场上的 open 局 ----
-    const squareEvent = (key, title, row, memberKeys) => {
-      const id = event({
+    const squareEvent = async (key, title, row, memberKeys) => {
+      const id = await event({
         title,
         source: 'user',
         creator_id: U[memberKeys[0]],
@@ -479,13 +477,12 @@ export function seed(db, { uploadDir = null } = {}) {
         created_at: ago(2 * DAY),
         ...row,
       });
-      memberKeys.forEach((k, i) =>
-        member(id, k, { role: i === 0 ? 'host' : 'member', joined_at: ago(2 * DAY - i * 3 * HOUR) }),
-      );
+      for (const [i, k] of memberKeys.entries())
+        await member(id, k, { role: i === 0 ? 'host' : 'member', joined_at: ago(2 * DAY - i * 3 * HOUR) });
       E[key] = id;
       return id;
     };
-    squareEvent(
+    await squareEvent(
       'reading',
       '安静读书局 · 不用聊天',
       {
@@ -503,7 +500,7 @@ export function seed(db, { uploadDir = null } = {}) {
       },
       ['nanfeng', 'qiqi'],
     );
-    squareEvent(
+    await squareEvent(
       'breakfast',
       '喜洲稻田边吃早餐',
       {
@@ -521,7 +518,7 @@ export function seed(db, { uploadDir = null } = {}) {
       },
       ['qiqi', 'nanfeng', 'xiaoman'],
     );
-    squareEvent(
+    await squareEvent(
       'carpool',
       '拼车去双廊',
       {
@@ -540,7 +537,7 @@ export function seed(db, { uploadDir = null } = {}) {
       },
       ['aye', 'qiqi', 'mumu'],
     );
-    squareEvent(
+    await squareEvent(
       'cycling',
       '洱海西岸骑行',
       {
@@ -560,7 +557,7 @@ export function seed(db, { uploadDir = null } = {}) {
     );
 
     // 待审核的用户局（内容审核命中）
-    E.pendingReview = event({
+    E.pendingReview = await event({
       title: '夜市小吃 · 包车接送',
       category: 'food',
       task: '夜市',
@@ -576,23 +573,23 @@ export function seed(db, { uploadDir = null } = {}) {
       moderation: json.str(['包含微信 / QQ 等联系方式']),
       created_at: ago(2 * DAY),
     });
-    member(E.pendingReview, 'dapeng', { role: 'host', joined_at: ago(2 * DAY) });
+    await member(E.pendingReview, 'dapeng', { role: 'host', joined_at: ago(2 * DAY) });
 
     // ---- 撮合意向（撮合池）----
-    const intent = (key, row) =>
-      db.insert('intents', { user_id: U[key], area: '古城', size_min: 3, size_max: 5, status: 'open', ...row });
-    const lizIntent = intent('lizi', { task: '骑行', category: 'outdoor', label: '洱海边骑行', date_from: sun, date_to: sun, slot: 'afternoon', created_at: ago(2 * HOUR) });
-    intent('nanfeng', { task: '骑行', category: 'outdoor', label: '环洱海骑一段', date_from: sun, date_to: sun, slot: 'afternoon', created_at: ago(5 * HOUR) });
-    intent('aye', { task: '爬山', category: 'outdoor', date_from: sun, date_to: sun, slot: 'morning', created_at: ago(10 * HOUR) });
-    intent('xiaolin', { task: '爬山', category: 'outdoor', date_from: sun, date_to: sun, slot: 'morning', created_at: ago(6 * HOUR) });
-    intent('laozhou', { task: '爬山', category: 'outdoor', date_from: sun, date_to: sun, slot: 'morning', created_at: ago(4 * HOUR) });
+    const intent = async (key, row) =>
+      await db.insert('intents', { user_id: U[key], area: '古城', size_min: 3, size_max: 5, status: 'open', ...row });
+    const lizIntent = await intent('lizi', { task: '骑行', category: 'outdoor', label: '洱海边骑行', date_from: sun, date_to: sun, slot: 'afternoon', created_at: ago(2 * HOUR) });
+    await intent('nanfeng', { task: '骑行', category: 'outdoor', label: '环洱海骑一段', date_from: sun, date_to: sun, slot: 'afternoon', created_at: ago(5 * HOUR) });
+    await intent('aye', { task: '爬山', category: 'outdoor', date_from: sun, date_to: sun, slot: 'morning', created_at: ago(10 * HOUR) });
+    await intent('xiaolin', { task: '爬山', category: 'outdoor', date_from: sun, date_to: sun, slot: 'morning', created_at: ago(6 * HOUR) });
+    await intent('laozhou', { task: '爬山', category: 'outdoor', date_from: sun, date_to: sun, slot: 'morning', created_at: ago(4 * HOUR) });
     const tomorrow = addDays(today, 1);
-    intent('ayun', { task: '咖啡', category: 'coffee', date_from: tomorrow, date_to: tomorrow, slot: 'afternoon', created_at: ago(3 * HOUR) });
-    intent('qingqing', { task: '咖啡', category: 'coffee', date_from: tomorrow, date_to: tomorrow, slot: 'afternoon', created_at: ago(HOUR) });
+    await intent('ayun', { task: '咖啡', category: 'coffee', date_from: tomorrow, date_to: tomorrow, slot: 'afternoon', created_at: ago(3 * HOUR) });
+    await intent('qingqing', { task: '咖啡', category: 'coffee', date_from: tomorrow, date_to: tomorrow, slot: 'afternoon', created_at: ago(HOUR) });
 
     // ---- 动态 + 评论（大多带 1–4 张图）----
-    const post = (key, text, imgKeys, at, extra = {}) =>
-      db.insert('posts', {
+    const post = async (key, text, imgKeys, at, extra = {}) =>
+      await db.insert('posts', {
         user_id: U[key],
         text,
         images: images(...imgKeys),
@@ -603,58 +600,58 @@ export function seed(db, { uploadDir = null } = {}) {
         ...extra,
       });
     // 按时间先后插入（id 越大越新，列表按 id 倒序）
-    post('ayun', '刚到大理一周，还在适应慢下来的节奏。', [], ago(5 * DAY + 2 * HOUR));
-    post('xiaoman', '古城里随便走走，拐进一家很安静的咖啡馆，坐了一下午。', ['oldtown', 'coffee'], ago(5 * DAY));
-    post('qingqing', '在洱海边画了一下午，水的颜色一直在变。', ['lake'], ago(4 * DAY + 3 * HOUR));
-    post('laozhou', '退休以后每天爬一点苍山，今天走到了中和寺，山上的云很低。', ['mountain'], ago(4 * DAY));
-    post('nanfeng', '安静读书局真的一句话都没聊，读完各自说了说在读什么，很舒服。', ['reading', 'coffee'], ago(3 * DAY + 6 * HOUR), {
+    await post('ayun', '刚到大理一周，还在适应慢下来的节奏。', [], ago(5 * DAY + 2 * HOUR));
+    await post('xiaoman', '古城里随便走走，拐进一家很安静的咖啡馆，坐了一下午。', ['oldtown', 'coffee'], ago(5 * DAY));
+    await post('qingqing', '在洱海边画了一下午，水的颜色一直在变。', ['lake'], ago(4 * DAY + 3 * HOUR));
+    await post('laozhou', '退休以后每天爬一点苍山，今天走到了中和寺，山上的云很低。', ['mountain'], ago(4 * DAY));
+    await post('nanfeng', '安静读书局真的一句话都没聊，读完各自说了说在读什么，很舒服。', ['reading', 'coffee'], ago(3 * DAY + 6 * HOUR), {
       event_id: E.pastReading,
     });
-    post('lizi', '喜洲稻田边的早餐，吃完沿着田埂慢慢走，风里都是稻子的味道。', ['food', 'lake'], ago(3 * DAY), {
+    await post('lizi', '喜洲稻田边的早餐，吃完沿着田埂慢慢走，风里都是稻子的味道。', ['food', 'lake'], ago(3 * DAY), {
       event_id: E.pastBreakfast,
     });
-    post('qiqi', '人民路夜市从头吃到尾，烤乳扇和木瓜水都很好吃，下次还来。', ['food', 'oldtown'], ago(2 * DAY), {
+    await post('qiqi', '人民路夜市从头吃到尾，烤乳扇和木瓜水都很好吃，下次还来。', ['food', 'oldtown'], ago(2 * DAY), {
       event_id: E.pastNightMarket,
     });
-    post('nanfeng', '环洱海骑了第三次，这次骑得最慢，停下来看了好几次水鸟。', ['cycling', 'lake', 'sunrise'], ago(DAY + 5 * HOUR));
-    const post2 = post(
+    await post('nanfeng', '环洱海骑了第三次，这次骑得最慢，停下来看了好几次水鸟。', ['cycling', 'lake', 'sunrise'], ago(DAY + 5 * HOUR));
+    const post2 = await post(
       'mumu',
       '第一次参加桌游局，前五分钟有点紧张，后来笑了一整晚。新手友好是真的。',
       ['boardgame'],
       ago(DAY),
       { event_id: E.boardgame },
     );
-    const post1 = post(
+    const post1 = await post(
       'aye',
       '凌晨爬起来真的值。一路上没人尬聊，太阳出来那一刻大家都没说话，刚刚好。',
       ['sunrise', 'mountain', 'carpool', 'food'],
       ago(2 * HOUR),
       { event_id: E.pastSunrise },
     );
-    const comment = (postId, key, text, at, replyTo = null) =>
-      db.insert('comments', { post_id: postId, user_id: U[key], reply_to_user_id: replyTo ? U[replyTo] : null, text, status: 'approved', created_at: at });
-    comment(post1, 'xiaoman', '那天的云太好看了，下次还一起', ago(HOUR));
-    comment(post1, 'mumu', '求下次带上我！', ago(58 * MINUTE));
-    comment(post1, 'qiqi', '照片拍得好安静', ago(40 * MINUTE));
-    comment(post1, 'nanfeng', '想问下几点出发能赶上日出？', ago(20 * MINUTE));
-    comment(post1, 'aye', '5:50 古城南门集合刚好', ago(18 * MINUTE), 'nanfeng');
+    const comment = async (postId, key, text, at, replyTo = null) =>
+      await db.insert('comments', { post_id: postId, user_id: U[key], reply_to_user_id: replyTo ? U[replyTo] : null, text, status: 'approved', created_at: at });
+    await comment(post1, 'xiaoman', '那天的云太好看了，下次还一起', ago(HOUR));
+    await comment(post1, 'mumu', '求下次带上我！', ago(58 * MINUTE));
+    await comment(post1, 'qiqi', '照片拍得好安静', ago(40 * MINUTE));
+    await comment(post1, 'nanfeng', '想问下几点出发能赶上日出？', ago(20 * MINUTE));
+    await comment(post1, 'aye', '5:50 古城南门集合刚好', ago(18 * MINUTE), 'nanfeng');
     for (const key of ['xiaoman', 'mumu', 'qiqi', 'nanfeng', 'laozhou']) {
-      db.insert('post_likes', { post_id: post1, user_id: U[key], created_at: ago(HOUR) });
+      await db.insert('post_likes', { post_id: post1, user_id: U[key], created_at: ago(HOUR) });
     }
     for (const key of ['qiqi', 'aye', 'nanfeng']) {
-      db.insert('post_likes', { post_id: post2, user_id: U[key], created_at: ago(20 * HOUR) });
+      await db.insert('post_likes', { post_id: post2, user_id: U[key], created_at: ago(20 * HOUR) });
     }
 
     // ---- 首页轮播图 ----
-    const banner = (sort, image, title, subtitle, link) =>
-      db.insert('banners', { image: IMG[image], title, subtitle, link, sort, enabled: 1, created_at: ago(3 * DAY) });
-    banner(0, 'sunrise', '苍山日出', '周六清晨，古城南门集合，一起上山看日出', `event:${E.sunrise}`);
-    banner(1, 'cycling', '洱海骑行', '沿着西岸慢慢骑，累了就停下来拍照', 'square');
-    banner(2, 'oldtown', '新人第一次来', '先看看社区公约：不尬聊、不推销，守约就好', 'rules');
+    const banner = async (sort, image, title, subtitle, link) =>
+      await db.insert('banners', { image: IMG[image], title, subtitle, link, sort, enabled: 1, created_at: ago(3 * DAY) });
+    await banner(0, 'sunrise', '苍山日出', '周六清晨，古城南门集合，一起上山看日出', `event:${E.sunrise}`);
+    await banner(1, 'cycling', '洱海骑行', '沿着西岸慢慢骑，累了就停下来拍照', 'square');
+    await banner(2, 'oldtown', '新人第一次来', '先看看社区公约：不尬聊、不推销，守约就好', 'rules');
 
     // ---- 举报、拉黑、限制 ----
-    db.insert('blocks', { user_id: U.lizi, blocked_id: U.dapeng, created_at: ago(2 * DAY) });
-    db.insert('reports', {
+    await db.insert('blocks', { user_id: U.lizi, blocked_id: U.dapeng, created_at: ago(2 * DAY) });
+    await db.insert('reports', {
       reporter_id: U.lizi,
       target_type: 'user',
       target_id: U.dapeng,
@@ -668,12 +665,12 @@ export function seed(db, { uploadDir = null } = {}) {
       created_at: ago(2 * DAY),
       resolved_at: ago(DAY),
     });
-    db.update('users', U.dapeng, {
+    await db.update('users', U.dapeng, {
       status: 'restricted',
       restricted_until: new Date(t - DAY + 7 * DAY).toISOString(),
       restricted_reason: '被举报并核实违反社区公约',
     });
-    db.insert('reports', {
+    await db.insert('reports', {
       reporter_id: U.qiqi,
       target_type: 'message',
       target_id: spam,
@@ -684,7 +681,7 @@ export function seed(db, { uploadDir = null } = {}) {
       status: 'pending',
       created_at: ago(5 * HOUR),
     });
-    db.insert('reports', {
+    await db.insert('reports', {
       reporter_id: U.aye,
       target_type: 'user',
       target_id: U.dapeng,
@@ -697,7 +694,7 @@ export function seed(db, { uploadDir = null } = {}) {
     });
 
     // ---- 申诉：木木那次「放鸽子」----
-    db.insert('appeals', {
+    await db.insert('appeals', {
       user_id: U.mumu,
       credit_event_id: mumuNoShow,
       text: '那天发高烧在客栈躺了一天，提前在群里说过，可能大家没看到',
@@ -706,18 +703,18 @@ export function seed(db, { uploadDir = null } = {}) {
     });
 
     // ---- 通知 ----
-    const notice = (key, row) => db.insert('notices', { user_id: U[key], body: '', link: null, read: 0, ...row });
-    notice('lizi', { type: 'match', title: '撮合成功', body: '配到了！「苍山看日出」，去看看同行的人，确认加入吧', link: `match:${E.sunrise}`, read: 1, created_at: ago(8 * HOUR) });
-    notice('lizi', { type: 'formed', title: '满员啦，群已建好', body: '「苍山看日出」5 人，群聊已开启。第一次见面，慢慢来', link: `chat:${E.sunrise}`, read: 1, created_at: ago(6 * HOUR) });
-    notice('lizi', { type: 'aa_bill', title: 'AA 记账 · 苍山看日出', body: '阿野 记了这个局的 AA：共 ¥150（车费 + 早餐），每人 ¥30，转给阿野', link: `chat:${E.sunrise}`, created_at: ago(2 * HOUR) });
-    notice('lizi', { type: 'report_result', title: '你的举报已处理', body: '对方已被限制使用', created_at: ago(DAY) });
-    notice('dapeng', { type: 'restricted', title: '账号暂停撮合和报名 7 天', body: '原因：被举报并核实违反社区公约。到期后自动恢复。', link: 'credit', created_at: ago(DAY) });
+    const notice = async (key, row) => await db.insert('notices', { user_id: U[key], body: '', link: null, read: 0, ...row });
+    await notice('lizi', { type: 'match', title: '撮合成功', body: '配到了！「苍山看日出」，去看看同行的人，确认加入吧', link: `match:${E.sunrise}`, read: 1, created_at: ago(8 * HOUR) });
+    await notice('lizi', { type: 'formed', title: '满员啦，群已建好', body: '「苍山看日出」5 人，群聊已开启。第一次见面，慢慢来', link: `chat:${E.sunrise}`, read: 1, created_at: ago(6 * HOUR) });
+    await notice('lizi', { type: 'aa_bill', title: 'AA 记账 · 苍山看日出', body: '阿野 记了这个局的 AA：共 ¥150（车费 + 早餐），每人 ¥30，转给阿野', link: `chat:${E.sunrise}`, created_at: ago(2 * HOUR) });
+    await notice('lizi', { type: 'report_result', title: '你的举报已处理', body: '对方已被限制使用', created_at: ago(DAY) });
+    await notice('dapeng', { type: 'restricted', title: '账号暂停撮合和报名 7 天', body: '原因：被举报并核实违反社区公约。到期后自动恢复。', link: 'credit', created_at: ago(DAY) });
 
     // ---- 标签：按上面的意向和局补上「最近一次用到」的时间 ----
-    syncTagUsage(db);
+    await syncTagUsage(db);
 
     // ---- 跑一次撮合：生成 1 条待后台确认的建议局（爬山）----
-    const matching = runMatching(db);
+    const matching = await runMatching(db);
 
     return { users: U, events: E, intents: { liziCycling: lizIntent }, matching };
   });

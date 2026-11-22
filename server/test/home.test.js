@@ -30,7 +30,7 @@ describe('后台上传 POST /api/admin/upload', () => {
     assert.match(url, /^http:\/\/localhost:3000\/uploads\/[\w-]+\.png$/);
     const file = await fetch(`${s.base}${new URL(url).pathname}`);
     assert.equal(file.status, 200);
-    const user = await s.login(makeUser(s.db));
+    const user = await s.login(await makeUser(s.db));
     assert.equal((await s.api('POST', '/api/admin/upload', { token: user, form: pngForm() })).status, 401);
     assert.equal((await s.api('POST', '/api/admin/upload', { form: pngForm() })).status, 401);
     const text = await s.api('POST', '/api/admin/upload', { token: admin, form: pngForm('text/plain', Buffer.from('hi'), 'a.txt') });
@@ -72,7 +72,7 @@ describe('轮播图（后台维护）', () => {
         sort: 0, enabled: true, createdAt: undefined,
       },
     );
-    assert.equal(s.db.get('SELECT image FROM banners WHERE id = ?', a.id).image, path);
+    assert.equal((await s.db.get('SELECT image FROM banners WHERE id = ?', a.id)).image, path);
     const b = await s.ok('POST', '/api/admin/banners', { token: admin, body: { image: path, title: '洱海骑行', link: 'square' } });
     const c = await s.ok('POST', '/api/admin/banners', { token: admin, body: { image: path, title: '新人第一次来', link: 'rules', enabled: false } });
     assert.deepEqual([b.sort, b.subtitle, c.sort, c.enabled], [1, null, 2, false]);
@@ -103,7 +103,7 @@ describe('轮播图（后台维护）', () => {
     assert.deepEqual(await s.ok('DELETE', `/api/admin/banners/${a.id}`, { token: admin }), { ok: true });
     assert.equal((await s.api('PUT', `/api/admin/banners/${a.id}`, { token: admin, body: { title: '没了' } })).status, 404);
     assert.deepEqual((await s.ok('GET', '/api/admin/banners', { token: admin })).items.map((x) => x.title), ['新人第一次来', '洱海骑行']);
-    const user = await s.login(makeUser(s.db));
+    const user = await s.login(await makeUser(s.db));
     assert.equal((await s.api('GET', '/api/admin/banners', { token: user })).status, 401);
   });
 
@@ -141,7 +141,7 @@ describe('轮播图（后台维护）', () => {
 
 describe('首页 GET /api/home', () => {
   test('不需要登录；返回轮播图、热门标签、带图的动态、精选局、本周数据', async () => {
-    const [author, host, member] = [makeUser(s.db, { nickname: '阿野' }), makeUser(s.db), makeUser(s.db)];
+    const [author, host, member] = await Promise.all([makeUser(s.db, { nickname: '阿野' }), makeUser(s.db), makeUser(s.db)]);
     const [ta, th, tm] = await Promise.all([author, host, member].map((u) => s.login(u)));
     const { url } = await s.ok('POST', '/api/upload', { token: ta, form: pngForm() });
     const withImage = await s.ok('POST', '/api/posts', { token: ta, body: { text: '洱海边的早晨', images: [url] } });
@@ -149,7 +149,7 @@ describe('首页 GET /api/home', () => {
     await s.ok('POST', '/api/posts', { token: ta, body: { text: '兼职日结，私聊', images: [url] } }); // 待审核，不出现
     const events = [];
     for (let i = 0; i < 8; i++) {
-      const t = i === 0 ? th : await s.login(makeUser(s.db));
+      const t = i === 0 ? th : await s.login(await makeUser(s.db));
       events.push(
         await s.ok('POST', '/api/events', {
           token: t,
@@ -179,7 +179,7 @@ describe('首页 GET /api/home', () => {
   });
 
   test('登录了按拉黑过滤动态和局；近 7 天以外的不算进本周数据', async () => {
-    const [me, blockedUser] = [makeUser(s.db), makeUser(s.db)];
+    const [me, blockedUser] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
     const [tme, tb] = [await s.login(me), await s.login(blockedUser)];
     const { url } = await s.ok('POST', '/api/upload', { token: tb, form: pngForm() });
     await s.ok('POST', '/api/posts', { token: tb, body: { text: '洱海', images: [url] } });
@@ -201,18 +201,18 @@ describe('首页 GET /api/home', () => {
 
 describe('图片地址：存相对路径，返回绝对地址', () => {
   test('动态：绝对 / 相对都能提交，外站图片不收；老数据里的绝对地址也换成当前的 PUBLIC_BASE_URL', async () => {
-    const u = makeUser(s.db);
+    const u = await makeUser(s.db);
     const token = await s.login(u);
     const post = await s.ok('POST', '/api/posts', {
       token,
       body: { text: '古城', images: ['http://192.168.1.5:3000/uploads/a.png', '/uploads/b.jpg'] },
     });
     assert.deepEqual(post.images, [`${BASE}/uploads/a.png`, `${BASE}/uploads/b.jpg`]);
-    assert.equal(s.db.get('SELECT images FROM posts WHERE id = ?', post.id).images, '["/uploads/a.png","/uploads/b.jpg"]');
+    assert.equal((await s.db.get('SELECT images FROM posts WHERE id = ?', post.id)).images, '["/uploads/a.png","/uploads/b.jpg"]');
     for (const images of [['https://cdn.example.com/x.png'], Array.from({ length: 10 }, (_, i) => `/uploads/${i}.png`)]) {
       assert.equal((await s.api('POST', '/api/posts', { token, body: { text: '外站', images } })).status, 400);
     }
-    const legacy = s.db.insert('posts', {
+    const legacy = await s.db.insert('posts', {
       user_id: u,
       text: '老数据',
       images: JSON.stringify(['http://old-host:3000/uploads/c.png']),
@@ -224,18 +224,18 @@ describe('图片地址：存相对路径，返回绝对地址', () => {
   });
 
   test('头像：本站上传的存相对路径、返回绝对地址；微信头像等外站地址原样保留', async () => {
-    const u = makeUser(s.db);
+    const u = await makeUser(s.db);
     const token = await s.login(u);
     let me = await s.ok('PUT', '/api/me', { token, body: { avatarUrl: 'http://10.0.0.2:3000/uploads/avatar.png' } });
     assert.equal(me.avatarUrl, `${BASE}/uploads/avatar.png`);
-    assert.equal(s.db.get('SELECT avatar_url FROM users WHERE id = ?', u).avatar_url, '/uploads/avatar.png');
+    assert.equal((await s.db.get('SELECT avatar_url FROM users WHERE id = ?', u)).avatar_url, '/uploads/avatar.png');
     me = await s.ok('PUT', '/api/me', { token, body: { avatarUrl: 'https://thirdwx.qlogo.cn/mmopen/abc/132' } });
     assert.equal(me.avatarUrl, 'https://thirdwx.qlogo.cn/mmopen/abc/132');
     assert.equal((await s.api('PUT', '/api/me', { token, body: { avatarUrl: 'ftp://x/y.png' } })).status, 400);
   });
 
   test('主页背景图：默认用第一个兴趣的插画；换成自己上传的（存相对路径）；别人看主页也能看到；可以恢复默认', async () => {
-    const u = makeUser(s.db, { interests: ['骑行', '咖啡'] });
+    const u = await makeUser(s.db, { interests: ['骑行', '咖啡'] });
     const token = await s.login(u);
     let me = await s.ok('GET', '/api/me', { token });
     assert.equal(me.coverUrl, null);
@@ -243,9 +243,9 @@ describe('图片地址：存相对路径，返回绝对地址', () => {
 
     me = await s.ok('PUT', '/api/me', { token, body: { coverUrl: 'http://10.0.0.2:3000/uploads/cover.png' } });
     assert.equal(me.coverUrl, `${BASE}/uploads/cover.png`);
-    assert.equal(s.db.get('SELECT cover_url FROM users WHERE id = ?', u).cover_url, '/uploads/cover.png');
+    assert.equal((await s.db.get('SELECT cover_url FROM users WHERE id = ?', u)).cover_url, '/uploads/cover.png');
 
-    const other = await s.login(makeUser(s.db));
+    const other = await s.login(await makeUser(s.db));
     const profile = await s.ok('GET', `/api/users/${u}`, { token: other });
     assert.equal(profile.user.coverUrl, `${BASE}/uploads/cover.png`);
     assert.equal(profile.user.coverKey, 'cycling');
@@ -256,7 +256,7 @@ describe('图片地址：存相对路径，返回绝对地址', () => {
     assert.equal(me.coverUrl, null);
 
     // 没有兴趣的人默认洱海
-    const plain = await s.login(makeUser(s.db, { interests: [] }));
+    const plain = await s.login(await makeUser(s.db, { interests: [] }));
     assert.equal((await s.ok('GET', '/api/me', { token: plain })).coverKey, 'lake');
   });
 });

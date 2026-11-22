@@ -11,7 +11,7 @@ let eventId;
 
 /** 4 个人的局：周六 10-31 北京时间 14:00–16:00 */
 async function setupEndedEvent() {
-  ids = [0, 1, 2, 3].map(() => makeUser(s.db));
+  ids = await Promise.all([0, 1, 2, 3].map(() => makeUser(s.db)));
   tokens = await Promise.all(ids.map((u) => s.login(u)));
   const ev = await s.ok('POST', '/api/events', {
     token: tokens[0],
@@ -57,27 +57,27 @@ describe('互评与信用结算', () => {
       token: tokens[0],
       body: { attendance: { [b]: 'on_time', [c]: 'late', [d]: 'no_show' }, feelings: ['很放松'] },
     });
-    assert.equal(credit(d)[0].type, 'no_show');
-    assert.equal(credit(c)[0].type, 'late');
-    assert.equal(credit(a)[0].type, 'attended'); // a 自己没票，但交了评价，默认准时
+    assert.equal((await credit(d))[0].type, 'no_show');
+    assert.equal((await credit(c))[0].type, 'late');
+    assert.equal((await credit(a))[0].type, 'attended'); // a 自己没票，但交了评价，默认准时
 
     // 第 2 份：b 说 d 准时 → 1:1 平票，按有利于 d 算准时；c 被说准时 → 1:1 → 准时
     await s.ok('POST', `/api/events/${eventId}/reviews`, {
       token: tokens[1],
       body: { attendance: { [a]: 'on_time', [c]: 'on_time', [d]: 'on_time' }, feelings: [] },
     });
-    assert.equal(credit(d).length, 1);
-    assert.equal(credit(d)[0].type, 'attended');
-    assert.equal(credit(c)[0].type, 'attended');
+    assert.equal((await credit(d)).length, 1);
+    assert.equal((await credit(d))[0].type, 'attended');
+    assert.equal((await credit(c))[0].type, 'attended');
 
     // 第 3 份：c 说 d 没来 → 2:1 没来
     await s.ok('POST', `/api/events/${eventId}/reviews`, {
       token: tokens[2],
       body: { attendance: { [a]: 'on_time', [b]: 'late', [d]: 'no_show' } },
     });
-    assert.equal(credit(d).length, 1);
-    assert.equal(credit(d)[0].type, 'no_show');
-    assert.equal(credit(b)[0].type, 'attended'); // b: 1 准时(a) vs 1 迟到(c) → 平票按准时
+    assert.equal((await credit(d)).length, 1);
+    assert.equal((await credit(d))[0].type, 'no_show');
+    assert.equal((await credit(b))[0].type, 'attended'); // b: 1 准时(a) vs 1 迟到(c) → 平票按准时
 
     const view = await s.ok('GET', `/api/events/${eventId}/review`, { token: tokens[2] });
     assert.equal(view.submitted, true);
@@ -98,16 +98,16 @@ describe('互评与信用结算', () => {
       token: tokens[0],
       body: { attendance: { [b]: 'on_time', [c]: 'on_time', [d]: 'no_show' } },
     });
-    assert.equal(credit(d)[0].type, 'attended');
-    assert.equal(credit(c)[0].type, 'attended');
+    assert.equal((await credit(d))[0].type, 'attended');
+    assert.equal((await credit(c))[0].type, 'attended');
     // 再来一票 c 迟到 → 2:1 迟到
     await s.ok('POST', `/api/events/${eventId}/reviews`, { token: tokens[1], body: { attendance: { [c]: 'late' } } });
-    assert.equal(credit(c)[0].type, 'late');
+    assert.equal((await credit(c))[0].type, 'late');
   });
 
   test('只能评价同局的人；超过 7 天不能再评', async () => {
     clock.set('2026-10-31T09:00:00.000Z');
-    const outsider = makeUser(s.db);
+    const outsider = await makeUser(s.db);
     const bad = await s.api('POST', `/api/events/${eventId}/reviews`, {
       token: tokens[0],
       body: { attendance: { [outsider]: 'no_show' } },

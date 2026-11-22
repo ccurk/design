@@ -11,10 +11,10 @@ let admin;
 
 /** 3 个人想周六上午看日出 → 引擎生成建议 */
 async function setupProposal(n = 3) {
-  users = Array.from({ length: n }, () => makeUser(s.db));
-  users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-  users.forEach((u) => makeIntent(s.db, u));
-  runMatching(s.db);
+  users = await Promise.all(Array.from({ length: n }, () => makeUser(s.db)));
+  for (const u of users) await addCredit(s.db, u, 'attended', 2);
+  for (const u of users) await makeIntent(s.db, u);
+  await runMatching(s.db);
   tokens = await Promise.all(users.map((u) => s.login(u)));
   admin = await s.adminToken();
   const { items } = await s.ok('GET', '/api/admin/proposals?status=pending', { token: admin });
@@ -36,7 +36,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
       token: admin,
       body: { title: '周六清晨 · 苍山看日出', place: '大理古城南门', meetingPoint: '南门城楼下', feeEstimate: 30, capacity: 3 },
     });
-    const event = s.db.get('SELECT * FROM events WHERE id = ?', eventId);
+    const event = await s.db.get('SELECT * FROM events WHERE id = ?', eventId);
     assert.equal(event.status, 'inviting');
     assert.equal(event.source, 'matched');
     assert.equal(event.start_at, '2026-10-30T21:50:00.000Z'); // 周六 05:50 北京时间
@@ -129,7 +129,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     for (const t of [tokens[0], tokens[1], await s.login(newcomer)]) {
       await s.ok('POST', `/api/matches/${eventId}/accept`, { token: t });
     }
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'formed');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'formed');
   });
 
   test('邀请超过 24 小时没回应视为放弃：够人就成局', async () => {
@@ -140,8 +140,8 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
 
     clock.advance(24 * HOUR + 60000);
     await s.ok('POST', '/api/dev/tick');
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'formed');
-    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3]).status, 'declined');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'formed');
+    assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3])).status, 'declined');
     assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3]).status, 'expired');
   });
 
@@ -169,9 +169,9 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     clock.advance(24 * HOUR + 60000); // 定时任务还没跑
     const late = await s.api('POST', `/api/matches/${eventId}/accept`, { token: tokens[3] });
     assert.equal(late.status, 409);
-    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3]).status, 'declined');
+    assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3])).status, 'declined');
     assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3]).status, 'open');
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'formed');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'formed');
   });
 
   test('成局前在局里点退出 = 换一批，不扣分', async () => {
@@ -194,7 +194,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     });
     assert.deepEqual(p.members.map((m) => m.user.id).sort(), [users[0], users[1], extra].sort());
     assert.ok(p.risks.includes('1 位是第一次参加'));
-    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[2]).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[2])).status, 'open');
 
     s.db.insert('blocks', { user_id: extra, blocked_id: users[0], created_at: clock.iso() });
     p = await s.ok('POST', `/api/admin/proposals/${proposal.id}/members`, { token: admin, body: {} });
@@ -214,7 +214,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     await s.ok('DELETE', `/api/intents/${other.items[0].id}`, { token: tokens[1] });
     p = s.db.get('SELECT * FROM proposals WHERE id = ?', proposal.id);
     assert.equal(p.status, 'expired');
-    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[2]).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[2])).status, 'open');
   });
 
   test('「我的局」里撮合中的意向以卡片出现（id 为 null）', async () => {
@@ -234,10 +234,10 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
 
   test('当天 / 短时撮合局：邀请截止在开场前而非过去，成员能加入并成局（H1 回归）', async () => {
     // 现在是周一 10:00；三个人想今天下午（自定义 14:00–17:00）一起 → 开场只有 4 小时提前量
-    const sameDay = Array.from({ length: 3 }, () => makeUser(s.db));
-    sameDay.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    sameDay.forEach((u) =>
-      makeIntent(s.db, u, {
+    const sameDay = await Promise.all(Array.from({ length: 3 }, () => makeUser(s.db)));
+    for (const u of sameDay) await addCredit(s.db, u, 'attended', 2);
+    for (const u of sameDay)
+      await makeIntent(s.db, u, {
         date_from: '2026-10-26',
         date_to: '2026-10-26',
         slot: 'afternoon',
@@ -245,9 +245,8 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
         time_to: '17:00',
         size_min: 2,
         size_max: 5,
-      }),
-    );
-    runMatching(s.db);
+      });
+    await runMatching(s.db);
     const t = await Promise.all(sameDay.map((u) => s.login(u)));
     const adminTok = await s.adminToken();
     const { items } = await s.ok('GET', '/api/admin/proposals?status=pending', { token: adminTok });
@@ -257,7 +256,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
       token: adminTok,
       body: { capacity: 3 },
     });
-    const event = s.db.get('SELECT * FROM events WHERE id = ?', eventId);
+    const event = await s.db.get('SELECT * FROM events WHERE id = ?', eventId);
     assert.equal(event.status, 'inviting');
     assert.equal(event.start_at, '2026-10-26T06:00:00.000Z'); // 今天 14:00 北京时间
 
@@ -272,14 +271,14 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
       const r = await s.ok('POST', `/api/matches/${eventId}/accept`, { token });
       assert.notEqual(r.expired, true);
     }
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'formed');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'formed');
   });
 
   test('确认成局时离开场太近（不足 1 小时）→ 拒绝，不生成一建即死的局（H1 回归）', async () => {
-    const users3 = Array.from({ length: 3 }, () => makeUser(s.db));
-    users3.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    users3.forEach((u) => makeIntent(s.db, u)); // 默认周六的局
-    runMatching(s.db);
+    const users3 = await Promise.all(Array.from({ length: 3 }, () => makeUser(s.db)));
+    for (const u of users3) await addCredit(s.db, u, 'attended', 2);
+    for (const u of users3) await makeIntent(s.db, u); // 默认周六的局
+    await runMatching(s.db);
     const adminTok = await s.adminToken();
     const { items } = await s.ok('GET', '/api/admin/proposals?status=pending', { token: adminTok });
     // 管理员把集合时间手动改到 40 分钟后 → 太临近，来不及邀请成局
