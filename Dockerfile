@@ -16,10 +16,16 @@ WORKDIR /app/server
 
 ENV NODE_ENV=production
 ENV PORT=3000
-# DB 和上传目录指向持久化挂载盘 /data（云托管里务必挂一个持久盘到 /data，否则重新部署数据丢失）
-ENV DB_PATH=/data/dazi.db
+# 数据库用 MySQL（微信云托管里开一个 MySQL 实例，拿内网连接信息）。
+# 以下连接参数不要写死在镜像里，请在云托管「服务设置 → 环境变量」里配置：
+#   MYSQL_HOST / MYSQL_PORT / MYSQL_USER / MYSQL_PASSWORD / MYSQL_DATABASE
+# （MYSQL_PASSWORD 建议用云托管的「敏感环境变量」存。库不存在时应用不会自动建，
+#   请先在云托管 MySQL 控制台建好 MYSQL_DATABASE 指定的库。）
+#
+# 上传的图片仍写本地目录；多实例时本地盘不共享，正式环境请改用对象存储（COS），
+# 或给 /data 挂一个所有实例共享的持久盘。单实例可直接用挂载盘：
 ENV UPLOAD_DIR=/data/uploads
 EXPOSE 3000
 
-# npm start = node --no-warnings src/index.js（--no-warnings 屏蔽 node:sqlite 的实验警告）
+# npm start = node --no-warnings src/index.js
 CMD ["npm", "start"]
