@@ -1,393 +1,327 @@
-// SQLite（node:sqlite）封装：建表、预编译语句缓存、事务（支持嵌套）。
-import fs from 'node:fs';
-import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+// MySQL（mysql2）封装：建表、连接池、事务（用 AsyncLocalStorage 跟踪当前事务连接，支持嵌套 SAVEPOINT）。
+// 从 SQLite 迁移而来：接口仍是 get/all/run/insert/update/tx，但全部改为 async（返回 Promise）。
+//
+// 与 SQLite schema 的差异：索引/主键/唯一用到的文本列改 VARCHAR；长文本/JSON 用 TEXT（MySQL8 括号默认值）；
+// REAL→DOUBLE、INTEGER→INT、AUTOINCREMENT→AUTO_INCREMENT；不建外键（应用层维护完整性）；
+// 索引写进建表语句；保留字列 key/value/read 用反引号。
+import { AsyncLocalStorage } from 'node:async_hooks';
+import mysql from 'mysql2/promise';
 import { bjDate, weekdayName } from './time.js';
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  openid TEXT NOT NULL UNIQUE,
-  phone TEXT,
-  nickname TEXT NOT NULL,
-  avatar_url TEXT,
-  cover_url TEXT,
-  bio TEXT NOT NULL DEFAULT '',
-  gender TEXT NOT NULL DEFAULT 'unknown',
-  pace TEXT,
-  interests TEXT NOT NULL DEFAULT '[]',
-  phone_verified INTEGER NOT NULL DEFAULT 0,
-  id_verified INTEGER NOT NULL DEFAULT 0,
-  is_leader INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'active',
-  restricted_until TEXT,
-  restricted_reason TEXT,
-  settings TEXT NOT NULL DEFAULT '{}',
-  emergency_contact TEXT,
-  onboarded INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-  token TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS admin_sessions (
-  token TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS intents (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  task TEXT NOT NULL,
-  category TEXT NOT NULL,
-  label TEXT,
-  date_from TEXT NOT NULL,
-  date_to TEXT NOT NULL,
-  slot TEXT NOT NULL,
-  area TEXT NOT NULL,
-  areas TEXT,
-  same_sex_only INTEGER NOT NULL DEFAULT 0,
-  size_min INTEGER NOT NULL DEFAULT 3,
-  size_max INTEGER NOT NULL DEFAULT 5,
-  relax_time INTEGER NOT NULL DEFAULT 0,
-  relax_size INTEGER NOT NULL DEFAULT 0,
-  time_from TEXT,
-  time_to TEXT,
-  status TEXT NOT NULL DEFAULT 'open',
-  event_id INTEGER,
-  proposal_id INTEGER,
-  created_at TEXT NOT NULL,
-  updated_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_intents_status ON intents(status);
-CREATE INDEX IF NOT EXISTS idx_intents_user ON intents(user_id);
-
-CREATE TABLE IF NOT EXISTS proposals (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  task TEXT NOT NULL,
-  category TEXT NOT NULL,
-  date TEXT NOT NULL,
-  slot TEXT NOT NULL,
-  area TEXT NOT NULL,
-  title TEXT NOT NULL,
-  intent_ids TEXT NOT NULL DEFAULT '[]',
-  user_ids TEXT NOT NULL DEFAULT '[]',
-  score INTEGER NOT NULL DEFAULT 0,
-  reasons TEXT NOT NULL DEFAULT '[]',
-  risks TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL DEFAULT 'pending',
-  event_id INTEGER,
-  created_at TEXT NOT NULL,
-  reviewed_at TEXT,
-  review_note TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
-
-CREATE TABLE IF NOT EXISTS leader_applications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  real_name TEXT,
-  specialties TEXT,
-  emergency_name TEXT,
-  emergency_phone TEXT,
-  intro TEXT NOT NULL,
-  images TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL DEFAULT 'pending',
-  note TEXT,
-  created_at TEXT NOT NULL,
-  reviewed_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_leader_apps ON leader_applications(status, id);
-
-CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  category TEXT NOT NULL,
-  task TEXT,
-  description TEXT NOT NULL DEFAULT '',
-  start_at TEXT NOT NULL,
-  duration_min INTEGER NOT NULL DEFAULT 120,
-  place TEXT NOT NULL DEFAULT '',
-  meeting_point TEXT NOT NULL DEFAULT '',
-  capacity INTEGER NOT NULL,
-  min_size INTEGER NOT NULL DEFAULT 3,
-  fee_type TEXT NOT NULL DEFAULT 'aa',
-  fee_estimate REAL,
-  require_approval INTEGER NOT NULL DEFAULT 0,
-  same_sex_only INTEGER NOT NULL DEFAULT 0,
-  gender TEXT,
-  source TEXT NOT NULL,
-  creator_id INTEGER,
-  status TEXT NOT NULL,
-  icebreaker_index INTEGER NOT NULL DEFAULT 0,
-  proposal_id INTEGER,
-  slot TEXT,
-  area TEXT,
-  moderation TEXT NOT NULL DEFAULT '[]',
-  review_note TEXT,
-  cancel_reason TEXT,
-  formed_at TEXT,
-  images TEXT NOT NULL DEFAULT '[]',
-  location TEXT,
-  exit_deadline TEXT,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_events_status ON events(status, start_at);
-
-CREATE TABLE IF NOT EXISTS event_members (
-  event_id INTEGER NOT NULL REFERENCES events(id),
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  role TEXT NOT NULL DEFAULT 'member',
-  status TEXT NOT NULL,
-  attendance TEXT NOT NULL DEFAULT 'pending',
-  arrived_at TEXT,
-  safe_at TEXT,
-  muted INTEGER NOT NULL DEFAULT 0,
-  last_read_message_id INTEGER NOT NULL DEFAULT 0,
-  invited_at TEXT,
-  applied_at TEXT,
-  joined_at TEXT,
-  left_at TEXT,
-  invite_expired INTEGER NOT NULL DEFAULT 0,
-  invited_by INTEGER,
-  PRIMARY KEY (event_id, user_id)
-);
-CREATE INDEX IF NOT EXISTS idx_members_user ON event_members(user_id, status);
-
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  event_id INTEGER NOT NULL REFERENCES events(id),
-  user_id INTEGER,
-  kind TEXT NOT NULL DEFAULT 'text',
-  text TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_messages_event ON messages(event_id, id);
-
--- 每个局只有一笔 AA：一个成员把总花费一次性记下，其他人按人数平摊转给 TA（旧的 aa_items 不再使用）
-CREATE TABLE IF NOT EXISTS aa_bills (
-  event_id INTEGER PRIMARY KEY REFERENCES events(id),
-  payer_id INTEGER NOT NULL REFERENCES users(id),
-  amount REAL NOT NULL,
-  note TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS aa_transfers (
-  event_id INTEGER NOT NULL,
-  from_user_id INTEGER NOT NULL,
-  to_user_id INTEGER NOT NULL,
-  status TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (event_id, from_user_id, to_user_id)
-);
-
-CREATE TABLE IF NOT EXISTS reviews (
-  event_id INTEGER NOT NULL,
-  reviewer_id INTEGER NOT NULL,
-  target_id INTEGER NOT NULL,
-  attendance TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  PRIMARY KEY (event_id, reviewer_id, target_id)
-);
-
-CREATE TABLE IF NOT EXISTS review_feelings (
-  event_id INTEGER NOT NULL,
-  reviewer_id INTEGER NOT NULL,
-  feelings TEXT NOT NULL DEFAULT '[]',
-  created_at TEXT,
-  PRIMARY KEY (event_id, reviewer_id)
-);
-
-CREATE TABLE IF NOT EXISTS credit_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  event_id INTEGER,
-  type TEXT NOT NULL,
-  source TEXT NOT NULL,
-  note TEXT,
-  revoked INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_credit_user ON credit_events(user_id);
-
-CREATE TABLE IF NOT EXISTS appeals (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  credit_event_id INTEGER NOT NULL REFERENCES credit_events(id),
-  text TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  admin_note TEXT,
-  created_at TEXT NOT NULL,
-  resolved_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS reports (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  reporter_id INTEGER NOT NULL REFERENCES users(id),
-  target_type TEXT NOT NULL,
-  target_id INTEGER NOT NULL,
-  target_user_id INTEGER,
-  reason TEXT NOT NULL,
-  detail TEXT,
-  images TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL DEFAULT 'pending',
-  action TEXT,
-  admin_note TEXT,
-  user_message TEXT,
-  created_at TEXT NOT NULL,
-  resolved_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
-
-CREATE TABLE IF NOT EXISTS blocks (
-  user_id INTEGER NOT NULL,
-  blocked_id INTEGER NOT NULL,
-  created_at TEXT NOT NULL,
-  PRIMARY KEY (user_id, blocked_id)
-);
-
-CREATE TABLE IF NOT EXISTS mutes (
-  user_id INTEGER NOT NULL,
-  muted_id INTEGER NOT NULL,
-  created_at TEXT,
-  PRIMARY KEY (user_id, muted_id)
-);
-
-CREATE TABLE IF NOT EXISTS posts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  text TEXT NOT NULL,
-  images TEXT NOT NULL DEFAULT '[]',
-  event_id INTEGER,
-  visibility TEXT NOT NULL DEFAULT 'public',
-  status TEXT NOT NULL DEFAULT 'approved',
-  moderation TEXT NOT NULL DEFAULT '[]',
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS post_likes (
-  post_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  created_at TEXT,
-  PRIMARY KEY (post_id, user_id)
-);
-
-CREATE TABLE IF NOT EXISTS comments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  post_id INTEGER NOT NULL REFERENCES posts(id),
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  reply_to_user_id INTEGER,
-  text TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'approved',
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS notices (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  body TEXT NOT NULL DEFAULT '',
-  link TEXT,
-  read INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_notices_user ON notices(user_id, id);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-
--- 标签：意向的「想做的事」和局的标签共用；key = 规范化后的名字（拉丁字母小写），撮合按 key 比较
-CREATE TABLE IF NOT EXISTS tags (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  key TEXT NOT NULL UNIQUE,
-  category TEXT NOT NULL DEFAULT 'other',
-  cover TEXT,
-  hot INTEGER NOT NULL DEFAULT 0,
-  sort INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  last_used_at TEXT
-);
-
--- 首页轮播图（后台维护）
-CREATE TABLE IF NOT EXISTS banners (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  image TEXT NOT NULL,
-  title TEXT NOT NULL,
-  subtitle TEXT,
-  link TEXT,
-  body TEXT,
-  cta_label TEXT,
-  cta_link TEXT,
-  starts_at TEXT,
-  ends_at TEXT,
-  impressions INTEGER NOT NULL DEFAULT 0,
-  clicks INTEGER NOT NULL DEFAULT 0,
-  sort INTEGER NOT NULL DEFAULT 0,
-  enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL
-);
-
--- 定时任务去重（例如「只提醒一次」）
-CREATE TABLE IF NOT EXISTS job_marks (
-  key TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL
-);
-`;
-
-/** 给已有数据库补新加的列（CREATE TABLE IF NOT EXISTS 不会改旧表） */
-const COLUMN_MIGRATIONS = [
-  ['users', 'restricted_reason', 'TEXT'],
-  ['users', 'cover_url', 'TEXT'],
-  ['event_members', 'invite_expired', 'INTEGER NOT NULL DEFAULT 0'],
-  ['reports', 'user_message', 'TEXT'],
-  // v0.3
-  ['intents', 'time_from', 'TEXT'],
-  ['intents', 'time_to', 'TEXT'],
-  ['events', 'images', "TEXT NOT NULL DEFAULT '[]'"],
-  ['events', 'location', 'TEXT'],
-  ['events', 'exit_deadline', 'TEXT'],
-  ['event_members', 'invited_by', 'INTEGER'],
-  ['users', 'is_leader', 'INTEGER NOT NULL DEFAULT 0'],
-  // 撮合：多选片区 + 按局的「只约同性」
-  ['intents', 'areas', 'TEXT'],
-  ['intents', 'same_sex_only', 'INTEGER NOT NULL DEFAULT 0'],
-  // 发起局的片区
-  ['events', 'area', 'TEXT'],
-  // 官方带队结构化认证
-  ['leader_applications', 'real_name', 'TEXT'],
-  ['leader_applications', 'specialties', 'TEXT'],
-  ['leader_applications', 'emergency_name', 'TEXT'],
-  ['leader_applications', 'emergency_phone', 'TEXT'],
-  // 首页轮播广告：平台内落地页 + 排期 + 曝光/点击
-  ['banners', 'body', 'TEXT'],
-  ['banners', 'cta_label', 'TEXT'],
-  ['banners', 'cta_link', 'TEXT'],
-  ['banners', 'starts_at', 'TEXT'],
-  ['banners', 'ends_at', 'TEXT'],
-  ['banners', 'impressions', 'INTEGER NOT NULL DEFAULT 0'],
-  ['banners', 'clicks', 'INTEGER NOT NULL DEFAULT 0'],
+const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    openid VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(32),
+    nickname VARCHAR(64) NOT NULL,
+    avatar_url VARCHAR(512),
+    cover_url VARCHAR(512),
+    bio VARCHAR(512) NOT NULL DEFAULT '',
+    gender VARCHAR(16) NOT NULL DEFAULT 'unknown',
+    pace VARCHAR(16),
+    interests TEXT NOT NULL DEFAULT ('[]'),
+    phone_verified INT NOT NULL DEFAULT 0,
+    id_verified INT NOT NULL DEFAULT 0,
+    is_leader INT NOT NULL DEFAULT 0,
+    status VARCHAR(16) NOT NULL DEFAULT 'active',
+    restricted_until VARCHAR(40),
+    restricted_reason VARCHAR(255),
+    settings TEXT NOT NULL DEFAULT ('{}'),
+    emergency_contact TEXT,
+    onboarded INT NOT NULL DEFAULT 0,
+    created_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    token VARCHAR(255) PRIMARY KEY,
+    user_id INT NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    expires_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS admin_sessions (
+    token VARCHAR(255) PRIMARY KEY,
+    created_at VARCHAR(40) NOT NULL,
+    expires_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS intents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    task VARCHAR(64) NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    label VARCHAR(64),
+    date_from VARCHAR(40) NOT NULL,
+    date_to VARCHAR(40) NOT NULL,
+    slot VARCHAR(16) NOT NULL,
+    area VARCHAR(64) NOT NULL,
+    areas TEXT,
+    same_sex_only INT NOT NULL DEFAULT 0,
+    size_min INT NOT NULL DEFAULT 3,
+    size_max INT NOT NULL DEFAULT 5,
+    relax_time INT NOT NULL DEFAULT 0,
+    relax_size INT NOT NULL DEFAULT 0,
+    time_from VARCHAR(16),
+    time_to VARCHAR(16),
+    status VARCHAR(16) NOT NULL DEFAULT 'open',
+    event_id INT,
+    proposal_id INT,
+    created_at VARCHAR(40) NOT NULL,
+    updated_at VARCHAR(40),
+    INDEX idx_intents_status (status),
+    INDEX idx_intents_user (user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS proposals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task VARCHAR(64) NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    date VARCHAR(40) NOT NULL,
+    slot VARCHAR(16) NOT NULL,
+    area VARCHAR(64) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    intent_ids TEXT NOT NULL DEFAULT ('[]'),
+    user_ids TEXT NOT NULL DEFAULT ('[]'),
+    score INT NOT NULL DEFAULT 0,
+    reasons TEXT NOT NULL DEFAULT ('[]'),
+    risks TEXT NOT NULL DEFAULT ('[]'),
+    status VARCHAR(16) NOT NULL DEFAULT 'pending',
+    event_id INT,
+    created_at VARCHAR(40) NOT NULL,
+    reviewed_at VARCHAR(40),
+    review_note VARCHAR(255),
+    INDEX idx_proposals_status (status)
+  )`,
+  `CREATE TABLE IF NOT EXISTS leader_applications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    real_name VARCHAR(64),
+    specialties TEXT,
+    emergency_name VARCHAR(64),
+    emergency_phone VARCHAR(32),
+    intro TEXT NOT NULL,
+    images TEXT NOT NULL DEFAULT ('[]'),
+    status VARCHAR(16) NOT NULL DEFAULT 'pending',
+    note VARCHAR(255),
+    created_at VARCHAR(40) NOT NULL,
+    reviewed_at VARCHAR(40),
+    INDEX idx_leader_apps (status, id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    task VARCHAR(64),
+    description VARCHAR(1000) NOT NULL DEFAULT '',
+    start_at VARCHAR(40) NOT NULL,
+    duration_min INT NOT NULL DEFAULT 120,
+    place VARCHAR(255) NOT NULL DEFAULT '',
+    meeting_point VARCHAR(255) NOT NULL DEFAULT '',
+    capacity INT NOT NULL,
+    min_size INT NOT NULL DEFAULT 3,
+    fee_type VARCHAR(16) NOT NULL DEFAULT 'aa',
+    fee_estimate DOUBLE,
+    require_approval INT NOT NULL DEFAULT 0,
+    same_sex_only INT NOT NULL DEFAULT 0,
+    gender VARCHAR(16),
+    source VARCHAR(16) NOT NULL,
+    creator_id INT,
+    status VARCHAR(24) NOT NULL,
+    icebreaker_index INT NOT NULL DEFAULT 0,
+    proposal_id INT,
+    slot VARCHAR(16),
+    area VARCHAR(64),
+    moderation TEXT NOT NULL DEFAULT ('[]'),
+    review_note VARCHAR(255),
+    cancel_reason VARCHAR(255),
+    formed_at VARCHAR(40),
+    images TEXT NOT NULL DEFAULT ('[]'),
+    location TEXT,
+    exit_deadline VARCHAR(40),
+    created_at VARCHAR(40) NOT NULL,
+    INDEX idx_events_status (status, start_at)
+  )`,
+  `CREATE TABLE IF NOT EXISTS event_members (
+    event_id INT NOT NULL,
+    user_id INT NOT NULL,
+    role VARCHAR(16) NOT NULL DEFAULT 'member',
+    status VARCHAR(16) NOT NULL,
+    attendance VARCHAR(16) NOT NULL DEFAULT 'pending',
+    arrived_at VARCHAR(40),
+    safe_at VARCHAR(40),
+    muted INT NOT NULL DEFAULT 0,
+    last_read_message_id INT NOT NULL DEFAULT 0,
+    invited_at VARCHAR(40),
+    applied_at VARCHAR(40),
+    joined_at VARCHAR(40),
+    left_at VARCHAR(40),
+    invite_expired INT NOT NULL DEFAULT 0,
+    invited_by INT,
+    PRIMARY KEY (event_id, user_id),
+    INDEX idx_members_user (user_id, status)
+  )`,
+  `CREATE TABLE IF NOT EXISTS messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    user_id INT,
+    kind VARCHAR(16) NOT NULL DEFAULT 'text',
+    text TEXT NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    INDEX idx_messages_event (event_id, id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS aa_bills (
+    event_id INT PRIMARY KEY,
+    payer_id INT NOT NULL,
+    amount DOUBLE NOT NULL,
+    note VARCHAR(255),
+    created_at VARCHAR(40) NOT NULL,
+    updated_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS aa_transfers (
+    event_id INT NOT NULL,
+    from_user_id INT NOT NULL,
+    to_user_id INT NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    updated_at VARCHAR(40) NOT NULL,
+    PRIMARY KEY (event_id, from_user_id, to_user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS reviews (
+    event_id INT NOT NULL,
+    reviewer_id INT NOT NULL,
+    target_id INT NOT NULL,
+    attendance VARCHAR(16) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    PRIMARY KEY (event_id, reviewer_id, target_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS review_feelings (
+    event_id INT NOT NULL,
+    reviewer_id INT NOT NULL,
+    feelings TEXT NOT NULL DEFAULT ('[]'),
+    created_at VARCHAR(40),
+    PRIMARY KEY (event_id, reviewer_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS credit_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    event_id INT,
+    type VARCHAR(24) NOT NULL,
+    source VARCHAR(16) NOT NULL,
+    note VARCHAR(255),
+    revoked INT NOT NULL DEFAULT 0,
+    created_at VARCHAR(40) NOT NULL,
+    INDEX idx_credit_user (user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS appeals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    credit_event_id INT NOT NULL,
+    text TEXT NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'pending',
+    admin_note VARCHAR(255),
+    created_at VARCHAR(40) NOT NULL,
+    resolved_at VARCHAR(40)
+  )`,
+  `CREATE TABLE IF NOT EXISTS reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reporter_id INT NOT NULL,
+    target_type VARCHAR(16) NOT NULL,
+    target_id INT NOT NULL,
+    target_user_id INT,
+    reason VARCHAR(255) NOT NULL,
+    detail TEXT,
+    images TEXT NOT NULL DEFAULT ('[]'),
+    status VARCHAR(16) NOT NULL DEFAULT 'pending',
+    action VARCHAR(24),
+    admin_note VARCHAR(255),
+    user_message VARCHAR(255),
+    created_at VARCHAR(40) NOT NULL,
+    resolved_at VARCHAR(40),
+    INDEX idx_reports_status (status)
+  )`,
+  `CREATE TABLE IF NOT EXISTS blocks (
+    user_id INT NOT NULL,
+    blocked_id INT NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    PRIMARY KEY (user_id, blocked_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS mutes (
+    user_id INT NOT NULL,
+    muted_id INT NOT NULL,
+    created_at VARCHAR(40),
+    PRIMARY KEY (user_id, muted_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    text TEXT NOT NULL,
+    images TEXT NOT NULL DEFAULT ('[]'),
+    event_id INT,
+    visibility VARCHAR(16) NOT NULL DEFAULT 'public',
+    status VARCHAR(16) NOT NULL DEFAULT 'approved',
+    moderation TEXT NOT NULL DEFAULT ('[]'),
+    created_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS post_likes (
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at VARCHAR(40),
+    PRIMARY KEY (post_id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS comments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    reply_to_user_id INT,
+    text TEXT NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'approved',
+    created_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS notices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type VARCHAR(32) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL DEFAULT (''),
+    link VARCHAR(255),
+    \`read\` INT NOT NULL DEFAULT 0,
+    created_at VARCHAR(40) NOT NULL,
+    INDEX idx_notices_user (user_id, id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS settings (
+    \`key\` VARCHAR(191) PRIMARY KEY,
+    \`value\` TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(64) NOT NULL,
+    \`key\` VARCHAR(191) NOT NULL UNIQUE,
+    category VARCHAR(32) NOT NULL DEFAULT 'other',
+    cover VARCHAR(255),
+    hot INT NOT NULL DEFAULT 0,
+    sort INT NOT NULL DEFAULT 0,
+    created_at VARCHAR(40) NOT NULL,
+    last_used_at VARCHAR(40)
+  )`,
+  `CREATE TABLE IF NOT EXISTS banners (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    image VARCHAR(512) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    subtitle VARCHAR(255),
+    link VARCHAR(255),
+    body TEXT,
+    cta_label VARCHAR(64),
+    cta_link VARCHAR(255),
+    starts_at VARCHAR(40),
+    ends_at VARCHAR(40),
+    impressions INT NOT NULL DEFAULT 0,
+    clicks INT NOT NULL DEFAULT 0,
+    sort INT NOT NULL DEFAULT 0,
+    enabled INT NOT NULL DEFAULT 1,
+    created_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS job_marks (
+    \`key\` VARCHAR(191) PRIMARY KEY,
+    created_at VARCHAR(40) NOT NULL
+  )`,
 ];
 
-function migrate(raw) {
-  for (const [table, column, type] of COLUMN_MIGRATIONS) {
-    const columns = raw.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
-    if (!columns.includes(column)) raw.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-  }
-}
-
-/** node:sqlite 不接受 boolean / undefined，统一转换 */
+/** mysql2 不需要特别处理 boolean（会转 1/0），但 undefined 要转 null；统一处理 */
 function bindValue(v) {
   if (v === undefined) return null;
   if (typeof v === 'boolean') return v ? 1 : 0;
@@ -396,7 +330,7 @@ function bindValue(v) {
 
 function bindParams(params) {
   return params.map((p) => {
-    if (p && typeof p === 'object' && !Array.isArray(p) && !(p instanceof Uint8Array)) {
+    if (p && typeof p === 'object' && !Array.isArray(p) && !(p instanceof Date) && !(p instanceof Uint8Array)) {
       const out = {};
       for (const [k, v] of Object.entries(p)) out[k] = bindValue(v);
       return out;
@@ -405,103 +339,128 @@ function bindParams(params) {
   });
 }
 
+// 单个对象参数 = 命名占位符（:name）；否则是位置占位符（?）数组
+function isNamed(x) {
+  return x && typeof x === 'object' && !Array.isArray(x) && !(x instanceof Date) && !(x instanceof Uint8Array);
+}
+function toValues(params) {
+  const bound = bindParams(params);
+  return bound.length === 1 && isNamed(bound[0]) ? bound[0] : bound;
+}
+
 /** 一次性修复历史「周undefined」标题（templateTitle 旧 bug 造成）；修过的下次不再命中 */
-export function repairBadTitles(db) {
-  const rows = db.all("SELECT id, title, start_at FROM events WHERE title LIKE '%周undefined%'");
+export async function repairBadTitles(db) {
+  const rows = await db.all("SELECT id, title, start_at FROM events WHERE title LIKE '%周undefined%'");
   for (const e of rows) {
     const fixed = e.title.replaceAll('周undefined', weekdayName(bjDate(new Date(e.start_at))));
-    db.run('UPDATE events SET title = ? WHERE id = ?', fixed, e.id);
+    await db.run('UPDATE events SET title = ? WHERE id = ?', fixed, e.id);
   }
 }
 
-export function openDb(dbPath = ':memory:') {
-  if (dbPath !== ':memory:') fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const raw = new DatabaseSync(dbPath);
-  raw.exec('PRAGMA foreign_keys = ON;');
-  if (dbPath !== ':memory:') raw.exec('PRAGMA journal_mode = WAL;');
-  raw.exec(SCHEMA);
-  migrate(raw);
+const txStore = new AsyncLocalStorage();
 
-  const cache = new Map();
-  const stmt = (sql) => {
-    let s = cache.get(sql);
-    if (!s) {
-      s = raw.prepare(sql);
-      cache.set(sql, s);
-    }
-    return s;
-  };
-  let depth = 0;
+/** 打开数据库（建连接池、建表、修历史标题）。conn: {host, port, user, password, database, connectionLimit?} */
+export async function openDb(conn) {
+  const pool = mysql.createPool({
+    host: conn.host,
+    port: conn.port,
+    user: conn.user,
+    password: conn.password,
+    database: conn.database,
+    namedPlaceholders: true,
+    connectionLimit: conn.connectionLimit || 10,
+    charset: 'utf8mb4',
+    multipleStatements: false,
+  });
+  for (const sql of SCHEMA) await pool.query(sql);
+
+  const store = () => txStore.getStore();
+  const q = (sql, values) => (store() ? store().conn : pool).query(sql, values);
 
   const db = {
-    raw,
-    path: dbPath,
+    pool,
     hooks: {}, // 由 app 注册，例如 notice → 微信订阅消息
     publicBaseUrl: '', // 由 app 设置（PUBLIC_BASE_URL），图片相对路径拼成绝对地址时用
-    get: (sql, ...params) => stmt(sql).get(...bindParams(params)),
-    all: (sql, ...params) => stmt(sql).all(...bindParams(params)),
-    run(sql, ...params) {
-      const r = stmt(sql).run(...bindParams(params));
-      return { changes: Number(r.changes), lastId: Number(r.lastInsertRowid) };
+    async get(sql, ...params) {
+      const [rows] = await q(sql, toValues(params));
+      return rows[0];
     },
-    /** INSERT 的便捷写法：insert('users', {nickname: 'x'}) → 新 id */
-    insert(table, row) {
+    async all(sql, ...params) {
+      const [rows] = await q(sql, toValues(params));
+      return rows;
+    },
+    async run(sql, ...params) {
+      const [r] = await q(sql, toValues(params));
+      return { changes: r.affectedRows, lastId: r.insertId };
+    },
+    /** INSERT 的便捷写法：insert('users', {nickname: 'x'}) → 新 id（用位置占位符 ?） */
+    async insert(table, row) {
       const keys = Object.keys(row);
-      const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map((k) => `:${k}`).join(', ')})`;
-      return db.run(sql, row).lastId;
+      const sql = `INSERT INTO \`${table}\` (${keys.map((k) => `\`${k}\``).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`;
+      return (await db.run(sql, ...keys.map((k) => row[k]))).lastId;
     },
-    /** UPDATE 的便捷写法：update('users', id, {nickname: 'y'}) */
-    update(table, id, patch, idColumn = 'id') {
+    /** UPDATE 的便捷写法：update('users', id, {nickname: 'y'})（用位置占位符 ?） */
+    async update(table, id, patch, idColumn = 'id') {
       const keys = Object.keys(patch);
       if (!keys.length) return 0;
-      const sql = `UPDATE ${table} SET ${keys.map((k) => `${k} = :${k}`).join(', ')} WHERE ${idColumn} = :__id`;
-      return db.run(sql, { ...patch, __id: id }).changes;
+      const sql = `UPDATE \`${table}\` SET ${keys.map((k) => `\`${k}\` = ?`).join(', ')} WHERE \`${idColumn}\` = ?`;
+      return (await db.run(sql, ...keys.map((k) => patch[k]), id)).changes;
     },
-    exec: (sql) => raw.exec(sql),
-    /** 同步事务；嵌套调用时用 SAVEPOINT */
-    tx(fn) {
-      if (depth === 0) {
-        raw.exec('BEGIN IMMEDIATE');
-        depth++;
+    async exec(sql) {
+      await q(sql);
+    },
+    /** 事务；嵌套调用时用 SAVEPOINT。fn 可以是 async */
+    async tx(fn) {
+      const cur = store();
+      if (cur) {
+        const name = `sp_${++cur.depth}`;
+        await cur.conn.query(`SAVEPOINT ${name}`);
         try {
-          const result = fn();
-          raw.exec('COMMIT');
+          const result = await fn();
+          await cur.conn.query(`RELEASE SAVEPOINT ${name}`);
           return result;
         } catch (err) {
-          raw.exec('ROLLBACK');
+          await cur.conn.query(`ROLLBACK TO SAVEPOINT ${name}`);
           throw err;
         } finally {
-          depth--;
+          cur.depth--;
         }
       }
-      const name = `sp_${depth}`;
-      raw.exec(`SAVEPOINT ${name}`);
-      depth++;
+      const c = await pool.getConnection();
       try {
-        const result = fn();
-        raw.exec(`RELEASE ${name}`);
-        return result;
-      } catch (err) {
-        raw.exec(`ROLLBACK TO ${name}`);
-        raw.exec(`RELEASE ${name}`);
-        throw err;
+        return await txStore.run({ conn: c, depth: 0 }, async () => {
+          await c.query('START TRANSACTION');
+          try {
+            const result = await fn();
+            await c.query('COMMIT');
+            return result;
+          } catch (err) {
+            await c.query('ROLLBACK');
+            throw err;
+          }
+        });
       } finally {
-        depth--;
+        c.release();
       }
     },
-    close: () => raw.close(),
+    /** 清空所有业务表（seed / 测试前使用） */
+    async reset() {
+      const [rows] = await pool.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()');
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const { t } of rows) await pool.query(`TRUNCATE TABLE \`${t}\``);
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    },
+    async close() {
+      await pool.end();
+    },
   };
-  repairBadTitles(db); // 启动时修掉历史「周undefined」标题
+  await repairBadTitles(db);
   return db;
 }
 
-/** 清空所有业务表（seed 前使用） */
-export function resetDb(db) {
-  const tables = db.all("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
-  db.exec('PRAGMA foreign_keys = OFF;');
-  for (const { name } of tables) db.exec(`DELETE FROM ${name};`);
-  db.exec("DELETE FROM sqlite_sequence;");
-  db.exec('PRAGMA foreign_keys = ON;');
+/** 清空所有业务表（兼容旧的 resetDb(db) 调用） */
+export async function resetDb(db) {
+  await db.reset();
 }
 
 export const json = {
