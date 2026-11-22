@@ -40,7 +40,7 @@ describe('审核接入', () => {
   let eventId;
   before(async () => {
     s = await startServer();
-    const ids = [makeUser(s.db), makeUser(s.db)];
+    const ids = [await makeUser(s.db), await makeUser(s.db)];
     tokens = await Promise.all(ids.map((u) => s.login(u)));
     const ev = await s.ok('POST', '/api/events', {
       token: tokens[0],

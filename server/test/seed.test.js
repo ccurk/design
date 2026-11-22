@@ -11,7 +11,7 @@ describe('演示数据', () => {
   let ids;
   before(async () => {
     s = await startServer();
-    ids = seed(s.db, { uploadDir: s.config.uploadDir });
+    ids = await seed(s.db, { uploadDir: s.config.uploadDir });
     token = (await s.ok('POST', '/api/auth/dev-login', { body: {} })).token;
   });
   after(() => s.close());

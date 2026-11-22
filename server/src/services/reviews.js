@@ -64,7 +64,7 @@ export async function submitReview(db, user, eventId, body) {
     for (const targetId of others) {
       await db.run(
         `INSERT INTO reviews (event_id, reviewer_id, target_id, attendance, created_at) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(event_id, reviewer_id, target_id) DO UPDATE SET attendance = excluded.attendance`,
+         ON DUPLICATE KEY UPDATE attendance = VALUES(attendance)`,
         eventId,
         user.id,
         targetId,
@@ -74,7 +74,7 @@ export async function submitReview(db, user, eventId, body) {
     }
     await db.run(
       `INSERT INTO review_feelings (event_id, reviewer_id, feelings, created_at) VALUES (?, ?, ?, ?)
-       ON CONFLICT(event_id, reviewer_id) DO UPDATE SET feelings = excluded.feelings`,
+       ON DUPLICATE KEY UPDATE feelings = VALUES(feelings)`,
       eventId,
       user.id,
       JSON.stringify(feelings),

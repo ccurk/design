@@ -6,8 +6,8 @@ import { addCredit, makeIntent, makeUser, startServer } from './helpers.js';
 
 let s;
 
-function pending() {
-  return s.db.all("SELECT * FROM proposals WHERE status = 'pending' ORDER BY id").map((p) => ({
+async function pending() {
+  return (await s.db.all("SELECT * FROM proposals WHERE status = 'pending' ORDER BY id")).map((p) => ({
     ...p,
     userIds: JSON.parse(p.user_ids),
     reasons: JSON.parse(p.reasons),
@@ -22,207 +22,207 @@ describe('撮合引擎', () => {
   });
   after(() => s.close());
 
-  test('同任务、同日期、同时间段的人按提交顺序组成一组', () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    const intents = users.map((u) => makeIntent(s.db, u));
-    const result = runMatching(s.db);
+  test('同任务、同日期、同时间段的人按提交顺序组成一组', async () => {
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    for (const u of users) await addCredit(s.db, u, 'attended', 2);
+    const intents = await Promise.all(users.map((u) => makeIntent(s.db, u)));
+    const result = await runMatching(s.db);
     assert.equal(result.created, 1);
-    const [p] = pending();
+    const [p] = await pending();
     assert.deepEqual(p.userIds, users);
     assert.equal(p.date, '2026-10-31');
     assert.equal(p.slot, 'morning');
     assert.equal(p.title, '周六清晨 · 一起看日出');
     for (const id of intents) {
-      const row = s.db.get('SELECT status, proposal_id FROM intents WHERE id = ?', id);
+      const row = await s.db.get('SELECT status, proposal_id FROM intents WHERE id = ?', id);
       assert.equal(row.status, 'proposed');
       assert.equal(row.proposal_id, p.id);
     }
   });
 
-  test('不同任务 / 不同地区 / 日期不重叠 / 时间段不同 都不会配到一起', () => {
-    const a = makeUser(s.db);
-    const b = makeUser(s.db);
-    const c = makeUser(s.db);
-    const d = makeUser(s.db);
-    makeIntent(s.db, a);
-    makeIntent(s.db, b, { task: '爬山' });
-    makeIntent(s.db, c, { area: '双廊' });
-    makeIntent(s.db, d, { date_from: '2026-11-01', date_to: '2026-11-01' });
-    const e = makeUser(s.db);
-    makeIntent(s.db, e, { slot: 'evening' });
-    assert.equal(runMatching(s.db).created, 0);
+  test('不同任务 / 不同地区 / 日期不重叠 / 时间段不同 都不会配到一起', async () => {
+    const a = await makeUser(s.db);
+    const b = await makeUser(s.db);
+    const c = await makeUser(s.db);
+    const d = await makeUser(s.db);
+    await makeIntent(s.db, a);
+    await makeIntent(s.db, b, { task: '爬山' });
+    await makeIntent(s.db, c, { area: '双廊' });
+    await makeIntent(s.db, d, { date_from: '2026-11-01', date_to: '2026-11-01' });
+    const e = await makeUser(s.db);
+    await makeIntent(s.db, e, { slot: 'evening' });
+    assert.equal((await runMatching(s.db)).created, 0);
   });
 
-  test('片区多选：只要有交集就能配到一组', () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    makeIntent(s.db, users[0], { area: '古城', areas: JSON.stringify(['古城', '才村']) });
-    makeIntent(s.db, users[1], { area: '才村', areas: JSON.stringify(['才村', '下关']) });
-    makeIntent(s.db, users[2], { area: '才村', areas: JSON.stringify(['才村']) });
-    assert.equal(runMatching(s.db).created, 1); // 都包含「才村」
+  test('片区多选：只要有交集就能配到一组', async () => {
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    for (const u of users) await addCredit(s.db, u, 'attended', 2);
+    await makeIntent(s.db, users[0], { area: '古城', areas: JSON.stringify(['古城', '才村']) });
+    await makeIntent(s.db, users[1], { area: '才村', areas: JSON.stringify(['才村', '下关']) });
+    await makeIntent(s.db, users[2], { area: '才村', areas: JSON.stringify(['才村']) });
+    assert.equal((await runMatching(s.db)).created, 1); // 都包含「才村」
   });
 
-  test('片区多选：没有交集不会配到一起', () => {
-    makeIntent(s.db, makeUser(s.db), { area: '古城', areas: JSON.stringify(['古城']) });
-    makeIntent(s.db, makeUser(s.db), { area: '下关', areas: JSON.stringify(['下关']) });
-    makeIntent(s.db, makeUser(s.db), { area: '双廊', areas: JSON.stringify(['双廊']) });
-    assert.equal(runMatching(s.db).created, 0);
+  test('片区多选：没有交集不会配到一起', async () => {
+    await makeIntent(s.db, await makeUser(s.db), { area: '古城', areas: JSON.stringify(['古城']) });
+    await makeIntent(s.db, await makeUser(s.db), { area: '下关', areas: JSON.stringify(['下关']) });
+    await makeIntent(s.db, await makeUser(s.db), { area: '双廊', areas: JSON.stringify(['双廊']) });
+    assert.equal((await runMatching(s.db)).created, 0);
   });
 
-  test('按局的「只约同性」：唯一能成的组必须跨性别时配不成（无需开全局同性局）', () => {
-    const f1 = makeUser(s.db, { gender: 'female' });
-    const f2 = makeUser(s.db, { gender: 'female' });
-    const m = makeUser(s.db, { gender: 'male' });
-    [f1, f2, m].forEach((u) => addCredit(s.db, u, 'attended', 2));
-    makeIntent(s.db, f1, { same_sex_only: 1 });
-    makeIntent(s.db, f2);
-    makeIntent(s.db, m);
-    assert.equal(runMatching(s.db).created, 0);
+  test('按局的「只约同性」：唯一能成的组必须跨性别时配不成（无需开全局同性局）', async () => {
+    const f1 = await makeUser(s.db, { gender: 'female' });
+    const f2 = await makeUser(s.db, { gender: 'female' });
+    const m = await makeUser(s.db, { gender: 'male' });
+    for (const u of [f1, f2, m]) await addCredit(s.db, u, 'attended', 2);
+    await makeIntent(s.db, f1, { same_sex_only: 1 });
+    await makeIntent(s.db, f2);
+    await makeIntent(s.db, m);
+    assert.equal((await runMatching(s.db)).created, 0);
   });
 
-  test('按局的「只约同性」：同性别照常成组', () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db, { gender: 'female' }));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 2));
-    makeIntent(s.db, users[0], { same_sex_only: 1 });
-    makeIntent(s.db, users[1]);
-    makeIntent(s.db, users[2]);
-    assert.equal(runMatching(s.db).created, 1);
+  test('按局的「只约同性」：同性别照常成组', async () => {
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db, { gender: 'female' })));
+    for (const u of users) await addCredit(s.db, u, 'attended', 2);
+    await makeIntent(s.db, users[0], { same_sex_only: 1 });
+    await makeIntent(s.db, users[1]);
+    await makeIntent(s.db, users[2]);
+    assert.equal((await runMatching(s.db)).created, 1);
   });
 
-  test('allday 或「时间放宽到全天」可以和任何时间段配', () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    makeIntent(s.db, users[0], { slot: 'afternoon' });
-    makeIntent(s.db, users[1], { slot: 'allday' });
-    makeIntent(s.db, users[2], { slot: 'morning', relax_time: 1 });
-    runMatching(s.db);
-    const [p] = pending();
+  test('allday 或「时间放宽到全天」可以和任何时间段配', async () => {
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    await makeIntent(s.db, users[0], { slot: 'afternoon' });
+    await makeIntent(s.db, users[1], { slot: 'allday' });
+    await makeIntent(s.db, users[2], { slot: 'morning', relax_time: 1 });
+    await runMatching(s.db);
+    const [p] = await pending();
     assert.ok(p, '应该生成一条建议');
     assert.equal(p.slot, 'afternoon'); // 以有固定时间段的人为准
     assert.ok(p.reasons.some((r) => r.startsWith('时间都能凑上')));
   });
 
-  test('互相拉黑的人不能在同一组', () => {
-    const users = [1, 2, 3, 4].map(() => makeUser(s.db));
-    s.db.insert('blocks', { user_id: users[1], blocked_id: users[0], created_at: new Date().toISOString() });
-    users.forEach((u) => makeIntent(s.db, u));
-    runMatching(s.db);
-    const [p] = pending();
+  test('互相拉黑的人不能在同一组', async () => {
+    const users = await Promise.all([1, 2, 3, 4].map(() => makeUser(s.db)));
+    await s.db.insert('blocks', { user_id: users[1], blocked_id: users[0], created_at: new Date().toISOString() });
+    for (const u of users) await makeIntent(s.db, u);
+    await runMatching(s.db);
+    const [p] = await pending();
     // 1 号是种子；2 号拉黑了 1 号所以被跳过；3、4 号加入
     assert.deepEqual(p.userIds, [users[0], users[2], users[3]]);
-    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[1]).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[1])).status, 'open');
   });
 
-  test('开了「只参加同性局」：整组必须同性，性别未知的人不进同性组', () => {
-    const f1 = makeUser(s.db, { gender: 'female', settings: { sameSexOnly: true } });
-    const m1 = makeUser(s.db, { gender: 'male' });
-    const unknown = makeUser(s.db, { gender: 'unknown' });
-    const f2 = makeUser(s.db, { gender: 'female' });
-    const f3 = makeUser(s.db, { gender: 'female' });
-    [f1, m1, unknown, f2, f3].forEach((u) => makeIntent(s.db, u));
-    runMatching(s.db);
-    const [p] = pending();
+  test('开了「只参加同性局」：整组必须同性，性别未知的人不进同性组', async () => {
+    const f1 = await makeUser(s.db, { gender: 'female', settings: { sameSexOnly: true } });
+    const m1 = await makeUser(s.db, { gender: 'male' });
+    const unknown = await makeUser(s.db, { gender: 'unknown' });
+    const f2 = await makeUser(s.db, { gender: 'female' });
+    const f3 = await makeUser(s.db, { gender: 'female' });
+    for (const u of [f1, m1, unknown, f2, f3]) await makeIntent(s.db, u);
+    await runMatching(s.db);
+    const [p] = await pending();
     assert.deepEqual(p.userIds, [f1, f2, f3]);
   });
 
-  test('人数：达到所有人 size_min 的最大值才成组，最多到 size_max 的最小值', () => {
-    const users = Array.from({ length: 7 }, () => makeUser(s.db));
-    users.forEach((u) => makeIntent(s.db, u)); // 3–5 人
-    runMatching(s.db);
-    const props = pending();
+  test('人数：达到所有人 size_min 的最大值才成组，最多到 size_max 的最小值', async () => {
+    const users = await Promise.all(Array.from({ length: 7 }, () => makeUser(s.db)));
+    for (const u of users) await makeIntent(s.db, u); // 3–5 人
+    await runMatching(s.db);
+    const props = await pending();
     assert.equal(props.length, 1);
     assert.equal(props[0].userIds.length, 5);
     // 剩下 2 个人不够 3 人，继续等
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM intents WHERE status = 'open'").n, 2);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM intents WHERE status = 'open'")).n, 2);
 
     // 有人只想要小局：size_max = 3
-    const more = Array.from({ length: 4 }, () => makeUser(s.db));
-    makeIntent(s.db, more[0], { task: '咖啡', slot: 'afternoon', size_min: 2, size_max: 3 });
-    more.slice(1).forEach((u) => makeIntent(s.db, u, { task: '咖啡', slot: 'afternoon' }));
-    runMatching(s.db);
-    const coffee = pending().find((p) => p.task === '咖啡');
+    const more = await Promise.all(Array.from({ length: 4 }, () => makeUser(s.db)));
+    await makeIntent(s.db, more[0], { task: '咖啡', slot: 'afternoon', size_min: 2, size_max: 3 });
+    for (const u of more.slice(1)) await makeIntent(s.db, u, { task: '咖啡', slot: 'afternoon' });
+    await runMatching(s.db);
+    const coffee = (await pending()).find((p) => p.task === '咖啡');
     assert.equal(coffee.userIds.length, 3);
   });
 
-  test('人数不够不成组；开了「2–6 人都可以」按 2–6 算', () => {
-    const a = makeUser(s.db);
-    const b = makeUser(s.db);
-    makeIntent(s.db, a, { task: '桌游', slot: 'evening' });
-    const ib = makeIntent(s.db, b, { task: '桌游', slot: 'evening' });
-    assert.equal(runMatching(s.db).created, 0);
-    s.db.update('intents', ib, { relax_size: 1 });
-    assert.equal(runMatching(s.db).created, 0); // a 仍要求至少 3 人
-    s.db.run("UPDATE intents SET relax_size = 1 WHERE task = '桌游'");
-    assert.equal(runMatching(s.db).created, 1);
-    const [p] = pending();
+  test('人数不够不成组；开了「2–6 人都可以」按 2–6 算', async () => {
+    const a = await makeUser(s.db);
+    const b = await makeUser(s.db);
+    await makeIntent(s.db, a, { task: '桌游', slot: 'evening' });
+    const ib = await makeIntent(s.db, b, { task: '桌游', slot: 'evening' });
+    assert.equal((await runMatching(s.db)).created, 0);
+    await s.db.update('intents', ib, { relax_size: 1 });
+    assert.equal((await runMatching(s.db)).created, 0); // a 仍要求至少 3 人
+    await s.db.run("UPDATE intents SET relax_size = 1 WHERE task = '桌游'");
+    assert.equal((await runMatching(s.db)).created, 1);
+    const [p] = await pending();
     assert.ok(p.risks.includes('夜间局，集合点要选人多的地方'));
   });
 
-  test('匹配度、理由、风险', () => {
+  test('匹配度、理由、风险', async () => {
     const interests = ['看日出', '咖啡', '读书'];
-    const users = [1, 2, 3].map(() => makeUser(s.db, { pace: 'slow', interests }));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 3));
-    users.forEach((u) => makeIntent(s.db, u));
-    runMatching(s.db);
-    let [p] = pending();
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db, { pace: 'slow', interests })));
+    for (const u of users) await addCredit(s.db, u, 'attended', 3);
+    for (const u of users) await makeIntent(s.db, u);
+    await runMatching(s.db);
+    let [p] = await pending();
     // 60 + 节奏 10 + 时间段 10 + 共同兴趣 3×5 + 全员良好 5 = 100
     assert.equal(p.score, 100);
     assert.deepEqual(p.reasons, ['都想去看日出', '时间都在周六清晨', '都偏慢热', '共同兴趣：看日出、咖啡、读书', '全员信用良好']);
     assert.deepEqual(p.risks, []);
 
     // 新人 + 信用一般 + 节奏不同
-    const fresh = makeUser(s.db, { pace: 'open', interests: ['爬山'] });
-    const fair = makeUser(s.db, { pace: 'slow', interests: ['爬山'] });
-    addCredit(s.db, fair, 'attended', 8);
-    addCredit(s.db, fair, 'cancel_late', 2);
-    const third = makeUser(s.db, { pace: 'slow', interests: ['爬山', '拍照'] });
-    addCredit(s.db, third, 'attended', 1);
-    [fresh, fair, third].forEach((u) => makeIntent(s.db, u, { task: '爬山' }));
-    runMatching(s.db);
-    p = pending().find((x) => x.task === '爬山');
+    const fresh = await makeUser(s.db, { pace: 'open', interests: ['爬山'] });
+    const fair = await makeUser(s.db, { pace: 'slow', interests: ['爬山'] });
+    await addCredit(s.db, fair, 'attended', 8);
+    await addCredit(s.db, fair, 'cancel_late', 2);
+    const third = await makeUser(s.db, { pace: 'slow', interests: ['爬山', '拍照'] });
+    await addCredit(s.db, third, 'attended', 1);
+    for (const u of [fresh, fair, third]) await makeIntent(s.db, u, { task: '爬山' });
+    await runMatching(s.db);
+    p = (await pending()).find((x) => x.task === '爬山');
     assert.equal(p.score, 60 + 10 + 5); // 时间段一致 + 1 个共同兴趣
     assert.deepEqual(p.risks, ['有 1 人信用一般', '1 位是第一次参加']);
   });
 
-  test('受限 / 封禁的人不参与撮合', () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    s.db.update('users', users[2], { status: 'restricted', restricted_until: '2099-01-01T00:00:00.000Z' });
-    users.forEach((u) => makeIntent(s.db, u));
-    assert.equal(runMatching(s.db).created, 0);
+  test('受限 / 封禁的人不参与撮合', async () => {
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    await s.db.update('users', users[2], { status: 'restricted', restricted_until: '2099-01-01T00:00:00.000Z' });
+    for (const u of users) await makeIntent(s.db, u);
+    assert.equal((await runMatching(s.db)).created, 0);
   });
 
-  test('过期意向会被标记为 expired', () => {
-    const u = makeUser(s.db);
-    const id = makeIntent(s.db, u, { date_from: '2026-10-25', date_to: '2026-10-25' });
-    runMatching(s.db);
-    assert.equal(s.db.get('SELECT status FROM intents WHERE id = ?', id).status, 'expired');
+  test('过期意向会被标记为 expired', async () => {
+    const u = await makeUser(s.db);
+    const id = await makeIntent(s.db, u, { date_from: '2026-10-25', date_to: '2026-10-25' });
+    await runMatching(s.db);
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE id = ?', id)).status, 'expired');
   });
 
   test('后台退回后，同一组人同一天不会再被配到一起', async () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    users.forEach((u) => makeIntent(s.db, u));
-    runMatching(s.db);
-    const [p] = pending();
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    for (const u of users) await makeIntent(s.db, u);
+    await runMatching(s.db);
+    const [p] = await pending();
     const admin = await s.adminToken();
     await s.ok('POST', `/api/admin/proposals/${p.id}/reject`, { token: admin, body: { note: '时间太早' } });
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM intents WHERE status = 'open'").n, 3);
-    assert.equal(runMatching(s.db).created, 0);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM intents WHERE status = 'open'")).n, 3);
+    assert.equal((await runMatching(s.db)).created, 0);
   });
 
-  test('自动成局：分数够且没有风险时直接确认', () => {
-    setSetting(s.db, 'autoConfirm', { enabled: true, threshold: 80 });
-    const users = [1, 2, 3].map(() => makeUser(s.db, { interests: ['看日出'] }));
-    users.forEach((u) => addCredit(s.db, u, 'attended', 1));
-    users.forEach((u) => makeIntent(s.db, u));
-    const result = runMatching(s.db);
+  test('自动成局：分数够且没有风险时直接确认', async () => {
+    await setSetting(s.db, 'autoConfirm', { enabled: true, threshold: 80 });
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db, { interests: ['看日出'] })));
+    for (const u of users) await addCredit(s.db, u, 'attended', 1);
+    for (const u of users) await makeIntent(s.db, u);
+    const result = await runMatching(s.db);
     assert.equal(result.autoConfirmed, 1);
-    const event = s.db.get("SELECT * FROM events WHERE source = 'matched'");
+    const event = await s.db.get("SELECT * FROM events WHERE source = 'matched'");
     assert.equal(event.status, 'inviting');
   });
 
   test('提交意向后立刻撮合，并能看到同意向人数', async () => {
-    const a = makeUser(s.db);
-    const b = makeUser(s.db);
+    const a = await makeUser(s.db);
+    const b = await makeUser(s.db);
     const ta = await s.login(a);
     const tb = await s.login(b);
     const ia = await s.ok('POST', '/api/intents', { token: ta, body: { task: '骑行', when: '2026-11-01', slot: 'afternoon' } });
@@ -235,7 +235,7 @@ describe('撮合引擎', () => {
     assert.equal(detail.similarCount, 1);
     assert.equal(detail.needMore, 1);
 
-    const c = makeUser(s.db);
+    const c = await makeUser(s.db);
     const tc = await s.login(c);
     const ic = await s.ok('POST', '/api/intents', { token: tc, body: { task: '骑行', when: '2026-11-01', slot: 'afternoon' } });
     assert.equal(ic.status, 'proposed');
@@ -244,7 +244,7 @@ describe('撮合引擎', () => {
   });
 
   test('放宽条件：PUT 和 PATCH 都能改（小程序只能用 PUT）', async () => {
-    const token = await s.login(makeUser(s.db));
+    const token = await s.login(await makeUser(s.db));
     const intent = await s.ok('POST', '/api/intents', { token, body: { task: '爬山', when: '2026-11-01', slot: 'morning' } });
     assert.equal(intent.relaxTime, false);
     const viaPut = await s.ok('PUT', `/api/intents/${intent.id}`, { token, body: { relaxTime: true } });
