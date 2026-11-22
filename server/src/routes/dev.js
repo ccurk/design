@@ -27,9 +27,9 @@ export function devRoutes(ctx) {
   });
 
   /** 立刻跑一遍定时任务：{ match?: true } 时连撮合一起跑 */
-  r.post('/tick', (req, res) => {
-    const minute = runMinuteJobs(ctx);
-    const match = body(req).match ? runMatchJob(ctx) : null;
+  r.post('/tick', async (req, res) => {
+    const minute = await runMinuteJobs(ctx);
+    const match = body(req).match ? await runMatchJob(ctx) : null;
     res.json({ now: clock.iso(), ...minute, match });
   });
 

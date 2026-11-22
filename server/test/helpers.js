@@ -1,7 +1,9 @@
-// 测试工具：内存数据库 + createApp + app.listen(0)，通过 fetch 走 HTTP。
+// 测试工具：每个测试进程用一个独立的 MySQL 库（按 pid 命名，互不干扰），每个测试前清表；
+// createApp + app.listen(0)，通过 fetch 走 HTTP。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import mysql from 'mysql2/promise';
 import { createApp } from '../src/app.js';
 import { clock } from '../src/clock.js';
 import { loadConfig } from '../src/config.js';
@@ -12,12 +14,34 @@ export const ADMIN_PASSWORD = 'test-admin-pass';
 /** 北京时间 2026-10-26（周一）10:00 */
 export const MONDAY_10AM = '2026-10-26T02:00:00.000Z';
 
+const MYSQL = {
+  host: process.env.MYSQL_HOST || '127.0.0.1',
+  port: Number(process.env.MYSQL_PORT) || 3306,
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || 'root',
+};
+// 每个测试进程一个库，并行跑也不会互相踩
+const TEST_DB = `dazi_test_${process.pid}`;
+let dbReady = null;
+function ensureTestDb() {
+  if (!dbReady) {
+    dbReady = (async () => {
+      const admin = await mysql.createConnection(MYSQL);
+      await admin.query(`CREATE DATABASE IF NOT EXISTS \`${TEST_DB}\` CHARACTER SET utf8mb4`);
+      await admin.end();
+    })();
+  }
+  return dbReady;
+}
+
 export async function startServer({ now = MONDAY_10AM } = {}) {
   clock.set(now);
-  const db = openDb(':memory:');
+  await ensureTestDb();
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dazi-test-uploads-'));
-  const config = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', UPLOAD_DIR: uploadDir, ADMIN_PASSWORD });
-  const app = createApp({ db, config });
+  const config = loadConfig({ NODE_ENV: 'test', MYSQL_DATABASE: TEST_DB, UPLOAD_DIR: uploadDir, ADMIN_PASSWORD });
+  const db = await openDb(config.db);
+  await db.reset(); // 清掉上一个测试留下的数据
+  const app = await createApp({ db, config });
   const server = await new Promise((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
@@ -62,7 +86,7 @@ export async function startServer({ now = MONDAY_10AM } = {}) {
 
   async function close() {
     await new Promise((resolve) => server.close(resolve));
-    db.close();
+    await db.close();
     fs.rmSync(uploadDir, { recursive: true, force: true });
     clock.reset();
   }
@@ -72,7 +96,7 @@ export async function startServer({ now = MONDAY_10AM } = {}) {
 
 let seq = 0;
 /** 直接在数据库里建用户 */
-export function makeUser(db, overrides = {}) {
+export async function makeUser(db, overrides = {}) {
   seq++;
   const { settings, interests, ...rest } = overrides;
   return db.insert('users', {
@@ -91,9 +115,9 @@ export function makeUser(db, overrides = {}) {
 }
 
 /** 直接写信用记录 */
-export function addCredit(db, userId, type, n = 1, { daysAgo = 40, eventId = null, source = 'review' } = {}) {
+export async function addCredit(db, userId, type, n = 1, { daysAgo = 40, eventId = null, source = 'review' } = {}) {
   for (let i = 0; i < n; i++) {
-    db.insert('credit_events', {
+    await db.insert('credit_events', {
       user_id: userId,
       event_id: eventId,
       type,
@@ -106,7 +130,7 @@ export function addCredit(db, userId, type, n = 1, { daysAgo = 40, eventId = nul
 }
 
 /** 直接写一条撮合意向 */
-export function makeIntent(db, userId, overrides = {}) {
+export async function makeIntent(db, userId, overrides = {}) {
   return db.insert('intents', {
     user_id: userId,
     task: '看日出',

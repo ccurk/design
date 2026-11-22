@@ -26,10 +26,10 @@ if (config.devTools) {
   logger.warn('开发辅助接口已开启（/api/auth/dev-login、/api/dev/*）。部署时务必设置 NODE_ENV=production');
 }
 
-const db = openDb(config.dbPath);
-const app = createApp({ db, config, logger });
+const db = await openDb(config.db);
+const app = await createApp({ db, config, logger });
 const server = app.listen(config.port, () => {
-  logger.info(`活动搭子后端已启动：http://localhost:${config.port}（数据库 ${config.dbPath}）`);
+  logger.info(`活动搭子后端已启动：http://localhost:${config.port}（MySQL ${config.db.host}:${config.db.port}/${config.db.database}）`);
 });
 
 const jobs = process.env.JOBS === 'off' || config.isTest ? null : startJobs({ db, config, logger });
@@ -37,8 +37,8 @@ const jobs = process.env.JOBS === 'off' || config.isTest ? null : startJobs({ db
 function shutdown(signal) {
   logger.info(`收到 ${signal}，正在关闭…`);
   jobs?.stop();
-  server.close(() => {
-    db.close();
+  server.close(async () => {
+    await db.close();
     process.exit(0);
   });
   setTimeout(() => process.exit(0), 3000).unref();

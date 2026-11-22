@@ -7,8 +7,8 @@ import { notFound } from '../errors.js';
  *   match:<eventId>  撮合成功页     event:<eventId>  局详情     chat:<eventId>  群聊
  *   review:<eventId> 互评页         post:<postId>    动态详情   credit          我的信用记录
  */
-export function notify(db, userId, { type, title, body = '', link = null }) {
-  const id = db.insert('notices', {
+export async function notify(db, userId, { type, title, body = '', link = null }) {
+  const id = await db.insert('notices', {
     user_id: userId,
     type,
     title,
@@ -38,26 +38,26 @@ export function noticeView(row) {
   };
 }
 
-export function listNotices(db, userId, limit = 50) {
-  return db
-    .all('SELECT * FROM notices WHERE user_id = ? ORDER BY id DESC LIMIT ?', userId, limit)
-    .map(noticeView);
+export async function listNotices(db, userId, limit = 50) {
+  return (
+    await db.all('SELECT * FROM notices WHERE user_id = ? ORDER BY id DESC LIMIT ?', userId, limit)
+  ).map(noticeView);
 }
 
-export function markRead(db, userId, noticeId) {
-  const row = db.get('SELECT * FROM notices WHERE id = ? AND user_id = ?', noticeId, userId);
+export async function markRead(db, userId, noticeId) {
+  const row = await db.get('SELECT * FROM notices WHERE id = ? AND user_id = ?', noticeId, userId);
   if (!row) throw notFound('通知不存在');
-  db.run('UPDATE notices SET read = 1 WHERE id = ?', noticeId);
+  await db.run('UPDATE notices SET `read` = 1 WHERE id = ?', noticeId);
   return { ok: true };
 }
 
-export function markAllRead(db, userId) {
-  const { changes } = db.run('UPDATE notices SET read = 1 WHERE user_id = ? AND read = 0', userId);
+export async function markAllRead(db, userId) {
+  const { changes } = await db.run('UPDATE notices SET `read` = 1 WHERE user_id = ? AND `read` = 0', userId);
   return { ok: true, updated: changes };
 }
 
 /** 定时任务去重：同一个 key 只做一次。返回 true 表示第一次 */
-export function markOnce(db, key) {
-  const { changes } = db.run('INSERT OR IGNORE INTO job_marks (key, created_at) VALUES (?, ?)', key, clock.iso());
+export async function markOnce(db, key) {
+  const { changes } = await db.run('INSERT IGNORE INTO job_marks (`key`, created_at) VALUES (?, ?)', key, clock.iso());
   return changes > 0;
 }

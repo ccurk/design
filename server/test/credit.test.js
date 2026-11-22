@@ -41,33 +41,33 @@ describe('信用（数据库）', () => {
   });
   after(() => s.close());
 
-  test('撤销的记录不计入；超过一个月的放鸽子只影响履约率', () => {
-    const id = makeUser(s.db);
-    addCredit(s.db, id, 'attended', 9);
-    addCredit(s.db, id, 'no_show', 1, { daysAgo: 45 });
-    const user = s.db.get('SELECT * FROM users WHERE id = ?', id);
-    let credit = creditOf(s.db, user);
+  test('撤销的记录不计入；超过一个月的放鸽子只影响履约率', async () => {
+    const id = await makeUser(s.db);
+    await addCredit(s.db, id, 'attended', 9);
+    await addCredit(s.db, id, 'no_show', 1, { daysAgo: 45 });
+    const user = await s.db.get('SELECT * FROM users WHERE id = ?', id);
+    let credit = await creditOf(s.db, user);
     assert.equal(credit.rate, 90);
     assert.equal(credit.level, 'good');
 
-    const ce = s.db.get("SELECT id FROM credit_events WHERE user_id = ? AND type = 'no_show'", id);
-    s.db.update('credit_events', ce.id, { revoked: 1 });
-    credit = creditOf(s.db, user);
+    const ce = await s.db.get("SELECT id FROM credit_events WHERE user_id = ? AND type = 'no_show'", id);
+    await s.db.update('credit_events', ce.id, { revoked: 1 });
+    credit = await creditOf(s.db, user);
     assert.equal(credit.rate, 100);
     assert.equal(credit.noShow, 0);
   });
 
   test('一个月内第 2 次放鸽子 → 自动受限 7 天，并发通知；7 天后自动恢复', async () => {
-    const id = makeUser(s.db);
-    addCredit(s.db, id, 'attended', 5);
-    addCredit(s.db, id, 'no_show', 1, { daysAgo: 10 });
-    addCreditEvent(s.db, { userId: id, type: 'no_show', source: 'review', note: 'test' });
-    const user = s.db.get('SELECT * FROM users WHERE id = ?', id);
+    const id = await makeUser(s.db);
+    await addCredit(s.db, id, 'attended', 5);
+    await addCredit(s.db, id, 'no_show', 1, { daysAgo: 10 });
+    await addCreditEvent(s.db, { userId: id, type: 'no_show', source: 'review', note: 'test' });
+    const user = await s.db.get('SELECT * FROM users WHERE id = ?', id);
     assert.equal(user.status, 'restricted');
     const days = (Date.parse(user.restricted_until) - clock.now().getTime()) / 86400000;
     assert.equal(Math.round(days), 7);
-    assert.equal(creditOf(s.db, user).level, 'restricted');
-    assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'restricted'", id));
+    assert.equal((await creditOf(s.db, user)).level, 'restricted');
+    assert.ok(await s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'restricted'", id));
 
     // 受限期间不能撮合
     const token = await s.login(id);
@@ -84,9 +84,9 @@ describe('信用（数据库）', () => {
   });
 
   test('信用记录列表与申诉：后台通过后记录撤销、履约率回升', async () => {
-    const id = makeUser(s.db);
-    addCredit(s.db, id, 'attended', 3);
-    addCredit(s.db, id, 'cancel_late', 1, { daysAgo: 3, source: 'system' });
+    const id = await makeUser(s.db);
+    await addCredit(s.db, id, 'attended', 3);
+    await addCredit(s.db, id, 'cancel_late', 1, { daysAgo: 3, source: 'system' });
     const token = await s.login(id);
     const list = await s.ok('GET', '/api/me/credit-events', { token });
     const bad = list.items.find((x) => x.type === 'cancel_late');
@@ -109,7 +109,7 @@ describe('信用（数据库）', () => {
   });
 
   test('后台手动加记录 / 撤销记录', async () => {
-    const id = makeUser(s.db);
+    const id = await makeUser(s.db);
     const admin = await s.adminToken();
     let r = await s.ok('POST', `/api/admin/users/${id}/credit`, { token: admin, body: { type: 'late', note: '人工补录' } });
     assert.equal(r.credit.late, 1);

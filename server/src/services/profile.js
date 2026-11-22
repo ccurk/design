@@ -23,17 +23,17 @@ import {
 export const PHONE_RE = /^1[3-9]\d{9}$/;
 
 /** 主页背景：自己上传的图；没传就用第一个兴趣对应的插画（没有兴趣用洱海） */
-function coverFields(db, user) {
+async function coverFields(db, user) {
   const first = json.parse(user.interests, [])[0];
   return {
     coverUrl: absUrl(db, user.cover_url) ?? null,
-    coverKey: first ? coverKeyFor(db, first, 'outdoor') : 'lake',
+    coverKey: first ? await coverKeyFor(db, first, 'outdoor') : 'lake',
   };
 }
 
 /** Me */
-export function meView(db, user) {
-  const brief = userBrief(db, user);
+export async function meView(db, user) {
+  const brief = await userBrief(db, user);
   return {
     id: user.id,
     nickname: user.nickname,
@@ -49,16 +49,16 @@ export function meView(db, user) {
     isLeader: Boolean(user.is_leader),
     status: effectiveStatus(user),
     onboarded: Boolean(user.onboarded),
-    credit: creditOf(db, user),
-    ongoingCount: ongoingCount(db, user),
+    credit: await creditOf(db, user),
+    ongoingCount: await ongoingCount(db, user),
     // 补充字段
     phoneMasked: maskPhone(user.phone),
     restrictedUntil: effectiveStatus(user) === 'restricted' ? user.restricted_until : null,
-    ...coverFields(db, user),
+    ...(await coverFields(db, user)),
   };
 }
 
-export function updateMe(db, user, body = {}) {
+export async function updateMe(db, user, body = {}) {
   const patch = {};
   if (body.nickname !== undefined) patch.nickname = str(body.nickname, '昵称', { min: 1, max: 12 });
   if (body.bio !== undefined) patch.bio = str(body.bio ?? '', '简介', { max: 60, optional: true }) ?? '';
@@ -91,11 +91,11 @@ export function updateMe(db, user, body = {}) {
 
   const check = checkAll(patch.nickname, patch.bio);
   if (!check.ok) throw blocked('昵称或简介里不能有联系方式、广告或不当内容', check.reasons);
-  db.update('users', user.id, patch);
-  return meView(db, requireUserRow(db, user.id));
+  await db.update('users', user.id, patch);
+  return await meView(db, await requireUserRow(db, user.id));
 }
 
-export function safetyView(db, user) {
+export async function safetyView(db, user) {
   const settings = userSettings(user);
   const contact = json.parse(user.emergency_contact, null);
   return {
@@ -103,11 +103,11 @@ export function safetyView(db, user) {
     checkInReminder: settings.checkInReminder,
     profileOpen: settings.profileOpen,
     emergencyContact: contact ? { name: contact.name, phoneMasked: maskPhone(contact.phone) } : null,
-    blocked: blockedList(db, user.id),
+    blocked: await blockedList(db, user.id),
   };
 }
 
-export function updateSafety(db, user, body = {}) {
+export async function updateSafety(db, user, body = {}) {
   const settings = userSettings(user);
   const labels = { sameSexOnly: '只参加同性局', checkInReminder: '报平安提醒', profileOpen: '主页可见' };
   for (const [key, label] of Object.entries(labels)) {
@@ -128,23 +128,23 @@ export function updateSafety(db, user, body = {}) {
       patch.emergency_contact = JSON.stringify({ name, phone });
     }
   }
-  db.update('users', user.id, patch);
-  return safetyView(db, requireUserRow(db, user.id));
+  await db.update('users', user.id, patch);
+  return await safetyView(db, await requireUserRow(db, user.id));
 }
 
 // ---- 他人主页 ----
 
 /** 两个人一起加入过的局 */
-function sharedEventIds(db, a, b) {
-  return db
-    .all(
+async function sharedEventIds(db, a, b) {
+  return (
+    await db.all(
       `SELECT m1.event_id FROM event_members m1 JOIN event_members m2 ON m1.event_id = m2.event_id
        WHERE m1.user_id = ? AND m2.user_id = ? AND m1.joined_at IS NOT NULL AND m2.joined_at IS NOT NULL
        AND m1.status IN ('joined', 'left') AND m2.status IN ('joined', 'left')`,
       a,
       b,
     )
-    .map((r) => r.event_id);
+  ).map((r) => r.event_id);
 }
 
 const PACE_POINTS = { slow: '都偏安静', warm: '都是熟了就话多', open: '都随时能聊' };
@@ -159,8 +159,8 @@ function agoLabel(iso, now) {
 }
 
 /** 信用说明：「最近一次临时鸽是 3 个月前（开场前 20 小时说去不了），没有放鸽子记录。」 */
-function creditNote(db, userId, credit, now) {
-  const last = db.get(
+async function creditNote(db, userId, credit, now) {
+  const last = await db.get(
     "SELECT * FROM credit_events WHERE user_id = ? AND revoked = 0 AND type IN ('late', 'cancel_late', 'no_show') ORDER BY created_at DESC LIMIT 1",
     userId,
   );
@@ -171,7 +171,7 @@ function creditNote(db, userId, credit, now) {
   return `最近一次${CREDIT_TYPE_LABELS[last.type]}是${/^\d/.test(ago) ? ' ' : ''}${ago}${note}${tail}。`;
 }
 
-function commonPoints(db, me, other, shared) {
+async function commonPoints(db, me, other, shared) {
   const points = [];
   const mine = json.parse(me.interests, []);
   const theirs = json.parse(other.interests, []);
@@ -181,13 +181,13 @@ function commonPoints(db, me, other, shared) {
   return points;
 }
 
-export function publicProfile(db, viewer, targetId) {
-  const target = requireUserRow(db, targetId);
+export async function publicProfile(db, viewer, targetId) {
+  const target = await requireUserRow(db, targetId);
   const isMe = viewer.id === target.id;
-  const shared = isMe ? [] : sharedEventIds(db, viewer.id, target.id);
-  const blockedByMe = Boolean(db.get('SELECT 1 FROM blocks WHERE user_id = ? AND blocked_id = ?', viewer.id, target.id));
-  const brief = userBrief(db, target);
-  const credit = creditOf(db, target);
+  const shared = isMe ? [] : await sharedEventIds(db, viewer.id, target.id);
+  const blockedByMe = Boolean(await db.get('SELECT 1 FROM blocks WHERE user_id = ? AND blocked_id = ?', viewer.id, target.id));
+  const brief = await userBrief(db, target);
+  const credit = await creditOf(db, target);
   const profileHidden = !isMe && !userSettings(target).profileOpen && shared.length === 0;
   if (profileHidden) {
     return {
@@ -215,13 +215,14 @@ export function publicProfile(db, viewer, targetId) {
     };
   }
   const now = clock.now();
-  const recent = db
-    .all(
+  const recent = (
+    await db.all(
       `SELECT e.* FROM event_members m JOIN events e ON e.id = m.event_id
        WHERE m.user_id = ? AND m.status = 'joined' AND e.status IN ('open', 'formed')
        ORDER BY e.start_at DESC LIMIT 20`,
       target.id,
     )
+  )
     .filter((e) => {
       const sharedWithMe = shared.includes(e.id);
       // 撮合局只有成员能看到（README「可见性」）：没一起参加过的撮合局一律不展示，已结束的也不例外
@@ -242,11 +243,11 @@ export function publicProfile(db, viewer, targetId) {
       interests: json.parse(target.interests, []),
       phoneVerified: Boolean(target.phone_verified),
       idVerified: Boolean(target.id_verified),
-      ...coverFields(db, target),
+      ...(await coverFields(db, target)),
     },
     credit,
-    creditNote: creditNote(db, target.id, credit, now),
-    commonPoints: isMe ? [] : commonPoints(db, viewer, target, shared),
+    creditNote: await creditNote(db, target.id, credit, now),
+    commonPoints: isMe ? [] : await commonPoints(db, viewer, target, shared),
     recentEvents: recent,
     blockedByMe,
     profileHidden: false,

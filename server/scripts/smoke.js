@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import mysql from 'mysql2/promise';
 import { createApp } from '../src/app.js';
 import { clock } from '../src/clock.js';
 import { loadConfig } from '../src/config.js';
@@ -48,15 +49,20 @@ async function main() {
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dazi-smoke-'));
   const config = loadConfig({
     NODE_ENV: 'development',
-    DB_PATH: ':memory:',
+    MYSQL_DATABASE: process.env.MYSQL_DATABASE || 'dazi_smoke',
     UPLOAD_DIR: uploadDir,
     ADMIN_PASSWORD: 'smoke-admin',
     LOG_LEVEL: 'warn',
     PORT: '0',
   });
-  const db = openDb(':memory:');
-  seed(db, { uploadDir });
-  const app = createApp({ db, config });
+  // 用独立的 smoke 库，并清空后写入演示数据
+  const admin = await mysql.createConnection({ host: config.db.host, port: config.db.port, user: config.db.user, password: config.db.password });
+  await admin.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.database}\` CHARACTER SET utf8mb4`);
+  await admin.end();
+  const db = await openDb(config.db);
+  await db.reset();
+  await seed(db, { uploadDir });
+  const app = await createApp({ db, config });
   const server = await new Promise((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
@@ -231,7 +237,7 @@ async function main() {
   } finally {
     clock.reset();
     await new Promise((resolve) => server.close(resolve));
-    db.close();
+    await db.close();
     fs.rmSync(uploadDir, { recursive: true, force: true });
   }
 

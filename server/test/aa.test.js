@@ -40,8 +40,8 @@ describe('AA：一次声明', () => {
 
   before(async () => {
     s = await startServer();
-    ids = [0, 1, 2, 3, 4].map(() => makeUser(s.db));
-    s.db.update('users', ids[1], { nickname: '阿野' });
+    ids = await Promise.all([0, 1, 2, 3, 4].map(() => makeUser(s.db)));
+    await s.db.update('users', ids[1], { nickname: '阿野' });
     tokens = await Promise.all(ids.map((u) => s.login(u)));
     const ev = await s.ok('POST', '/api/events', {
       token: tokens[0],
@@ -55,7 +55,7 @@ describe('AA：一次声明', () => {
   test('还没记账：bill 为 null，任何成员都能记；局外人看不到；后台详情也是空账', async () => {
     const aa = await s.ok('GET', `/api/events/${eventId}/aa`, { token: tokens[3] });
     assert.deepEqual(aa, { bill: null, total: 0, each: 0, memberCount: 5, transfers: [], canDeclare: true });
-    const outsider = await s.api('GET', `/api/events/${eventId}/aa`, { token: await s.login(makeUser(s.db)) });
+    const outsider = await s.api('GET', `/api/events/${eventId}/aa`, { token: await s.login(await makeUser(s.db)) });
     assert.equal(outsider.status, 403);
     const bad = await s.api('POST', `/api/events/${eventId}/aa`, { token: tokens[1], body: { amount: 1.005 } });
     assert.equal(bad.status, 400);
@@ -89,10 +89,10 @@ describe('AA：一次声明', () => {
     assert.equal(mine.bill.mine, false);
     assert.equal(mine.bill.editable, false);
 
-    const [n] = notices(ids[0]);
+    const [n] = await notices(ids[0]);
     assert.equal(n.body, '阿野 记了这个局的 AA：共 ¥150（车费 + 早餐），每人 ¥30，转给阿野');
     assert.equal(n.link, `chat:${eventId}`);
-    assert.equal(notices(ids[1]).length, 0); // 不通知自己
+    assert.equal((await notices(ids[1])).length, 0); // 不通知自己
   });
 
   test('记了就锁定：别人不能再记第二笔；旧的 /aa/items 已删除', async () => {
@@ -109,7 +109,7 @@ describe('AA：一次声明', () => {
     assert.equal(aa.total, 100);
     assert.equal(aa.each, 20);
     assert.equal(aa.bill.note, '车费');
-    assert.equal(notices(ids[0]).at(-1).body, '阿野 改了这个局的 AA：共 ¥100（车费），每人 ¥20，转给阿野');
+    assert.equal((await notices(ids[0])).at(-1).body, '阿野 改了这个局的 AA：共 ¥100（车费），每人 ¥20，转给阿野');
     const odd = await s.ok('PUT', `/api/events/${eventId}/aa`, { token: tokens[1], body: { amount: 100.01 } });
     assert.equal(odd.each, 20);
     assert.equal(odd.bill.note, null);
@@ -147,7 +147,7 @@ describe('AA：一次声明', () => {
       ],
     );
     assert.deepEqual(Object.keys(detail.aa.transfers[0]).sort(), ['amount', 'from', 'status', 'to']);
-    assert.equal(detail.aa.transfers[0].from.nickname, s.db.get('SELECT nickname FROM users WHERE id = ?', ids[0]).nickname);
+    assert.equal(detail.aa.transfers[0].from.nickname, (await s.db.get('SELECT nickname FROM users WHERE id = ?', ids[0])).nickname);
   });
 });
 
@@ -157,7 +157,7 @@ describe('AA：撤回', () => {
 
   test('还没人转账时记账人可以撤回，撤回后谁都可以重新记；并通知其他成员', async () => {
     s = await startServer();
-    const [host, a, b] = [makeUser(s.db), makeUser(s.db), makeUser(s.db)];
+    const [host, a, b] = await Promise.all([makeUser(s.db), makeUser(s.db), makeUser(s.db)]);
     const [th, ta, tb] = await Promise.all([host, a, b].map((u) => s.login(u)));
     const ev = await s.ok('POST', '/api/events', {
       token: th,
@@ -166,16 +166,16 @@ describe('AA：撤回', () => {
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: ta });
     await s.ok('POST', `/api/events/${ev.id}/join`, { token: tb });
     await s.ok('POST', `/api/events/${ev.id}/aa`, { token: ta, body: { amount: 90 } });
-    const nick = s.db.get('SELECT nickname FROM users WHERE id = ?', a).nickname;
+    const nick = (await s.db.get('SELECT nickname FROM users WHERE id = ?', a)).nickname;
     assert.equal(
-      s.db.get("SELECT body FROM notices WHERE user_id = ? AND type = 'aa_bill'", host).body,
+      (await s.db.get("SELECT body FROM notices WHERE user_id = ? AND type = 'aa_bill'", host)).body,
       `${nick} 记了这个局的 AA：共 ¥90，每人 ¥30，转给${nick}`,
     );
     const cleared = await s.ok('DELETE', `/api/events/${ev.id}/aa`, { token: ta });
     assert.equal(cleared.bill, null);
     assert.equal(cleared.canDeclare, true);
     assert.equal(cleared.transfers.length, 0);
-    assert.equal(s.db.get("SELECT body FROM notices WHERE user_id = ? AND type = 'aa_bill' ORDER BY id DESC", b).body, `${nick} 撤回了这个局的 AA`);
+    assert.equal((await s.db.get("SELECT body FROM notices WHERE user_id = ? AND type = 'aa_bill' ORDER BY id DESC", b)).body, `${nick} 撤回了这个局的 AA`);
     const redo = await s.ok('POST', `/api/events/${ev.id}/aa`, { token: tb, body: { amount: 60, note: '晚饭' } });
     assert.equal(redo.bill.payer.id, b);
     assert.equal(redo.each, 20);

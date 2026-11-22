@@ -67,7 +67,7 @@ function errorHandler(logger) {
   };
 }
 
-export function createApp({ db, config = loadConfig(), logger, wechat } = {}) {
+export async function createApp({ db, config = loadConfig(), logger, wechat } = {}) {
   if (!db) throw new Error('createApp 需要传入 db');
   logger ??= createLogger(config.logLevel);
   wechat ??= createWechat({ appId: config.wxAppId, secret: config.wxSecret, isProd: config.isProd, logger });
@@ -75,11 +75,11 @@ export function createApp({ db, config = loadConfig(), logger, wechat } = {}) {
   // 图片在库里存相对路径，返回时拼上 PUBLIC_BASE_URL
   db.publicBaseUrl = config.publicBaseUrl;
   // 标签表是空的就写入默认标签
-  ensureDefaultTags(db);
+  await ensureDefaultTags(db);
 
   // 站内通知同时尝试发微信订阅消息（目前为占位实现）
-  db.hooks.notice = (notice) => {
-    const user = getUser(db, notice.userId);
+  db.hooks.notice = async (notice) => {
+    const user = await getUser(db, notice.userId);
     wechat.sendSubscribeMessage({ openid: user?.openid, ...notice }).catch(() => {});
   };
 

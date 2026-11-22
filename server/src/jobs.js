@@ -10,26 +10,26 @@ export const MINUTE_INTERVAL = 60 * 1000;
 export const DAILY_INTERVAL = 60 * 60 * 1000; // 每小时查一次，publishDailyEvents 内部按天幂等
 
 /** 每分钟的任务：邀请到期处理 + 最晚退出时间（成群或取消）+ 各类提醒 */
-export function runMinuteJobs({ db, logger }) {
-  const deadlines = processInviteDeadlines(db);
-  const exitDeadlines = processExitDeadlines(db);
-  const reminders = runReminders(db, logger);
+export async function runMinuteJobs({ db, logger }) {
+  const deadlines = await processInviteDeadlines(db);
+  const exitDeadlines = await processExitDeadlines(db);
+  const reminders = await runReminders(db, logger);
   return { deadlines, exitDeadlines, reminders };
 }
 
 /** 每 5 分钟的任务：撮合 */
-export function runMatchJob({ db }) {
-  return runMatching(db);
+export async function runMatchJob({ db }) {
+  return await runMatching(db);
 }
 
 /** 每天的任务：自动发布运营带队的平台局（内部按天幂等，多调无害） */
-export function runDailyJobs({ db }) {
-  return publishDailyEvents(db);
+export async function runDailyJobs({ db }) {
+  return await publishDailyEvents(db);
 }
 
-function safely(name, fn, logger) {
+async function safely(name, fn, logger) {
   try {
-    const result = fn();
+    const result = await fn();
     logger?.debug?.(`[jobs] ${name}`, JSON.stringify(result));
     return result;
   } catch (err) {

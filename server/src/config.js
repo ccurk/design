@@ -34,14 +34,21 @@ export function loadConfig(env = process.env) {
   const isProd = nodeEnv === 'production';
   const port = Number(env.PORT) || 3000;
   const resolve = (p) => (path.isAbsolute(p) ? p : path.resolve(SERVER_DIR, p));
-  const dbPath = env.DB_PATH === ':memory:' ? ':memory:' : resolve(env.DB_PATH || 'data/dazi.db');
   const adminPasswordMissing = !env.ADMIN_PASSWORD;
   return {
     nodeEnv,
     isProd,
     isTest: nodeEnv === 'test',
     port,
-    dbPath,
+    // MySQL 连接（生产走微信云托管 MySQL；本地/测试走 docker 的 MySQL）
+    db: {
+      host: env.MYSQL_HOST || '127.0.0.1',
+      port: Number(env.MYSQL_PORT) || 3306,
+      user: env.MYSQL_USER || 'root',
+      password: env.MYSQL_PASSWORD || 'root',
+      database: env.MYSQL_DATABASE || 'dazi',
+      connectionLimit: Number(env.MYSQL_POOL) || 10,
+    },
     adminPassword: env.ADMIN_PASSWORD || (isProd ? null : 'admin123'),
     adminPasswordMissing,
     wxAppId: env.WX_APPID || '',

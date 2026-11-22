@@ -371,6 +371,7 @@ export async function openDb(conn) {
     connectionLimit: conn.connectionLimit || 10,
     charset: 'utf8mb4',
     multipleStatements: false,
+    decimalNumbers: true, // SUM 等 DECIMAL 结果返回 JS number（否则是字符串，坑严格比较）
   });
   for (const sql of SCHEMA) await pool.query(sql);
 

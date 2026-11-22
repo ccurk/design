@@ -19,7 +19,7 @@ describe('鉴权', () => {
   });
 
   test('用户 token 不能调后台接口，后台 token 不能调用户接口', async () => {
-    const userToken = await s.login(makeUser(s.db));
+    const userToken = await s.login(await makeUser(s.db));
     const adminToken = await s.adminToken();
     for (const url of ['/api/admin/stats', '/api/admin/proposals', '/api/admin/users']) {
       const r = await s.api('GET', url, { token: userToken });
@@ -36,7 +36,7 @@ describe('鉴权', () => {
     const first = await s.ok('POST', '/api/auth/login', { body: { code: 'abc' } });
     assert.equal(first.isNew, true);
     assert.equal(first.user.onboarded, false);
-    assert.equal(s.db.get('SELECT openid FROM users WHERE id = ?', first.user.id).openid, 'dev_abc');
+    assert.equal((await s.db.get('SELECT openid FROM users WHERE id = ?', first.user.id)).openid, 'dev_abc');
     const second = await s.ok('POST', '/api/auth/login', { body: { code: 'abc' } });
     assert.equal(second.isNew, false);
     assert.equal(second.user.id, first.user.id);
@@ -98,8 +98,8 @@ describe('后台管理', () => {
   });
 
   test('撮合池与立即撮合', async () => {
-    const users = [1, 2, 3].map(() => makeUser(s.db));
-    users.forEach((u) => makeIntent(s.db, u, { task: '桌游', slot: 'evening' }));
+    const users = await Promise.all([1, 2, 3].map(() => makeUser(s.db)));
+    for (const u of users) await makeIntent(s.db, u, { task: '桌游', slot: 'evening' });
     const pool = await s.ok('GET', '/api/admin/intents?status=open', { token: admin });
     assert.equal(pool.items.length, 3);
     assert.equal(pool.items[0].title, '周六晚上 · 桌游');
@@ -114,7 +114,7 @@ describe('后台管理', () => {
   });
 
   test('用户列表 / 详情 / 限制 / 封禁 / 解封', async () => {
-    const u = makeUser(s.db, { nickname: '测试用户甲', phone: '13912345678' });
+    const u = await makeUser(s.db, { nickname: '测试用户甲', phone: '13912345678' });
     let list = await s.ok('GET', '/api/admin/users?q=测试用户甲', { token: admin });
     assert.equal(list.items.length, 1);
     assert.equal(list.items[0].phoneMasked, '139****5678');

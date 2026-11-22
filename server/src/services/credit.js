@@ -29,8 +29,8 @@ export function computeCredit({ attended = 0, late = 0, cancelLate = 0, noShow =
   return { rate, level, attended, late, cancelLate, noShow, eventsCount: kept };
 }
 
-export function creditCounts(db, userId, now = clock.now()) {
-  const row = db.get(
+export async function creditCounts(db, userId, now = clock.now()) {
+  const row = await db.get(
     `SELECT
        COALESCE(SUM(type = 'attended'), 0) AS attended,
        COALESCE(SUM(type = 'late'), 0) AS late,
@@ -50,8 +50,8 @@ export function creditCounts(db, userId, now = clock.now()) {
 }
 
 /** 用户的信用（Me.credit 的形状） */
-export function creditOf(db, user, now = clock.now()) {
-  const counts = creditCounts(db, user.id, now);
+export async function creditOf(db, user, now = clock.now()) {
+  const counts = await creditCounts(db, user.id, now);
   return computeCredit({ ...counts, status: effectiveStatus(user, now) });
 }
 
@@ -70,9 +70,9 @@ export function creditEventView(row) {
   };
 }
 
-export function listCreditEvents(db, userId) {
-  return db
-    .all(
+export async function listCreditEvents(db, userId) {
+  return (
+    await db.all(
       `SELECT c.*, e.title AS event_title,
          (SELECT a.status FROM appeals a WHERE a.credit_event_id = c.id ORDER BY a.id DESC LIMIT 1) AS appeal_status,
          (SELECT a.id FROM appeals a WHERE a.credit_event_id = c.id ORDER BY a.id DESC LIMIT 1) AS appeal_id
@@ -80,12 +80,12 @@ export function listCreditEvents(db, userId) {
        WHERE c.user_id = ? ORDER BY c.created_at DESC, c.id DESC LIMIT 200`,
       userId,
     )
-    .map(creditEventView);
+  ).map(creditEventView);
 }
 
 /** 新增一条信用记录（系统 / 后台） */
-export function addCreditEvent(db, { userId, eventId = null, type, source, note = null }) {
-  const id = db.insert('credit_events', {
+export async function addCreditEvent(db, { userId, eventId = null, type, source, note = null }) {
+  const id = await db.insert('credit_events', {
     user_id: userId,
     event_id: eventId,
     type,
@@ -94,7 +94,7 @@ export function addCreditEvent(db, { userId, eventId = null, type, source, note 
     revoked: 0,
     created_at: clock.iso(),
   });
-  if (type === 'no_show') checkAutoRestrict(db, userId);
+  if (type === 'no_show') await checkAutoRestrict(db, userId);
   return id;
 }
 
@@ -102,17 +102,17 @@ export function addCreditEvent(db, { userId, eventId = null, type, source, note 
  * 同一人同一局只保留一条（后台手动记录除外）：已有同类型记录则保持不变（保留撤销状态），
  * 类型变了就覆盖。返回是否有变化。
  */
-export function upsertEventCredit(db, { userId, eventId, type, source, note = null }) {
-  const existing = db.get(
+export async function upsertEventCredit(db, { userId, eventId, type, source, note = null }) {
+  const existing = await db.get(
     "SELECT * FROM credit_events WHERE user_id = ? AND event_id = ? AND source != 'admin' ORDER BY id LIMIT 1",
     userId,
     eventId,
   );
   if (existing) {
     if (existing.type === type) return false;
-    db.update('credit_events', existing.id, { type, source, note, revoked: 0 });
+    await db.update('credit_events', existing.id, { type, source, note, revoked: 0 });
   } else {
-    db.insert('credit_events', {
+    await db.insert('credit_events', {
       user_id: userId,
       event_id: eventId,
       type,
@@ -122,17 +122,17 @@ export function upsertEventCredit(db, { userId, eventId, type, source, note = nu
       created_at: clock.iso(),
     });
   }
-  if (type === 'no_show') checkAutoRestrict(db, userId);
+  if (type === 'no_show') await checkAutoRestrict(db, userId);
   return true;
 }
 
 /** 一个月内放鸽子 ≥ 2 次 → 自动受限 7 天 */
-export function checkAutoRestrict(db, userId) {
-  const user = db.get('SELECT * FROM users WHERE id = ?', userId);
+export async function checkAutoRestrict(db, userId) {
+  const user = await db.get('SELECT * FROM users WHERE id = ?', userId);
   if (!user || effectiveStatus(user) !== 'active') return false;
-  const { recentNoShow } = creditCounts(db, userId);
+  const { recentNoShow } = await creditCounts(db, userId);
   if (recentNoShow < 2) return false;
-  restrictUser(db, userId, 7, '一个月内放鸽子 2 次');
+  await restrictUser(db, userId, 7, '一个月内放鸽子 2 次');
   return true;
 }
 
@@ -141,12 +141,12 @@ export function checkAutoRestrict(db, userId) {
  * 通知正文默认是「原因：…。到期后自动恢复。」，传了 message 就用 message。
  * 已封禁的账号不能「降级」成受限：抛 CONFLICT，先解封再处理。
  */
-export function restrictUser(db, userId, days, reason, { message = null } = {}) {
-  const user = db.get('SELECT status FROM users WHERE id = ?', userId);
+export async function restrictUser(db, userId, days, reason, { message = null } = {}) {
+  const user = await db.get('SELECT status FROM users WHERE id = ?', userId);
   if (user?.status === 'banned') throw conflict('账号已封禁，先解封再处理');
   const until = new Date(clock.now().getTime() + days * DAY).toISOString();
-  db.update('users', userId, { status: 'restricted', restricted_until: until, restricted_reason: reason || null });
-  notify(db, userId, {
+  await db.update('users', userId, { status: 'restricted', restricted_until: until, restricted_reason: reason || null });
+  await notify(db, userId, {
     type: 'restricted',
     title: `账号暂停撮合和报名 ${days} 天`,
     body: message || (reason ? `原因：${reason}。到期后自动恢复。` : '到期后自动恢复。'),

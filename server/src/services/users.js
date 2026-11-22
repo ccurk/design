@@ -10,12 +10,12 @@ const AVATAR_COLORS = ['slate', 'accent', 'ink', 'stone'];
 
 export const DEFAULT_SETTINGS = { sameSexOnly: false, checkInReminder: true, profileOpen: true };
 
-export function getUser(db, id) {
-  return db.get('SELECT * FROM users WHERE id = ?', id);
+export async function getUser(db, id) {
+  return await db.get('SELECT * FROM users WHERE id = ?', id);
 }
 
-export function requireUserRow(db, id) {
-  const user = getUser(db, id);
+export async function requireUserRow(db, id) {
+  const user = await getUser(db, id);
   if (!user) throw notFound('用户不存在');
   return user;
 }
@@ -36,10 +36,10 @@ export function maskPhone(phone) {
 }
 
 /** UserBrief */
-export function userBrief(db, userOrId, now = clock.now()) {
-  const user = typeof userOrId === 'object' ? userOrId : getUser(db, userOrId);
+export async function userBrief(db, userOrId, now = clock.now()) {
+  const user = typeof userOrId === 'object' ? userOrId : await getUser(db, userOrId);
   if (!user) return null;
-  const credit = creditOf(db, user, now);
+  const credit = await creditOf(db, user, now);
   return {
     id: user.id,
     nickname: user.nickname,
@@ -53,8 +53,8 @@ export function userBrief(db, userOrId, now = clock.now()) {
 }
 
 /** 从没到场过的人算「第一次参加」 */
-export function isNewUser(db, userId) {
-  const row = db.get(
+export async function isNewUser(db, userId) {
+  const row = await db.get(
     "SELECT COUNT(*) AS n FROM credit_events WHERE user_id = ? AND revoked = 0 AND type IN ('attended', 'late')",
     userId,
   );
@@ -67,10 +67,10 @@ export function isActive(user) {
 
 // ---- 拉黑 / 不看 ----
 
-export function isBlockedEither(db, a, b) {
+export async function isBlockedEither(db, a, b) {
   if (!a || !b) return false;
   return Boolean(
-    db.get(
+    await db.get(
       'SELECT 1 FROM blocks WHERE (user_id = ? AND blocked_id = ?) OR (user_id = ? AND blocked_id = ?)',
       a,
       b,
@@ -81,9 +81,9 @@ export function isBlockedEither(db, a, b) {
 }
 
 /** 与我有拉黑关系（任一方向）的人 */
-export function blockRelatedIds(db, userId) {
+export async function blockRelatedIds(db, userId) {
   if (!userId) return new Set();
-  const rows = db.all(
+  const rows = await db.all(
     'SELECT blocked_id AS id FROM blocks WHERE user_id = ? UNION SELECT user_id AS id FROM blocks WHERE blocked_id = ?',
     userId,
     userId,
@@ -91,42 +91,43 @@ export function blockRelatedIds(db, userId) {
   return new Set(rows.map((r) => r.id));
 }
 
-export function mutedIds(db, userId) {
+export async function mutedIds(db, userId) {
   if (!userId) return new Set();
-  return new Set(db.all('SELECT muted_id FROM mutes WHERE user_id = ?', userId).map((r) => r.muted_id));
+  return new Set((await db.all('SELECT muted_id FROM mutes WHERE user_id = ?', userId)).map((r) => r.muted_id));
 }
 
 /** 所有拉黑关系，形如 "a:b"（a 拉黑了 b） */
-export function allBlockPairs(db) {
-  return new Set(db.all('SELECT user_id, blocked_id FROM blocks').map((r) => `${r.user_id}:${r.blocked_id}`));
+export async function allBlockPairs(db) {
+  return new Set((await db.all('SELECT user_id, blocked_id FROM blocks')).map((r) => `${r.user_id}:${r.blocked_id}`));
 }
 
-export function block(db, userId, targetId) {
+export async function block(db, userId, targetId) {
   if (userId === targetId) return { ok: true, blocked: false };
-  requireUserRow(db, targetId);
-  db.run('INSERT OR IGNORE INTO blocks (user_id, blocked_id, created_at) VALUES (?, ?, ?)', userId, targetId, clock.iso());
+  await requireUserRow(db, targetId);
+  await db.run('INSERT IGNORE INTO blocks (user_id, blocked_id, created_at) VALUES (?, ?, ?)', userId, targetId, clock.iso());
   return { ok: true, blocked: true };
 }
 
-export function unblock(db, userId, targetId) {
-  db.run('DELETE FROM blocks WHERE user_id = ? AND blocked_id = ?', userId, targetId);
+export async function unblock(db, userId, targetId) {
+  await db.run('DELETE FROM blocks WHERE user_id = ? AND blocked_id = ?', userId, targetId);
   return { ok: true, blocked: false };
 }
 
-export function mute(db, userId, targetId) {
+export async function mute(db, userId, targetId) {
   if (userId === targetId) return { ok: true, muted: false };
-  requireUserRow(db, targetId);
-  db.run('INSERT OR IGNORE INTO mutes (user_id, muted_id, created_at) VALUES (?, ?, ?)', userId, targetId, clock.iso());
+  await requireUserRow(db, targetId);
+  await db.run('INSERT IGNORE INTO mutes (user_id, muted_id, created_at) VALUES (?, ?, ?)', userId, targetId, clock.iso());
   return { ok: true, muted: true };
 }
 
-export function unmute(db, userId, targetId) {
-  db.run('DELETE FROM mutes WHERE user_id = ? AND muted_id = ?', userId, targetId);
+export async function unmute(db, userId, targetId) {
+  await db.run('DELETE FROM mutes WHERE user_id = ? AND muted_id = ?', userId, targetId);
   return { ok: true, muted: false };
 }
 
-export function blockedList(db, userId) {
-  return db
-    .all('SELECT u.* FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.user_id = ? ORDER BY b.created_at DESC', userId)
-    .map((u) => userBrief(db, u));
+export async function blockedList(db, userId) {
+  return await Promise.all(
+    (await db.all('SELECT u.* FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.user_id = ? ORDER BY b.created_at DESC', userId))
+      .map((u) => userBrief(db, u)),
+  );
 }

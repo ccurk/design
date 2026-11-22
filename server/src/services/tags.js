@@ -67,9 +67,9 @@ export function parseTag(raw, label = '标签') {
   return name;
 }
 
-export function tagRow(db, name) {
+export async function tagRow(db, name) {
   const key = tagKey(name);
-  return key ? db.get('SELECT * FROM tags WHERE key = ?', key) || null : null;
+  return key ? (await db.get('SELECT * FROM tags WHERE `key` = ?', key)) || null : null;
 }
 
 /** 标签的插画：设了用设的，没设按分类 */
@@ -78,13 +78,13 @@ export function coverOf(row) {
 }
 
 /** 标签的分类：标签表里有就用表里的，否则按内置的任务表推，都没有算 other */
-export function tagCategory(db, name) {
-  return tagRow(db, name)?.category ?? categoryOfTask(normalizeTagName(name));
+export async function tagCategory(db, name) {
+  return (await tagRow(db, name))?.category ?? categoryOfTask(normalizeTagName(name));
 }
 
 /** 局卡片的 coverKey：标签的插画；标签表里没有就按局的分类 */
-export function coverKeyFor(db, name, category) {
-  const row = name ? tagRow(db, name) : null;
+export async function coverKeyFor(db, name, category) {
+  const row = name ? await tagRow(db, name) : null;
   return row ? coverOf(row) : CATEGORY_COVERS[category] || CATEGORY_COVERS.other;
 }
 
@@ -92,12 +92,12 @@ export function coverKeyFor(db, name, category) {
  * 表是空的就写入默认标签（启动时、seed 时调用）。
  * 老库第一次升级到 v0.3 时，顺便按已有的意向和局补上 last_used_at（用过但不在默认列表里的标签补一条）。
  */
-export function ensureDefaultTags(db) {
-  if (Number(db.get('SELECT COUNT(*) AS n FROM tags').n) > 0) return false;
+export async function ensureDefaultTags(db) {
+  if (Number((await db.get('SELECT COUNT(*) AS n FROM tags')).n) > 0) return false;
   const now = clock.iso();
   let hotIndex = 0;
   for (const [name, category, cover, hot] of DEFAULT_TAGS) {
-    db.insert('tags', {
+    await db.insert('tags', {
       name,
       key: tagKey(name),
       category,
@@ -108,7 +108,7 @@ export function ensureDefaultTags(db) {
       last_used_at: null,
     });
   }
-  syncTagUsage(db);
+  await syncTagUsage(db);
   return true;
 }
 
@@ -116,11 +116,11 @@ export function ensureDefaultTags(db) {
  * 按库里已有的意向和用户局 / 平台局补齐标签：每个标签的 last_used_at = 最近一次用到的时间；
  * 用过但标签表里没有的补一条（hot=0）。演示数据和老库升级时用（平时由 useTag 实时更新）。
  */
-export function syncTagUsage(db) {
+export async function syncTagUsage(db) {
   const latest = new Map();
   const rows = [
-    ...db.all('SELECT task, category, created_at FROM intents'),
-    ...db.all("SELECT task, category, created_at FROM events WHERE source IN ('user', 'platform') AND task IS NOT NULL"),
+    ...(await db.all('SELECT task, category, created_at FROM intents')),
+    ...(await db.all("SELECT task, category, created_at FROM events WHERE source IN ('user', 'platform') AND task IS NOT NULL")),
   ];
   for (const r of rows) {
     const key = tagKey(r.task);
@@ -129,9 +129,9 @@ export function syncTagUsage(db) {
     if (!seen || r.created_at > seen.at) latest.set(key, { name: normalizeTagName(r.task), category: r.category, at: r.created_at });
   }
   for (const [key, use] of latest) {
-    const row = db.get('SELECT * FROM tags WHERE key = ?', key);
+    const row = await db.get('SELECT * FROM tags WHERE `key` = ?', key);
     if (!row) {
-      db.insert('tags', {
+      await db.insert('tags', {
         name: use.name,
         key,
         category: CATEGORIES.includes(use.category) ? use.category : categoryOfTask(use.name),
@@ -142,7 +142,7 @@ export function syncTagUsage(db) {
         last_used_at: use.at,
       });
     } else if (!row.last_used_at || row.last_used_at < use.at) {
-      db.run('UPDATE tags SET last_used_at = ? WHERE id = ?', use.at, row.id);
+      await db.run('UPDATE tags SET last_used_at = ? WHERE id = ?', use.at, row.id);
     }
   }
   return latest.size;
@@ -153,15 +153,15 @@ export function syncTagUsage(db) {
  * category 是新建时的分类提示（发起局时旧的 category 字段），不合法或没给时按内置任务表推。
  * 返回标签行（name 是标签表里的写法，比如用户输入 ktv、表里是 KTV 时返回 KTV）。
  */
-export function useTag(db, name, { category = null } = {}) {
+export async function useTag(db, name, { category = null } = {}) {
   const now = clock.iso();
-  const existing = tagRow(db, name);
+  const existing = await tagRow(db, name);
   if (existing) {
-    db.run('UPDATE tags SET last_used_at = ? WHERE id = ?', now, existing.id);
+    await db.run('UPDATE tags SET last_used_at = ? WHERE id = ?', now, existing.id);
     return { ...existing, last_used_at: now };
   }
   const clean = normalizeTagName(name);
-  const id = db.insert('tags', {
+  const id = await db.insert('tags', {
     name: clean,
     key: tagKey(clean),
     category: CATEGORIES.includes(category) ? category : categoryOfTask(clean),
@@ -171,26 +171,28 @@ export function useTag(db, name, { category = null } = {}) {
     created_at: now,
     last_used_at: now,
   });
-  return db.get('SELECT * FROM tags WHERE id = ?', id);
+  return await db.get('SELECT * FROM tags WHERE id = ?', id);
 }
 
 /** GET /api/tags/hot：热门标签（按后台排的顺序） */
-export function hotTags(db) {
+export async function hotTags(db) {
   return {
-    items: db
-      .all('SELECT * FROM tags WHERE hot = 1 ORDER BY sort, id')
-      .map((t) => ({ name: t.name, category: t.category, cover: coverOf(t) })),
+    items: (await db.all('SELECT * FROM tags WHERE hot = 1 ORDER BY sort, id')).map((t) => ({
+      name: t.name,
+      category: t.category,
+      cover: coverOf(t),
+    })),
   };
 }
 
 // ---- 后台 ----
 
 /** 每个 key 被用过的次数：撮合意向 + 用户发起的局；recent 只算 since 之后的 */
-function usageCounts(db, since) {
+async function usageCounts(db, since) {
   const counts = new Map();
   const rows = [
-    ...db.all('SELECT task, created_at FROM intents'),
-    ...db.all("SELECT task, created_at FROM events WHERE source = 'user' AND task IS NOT NULL"),
+    ...(await db.all('SELECT task, created_at FROM intents')),
+    ...(await db.all("SELECT task, created_at FROM events WHERE source = 'user' AND task IS NOT NULL")),
   ];
   for (const r of rows) {
     const key = tagKey(r.task);
@@ -218,14 +220,14 @@ function adminTagView(t, counts) {
 }
 
 /** scope=hot：热门标签（按顺序）；scope=all：全部，按最近 days 天的使用次数倒序 */
-export function adminListTags(db, { scope = 'all', days = 30 } = {}) {
+export async function adminListTags(db, { scope = 'all', days = 30 } = {}) {
   oneOf(scope, '范围', ['hot', 'all']);
   const n = int(days, '天数', { min: 1, max: 365 });
-  const counts = usageCounts(db, new Date(clock.now().getTime() - n * DAY).toISOString());
+  const counts = await usageCounts(db, new Date(clock.now().getTime() - n * DAY).toISOString());
   if (scope === 'hot') {
-    return { items: db.all('SELECT * FROM tags WHERE hot = 1 ORDER BY sort, id').map((t) => adminTagView(t, counts)) };
+    return { items: (await db.all('SELECT * FROM tags WHERE hot = 1 ORDER BY sort, id')).map((t) => adminTagView(t, counts)) };
   }
-  const items = db.all('SELECT * FROM tags').map((t) => adminTagView(t, counts));
+  const items = (await db.all('SELECT * FROM tags')).map((t) => adminTagView(t, counts));
   items.sort(
     (a, b) =>
       b.recentCount - a.recentCount ||
@@ -236,8 +238,8 @@ export function adminListTags(db, { scope = 'all', days = 30 } = {}) {
   return { items };
 }
 
-function requireTag(db, id) {
-  const t = db.get('SELECT * FROM tags WHERE id = ?', id);
+async function requireTag(db, id) {
+  const t = await db.get('SELECT * FROM tags WHERE id = ?', id);
   if (!t) throw notFound('标签不存在');
   return t;
 }
@@ -254,41 +256,41 @@ function parseCover(value) {
   return oneOf(value, '插画', COVER_KEYS);
 }
 
-const nextHotSort = (db) => Number(db.get('SELECT COALESCE(MAX(sort), -1) + 1 AS n FROM tags WHERE hot = 1').n);
+const nextHotSort = async (db) => Number((await db.get('SELECT COALESCE(MAX(sort), -1) + 1 AS n FROM tags WHERE hot = 1')).n);
 
-function tagView(db, id) {
-  const t = requireTag(db, id);
-  const counts = usageCounts(db, new Date(clock.now().getTime() - 30 * DAY).toISOString());
+async function tagView(db, id) {
+  const t = await requireTag(db, id);
+  const counts = await usageCounts(db, new Date(clock.now().getTime() - 30 * DAY).toISOString());
   return adminTagView(t, counts);
 }
 
 /** 新建标签：{name, category, cover?, hot?}；hot=true 时排在热门的最后 */
-export function adminCreateTag(db, body = {}) {
+export async function adminCreateTag(db, body = {}) {
   const name = parseTag(body.name, '标签名');
   const category = oneOf(body.category, '分类', CATEGORIES);
   const cover = parseCover(body.cover);
   const hot = body.hot === undefined || body.hot === null ? false : flag(body.hot, '是否热门');
-  if (tagRow(db, name)) throw conflict('已经有这个标签了');
-  const id = db.insert('tags', {
+  if (await tagRow(db, name)) throw conflict('已经有这个标签了');
+  const id = await db.insert('tags', {
     name,
     key: tagKey(name),
     category,
     cover,
     hot: hot ? 1 : 0,
-    sort: hot ? nextHotSort(db) : 0,
+    sort: hot ? await nextHotSort(db) : 0,
     created_at: clock.iso(),
     last_used_at: null,
   });
-  return tagView(db, id);
+  return await tagView(db, id);
 }
 
 /** 修改标签：{name?, category?, cover?, hot?}。改名不影响已经用了旧名字的局和意向 */
-export function adminUpdateTag(db, id, body = {}) {
-  const t = requireTag(db, id);
+export async function adminUpdateTag(db, id, body = {}) {
+  const t = await requireTag(db, id);
   const patch = {};
   if (body.name !== undefined) {
     const name = parseTag(body.name, '标签名');
-    const other = tagRow(db, name);
+    const other = await tagRow(db, name);
     if (other && other.id !== t.id) throw conflict('已经有这个标签了');
     patch.name = name;
     patch.key = tagKey(name);
@@ -297,30 +299,30 @@ export function adminUpdateTag(db, id, body = {}) {
   if (body.cover !== undefined) patch.cover = parseCover(body.cover);
   if (body.hot !== undefined) {
     const hot = flag(body.hot, '是否热门');
-    if (hot && !t.hot) patch.sort = nextHotSort(db); // 新热门排在最后
+    if (hot && !t.hot) patch.sort = await nextHotSort(db); // 新热门排在最后
     if (!hot) patch.sort = 0;
     patch.hot = hot ? 1 : 0;
   }
-  db.update('tags', t.id, patch);
-  return tagView(db, t.id);
+  await db.update('tags', t.id, patch);
+  return await tagView(db, t.id);
 }
 
 /** 整体替换热门列表及顺序：ids 里的按顺序成为热门，其余都不是热门 */
-export function adminSetHotTags(db, ids) {
+export async function adminSetHotTags(db, ids) {
   if (!Array.isArray(ids)) throw invalid('ids 需要是数组');
   const list = ids.map(Number);
   if (list.some((x) => !Number.isInteger(x) || x <= 0)) throw invalid('ids 格式不正确');
   if (new Set(list).size !== list.length) throw invalid('ids 有重复');
-  return db.tx(() => {
-    for (const id of list) requireTag(db, id);
-    db.run('UPDATE tags SET hot = 0, sort = 0');
-    list.forEach((id, i) => db.run('UPDATE tags SET hot = 1, sort = ? WHERE id = ?', i, id));
-    return adminListTags(db, { scope: 'hot' });
+  return await db.tx(async () => {
+    for (const id of list) await requireTag(db, id);
+    await db.run('UPDATE tags SET hot = 0, sort = 0');
+    for (const [i, id] of list.entries()) await db.run('UPDATE tags SET hot = 1, sort = ? WHERE id = ?', i, id);
+    return await adminListTags(db, { scope: 'hot' });
   });
 }
 
-export function adminDeleteTag(db, id) {
-  requireTag(db, id);
-  db.run('DELETE FROM tags WHERE id = ?', id);
+export async function adminDeleteTag(db, id) {
+  await requireTag(db, id);
+  await db.run('DELETE FROM tags WHERE id = ?', id);
   return { ok: true };
 }

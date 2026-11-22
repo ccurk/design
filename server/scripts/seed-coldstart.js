@@ -5,7 +5,7 @@
 //      不进广场、真人加不到,所以不存在「假人不到场」的问题,只体现在首页统计和个人主页。
 //   2) 未来「运营带队」的开放局 —— 运营号先占一位,其余留给真人。真人能看到也能加入。
 // 日常新鲜度由服务进程里的每日自动发布(jobs.js → publishDailyEvents)持续补充。
-import { clock, DAY, HOUR } from '../src/clock.js';
+import { clock, DAY } from '../src/clock.js';
 import { loadConfig, loadEnvFile } from '../src/config.js';
 import { json, openDb } from '../src/db.js';
 import { addDays, bjDate, bjDateTime, slotLabel, weekdayName } from '../src/time.js';
@@ -36,34 +36,39 @@ loadEnvFile();
 const config = loadConfig();
 const force = process.argv.includes('--force');
 
-const db = openDb(config.dbPath);
+const db = await openDb(config.db);
 
-const already = db.get("SELECT COUNT(*) AS n FROM users WHERE openid LIKE 'seedc_%'").n;
+const already = (await db.get("SELECT COUNT(*) AS n FROM users WHERE openid LIKE 'seedc_%'")).n;
 if (already > 0 && !force) {
   console.error(`检测到已有 ${already} 个冷启动种子账号,看起来已经播过了。要再播一次请加 --force。`);
-  db.close();
+  await db.close();
   process.exit(1);
 }
 
-const result = db.tx(() => {
-  ensureDefaultTags(db);
-  const operatorId = ensureOperator(db);
+// 事务内的 db 调用必须顺序执行（同一连接不能并发），所以这里全用 for 循环，不用 Promise.all
+const result = await db.tx(async () => {
+  await ensureDefaultTags(db);
+  const operatorId = await ensureOperator(db);
 
   // ---- 种子用户 ----
-  const userIds = SEED_USERS.map(([nickname, gender, pace, interests], i) =>
-    db.insert('users', {
-      openid: `seedc_${i + 1}`,
-      nickname,
-      bio: '',
-      gender,
-      pace,
-      interests: json.str(interests),
-      status: 'active',
-      settings: json.str({ sameSexOnly: false, checkInReminder: true, profileOpen: true }),
-      onboarded: 1,
-      created_at: new Date(clock.now().getTime() - (20 + i) * DAY).toISOString(),
-    }),
-  );
+  const userIds = [];
+  for (let i = 0; i < SEED_USERS.length; i++) {
+    const [nickname, gender, pace, interests] = SEED_USERS[i];
+    userIds.push(
+      await db.insert('users', {
+        openid: `seedc_${i + 1}`,
+        nickname,
+        bio: '',
+        gender,
+        pace,
+        interests: json.str(interests),
+        status: 'active',
+        settings: json.str({ sameSexOnly: false, checkInReminder: true, profileOpen: true }),
+        onboarded: 1,
+        created_at: new Date(clock.now().getTime() - (20 + i) * DAY).toISOString(),
+      }),
+    );
+  }
 
   // ---- 历史已成团的局（撑场面）----
   const today = bjDate(clock.now());
@@ -76,7 +81,7 @@ const result = db.tx(() => {
     const startAt = bjDateTime(addDays(today, -daysAgo), h, m);
     const size = 3 + (k % 4); // 3~6 人
     const label = template.slot === 'allday' ? '' : slotLabel(template.slot, template.task);
-    const eventId = db.insert('events', {
+    const eventId = await db.insert('events', {
       title: `${weekdayName(startAt)}${label} · ${template.title}`.slice(0, 30),
       category: template.category,
       task: template.task,
@@ -98,7 +103,7 @@ const result = db.tx(() => {
       created_at: new Date(startAt.getTime() - 5 * DAY).toISOString(),
     });
     for (let j = 0; j < size; j++) {
-      db.insert('event_members', {
+      await db.insert('event_members', {
         event_id: eventId,
         user_id: userIds[member++ % userIds.length],
         role: 'member',
@@ -115,7 +120,7 @@ const result = db.tx(() => {
   let i = 0;
   for (let d = 1; d <= 5; d++) {
     for (let n = 0; n < 2; n++) {
-      publishPlatformEvent(db, EVENT_TEMPLATES[i++ % EVENT_TEMPLATES.length], { date: addDays(today, d), operatorId });
+      await publishPlatformEvent(db, EVENT_TEMPLATES[i++ % EVENT_TEMPLATES.length], { date: addDays(today, d), operatorId });
       future++;
     }
   }
@@ -123,12 +128,12 @@ const result = db.tx(() => {
   return { users: userIds.length, historical, future };
 });
 
-const count = (sql, ...a) => db.get(sql, ...a).n;
-console.log(`冷启动数据已写入 ${config.dbPath}（不清库、可叠加）`);
+const count = async (sql, ...a) => (await db.get(sql, ...a)).n;
+console.log(`冷启动数据已写入 MySQL ${config.db.database}（不清库、可叠加）`);
 console.log(`  运营账号「大理活动小助手」已就位`);
 console.log(`  种子用户 ${result.users} 个`);
 console.log(`  历史已成团的局 ${result.historical} 个（撑场面：进首页统计和个人主页,不进广场）`);
 console.log(`  未来运营带队的开放局 ${result.future} 个（真人可在广场看到并加入）`);
-console.log(`  当前平台局总数 ${count("SELECT COUNT(*) AS n FROM events WHERE source = 'platform'")}`);
+console.log(`  当前平台局总数 ${await count("SELECT COUNT(*) AS n FROM events WHERE source = 'platform'")}`);
 console.log(`  之后每天由服务进程自动再发布运营局（jobs.js → publishDailyEvents）`);
-db.close();
+await db.close();
