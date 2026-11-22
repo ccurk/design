@@ -127,7 +127,8 @@ function adminMemberStatus(m) {
 export const ADMIN_EVENT_STATUSES = ['pending_review', 'inviting', 'open', 'formed', 'ended', 'cancelled', 'rejected'];
 const EVENT_SOURCES = ['matched', 'user', 'platform'];
 // 结束时间 = 开始 + 时长（与 phaseOf 一致，ISO 字符串可直接比较）
-const END_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', start_at, '+' || duration_min || ' minutes')";
+// 局结束时间 = start_at + duration_min 分钟，格式化回同样的 ISO 字符串（供和其它 ISO 字符串比较）
+const END_SQL = "DATE_FORMAT(DATE_ADD(STR_TO_DATE(start_at, '%Y-%m-%dT%H:%i:%s.%fZ'), INTERVAL duration_min MINUTE), '%Y-%m-%dT%H:%i:%s.000Z')";
 
 /**
  * status：pending_review / inviting / cancelled / rejected 按存的状态筛；
@@ -277,7 +278,7 @@ export async function adminListUsers(db, { q, level, status } = {}) {
   const params = [];
   let where = '';
   if (q) {
-    where = 'WHERE nickname LIKE ? OR phone LIKE ? OR CAST(id AS TEXT) = ?';
+    where = 'WHERE nickname LIKE ? OR phone LIKE ? OR CAST(id AS CHAR) = ?';
     params.push(`%${q}%`, `%${q}%`, String(q));
   }
   let items = await Promise.all(

@@ -14,7 +14,7 @@ describe('定时任务：提醒', () => {
   afterEach(() => s.close());
 
   test('开场前 48 小时内提醒轻确认（只提醒一次），并出现在「需要你处理」', async () => {
-    const [host, a] = [makeUser(s.db), makeUser(s.db)];
+    const [host, a] = await Promise.all([makeUser(s.db), makeUser(s.db)]);
     const [th, ta] = [await s.login(host), await s.login(a)];
     const startAt = new Date(clock.now().getTime() + 50 * HOUR).toISOString();
     const ev = await s.ok('POST', '/api/events', {
@@ -25,14 +25,14 @@ describe('定时任务：提醒', () => {
     const warns = [];
     const logger = { warn: (...args) => warns.push(args.join(' ')) };
 
-    runMinuteJobs({ db: s.db, logger });
-    assert.equal(noticesOf(a, 'attendance').length, 0);
+    await runMinuteJobs({ db: s.db, logger });
+    assert.equal((await noticesOf(a, 'attendance')).length, 0);
 
     clock.advance(3 * HOUR);
-    runMinuteJobs({ db: s.db, logger });
-    runMinuteJobs({ db: s.db, logger });
-    assert.equal(noticesOf(a, 'attendance').length, 1);
-    assert.equal(noticesOf(host, 'attendance').length, 1);
+    await runMinuteJobs({ db: s.db, logger });
+    await runMinuteJobs({ db: s.db, logger });
+    assert.equal((await noticesOf(a, 'attendance')).length, 1);
+    assert.equal((await noticesOf(host, 'attendance')).length, 1);
     let inbox = await s.ok('GET', '/api/inbox', { token: ta });
     const action = inbox.actions.find((x) => x.type === 'attendance');
     assert.equal(action.eventId, ev.id);
@@ -44,25 +44,25 @@ describe('定时任务：提醒', () => {
     // 结束后：去评价 + 报平安；1 小时没回应只记日志
     clock.set(new Date(Date.parse(startAt) + 2 * HOUR + 60000));
     await s.ok('POST', `/api/events/${ev.id}/safe`, { token: th });
-    runMinuteJobs({ db: s.db, logger });
-    assert.equal(noticesOf(a, 'review').length, 1);
-    assert.equal(noticesOf(a, 'safe').length, 1);
-    assert.equal(noticesOf(host, 'safe').length, 0); // 已经报过平安
+    await runMinuteJobs({ db: s.db, logger });
+    assert.equal((await noticesOf(a, 'review')).length, 1);
+    assert.equal((await noticesOf(a, 'safe')).length, 1);
+    assert.equal((await noticesOf(host, 'safe')).length, 0); // 已经报过平安
     clock.advance(HOUR + 60000);
-    const result = runMinuteJobs({ db: s.db, logger });
+    const result = await runMinuteJobs({ db: s.db, logger });
     assert.equal(result.reminders.safeEscalated, 1);
     assert.equal(warns.length, 1);
     assert.match(warns[0], /仍未报平安/);
-    runMinuteJobs({ db: s.db, logger });
+    await runMinuteJobs({ db: s.db, logger });
     assert.equal(warns.length, 1);
   });
 
-  test('受限到期自动恢复', () => {
-    const u = makeUser(s.db, { status: 'restricted', restricted_until: new Date(clock.now().getTime() + HOUR).toISOString() });
+  test('受限到期自动恢复', async () => {
+    const u = await makeUser(s.db, { status: 'restricted', restricted_until: new Date(clock.now().getTime() + HOUR).toISOString() });
     clock.advance(2 * HOUR);
-    const result = runMinuteJobs({ db: s.db });
+    const result = await runMinuteJobs({ db: s.db });
     assert.equal(result.reminders.restrictionsLifted, 1);
-    assert.equal(s.db.get('SELECT status FROM users WHERE id = ?', u).status, 'active');
+    assert.equal((await s.db.get('SELECT status FROM users WHERE id = ?', u)).status, 'active');
   });
 
   test('startJobs 启动时先跑一遍，stop 后不再运行', () => {
@@ -81,7 +81,7 @@ describe('定时任务：提醒', () => {
   });
 
   test('上传：只收图片，≤ 5MB', async () => {
-    const t = await s.login(makeUser(s.db));
+    const t = await s.login(await makeUser(s.db));
     const png = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
       'base64',

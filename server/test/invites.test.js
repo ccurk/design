@@ -40,9 +40,9 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     assert.equal(event.status, 'inviting');
     assert.equal(event.source, 'matched');
     assert.equal(event.start_at, '2026-10-30T21:50:00.000Z'); // 周六 05:50 北京时间
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM event_members WHERE event_id = ? AND status = 'invited'", eventId).n, 3);
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM intents WHERE event_id = ? AND status = 'invited'", eventId).n, 3);
-    assert.equal(s.db.get('SELECT status FROM proposals WHERE id = ?', proposal.id).status, 'confirmed');
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM event_members WHERE event_id = ? AND status = 'invited'", eventId)).n, 3);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM intents WHERE event_id = ? AND status = 'invited'", eventId)).n, 3);
+    assert.equal((await s.db.get('SELECT status FROM proposals WHERE id = ?', proposal.id)).status, 'confirmed');
 
     const inbox = await s.ok('GET', '/api/inbox', { token: tokens[0] });
     assert.ok(inbox.notices.some((n) => n.type === 'match' && n.title === '撮合成功' && n.link === `match:${eventId}`));
@@ -54,7 +54,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     // 撮合局不进广场，非成员看不到
     const square = await s.ok('GET', '/api/events');
     assert.ok(!square.items.some((e) => e.id === eventId));
-    const outsider = await s.login(makeUser(s.db));
+    const outsider = await s.login(await makeUser(s.db));
     assert.equal((await s.api('GET', `/api/events/${eventId}`, { token: outsider })).status, 404);
     assert.equal((await s.api('GET', `/api/events/${eventId}`)).status, 404);
     assert.equal((await s.api('GET', `/api/matches/${eventId}`, { token: outsider })).status, 404);
@@ -93,7 +93,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     assert.equal(msgs.items[0].kind, 'system');
     assert.equal(msgs.items[0].text, '满员啦，群已自动建好 · 第一次见面，慢慢来');
     assert.equal(msgs.icebreaker.total, 5);
-    assert.equal(s.db.get("SELECT COUNT(*) AS n FROM intents WHERE event_id = ? AND status = 'matched'", eventId).n, 3);
+    assert.equal((await s.db.get("SELECT COUNT(*) AS n FROM intents WHERE event_id = ? AND status = 'matched'", eventId)).n, 3);
 
     const detail = await s.ok('GET', `/api/events/${eventId}`, { token: tokens[1] });
     assert.equal(detail.status, 'formed');
@@ -111,20 +111,20 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
     const r = await s.ok('POST', `/api/matches/${eventId}/decline`, { token: tokens[2] });
     assert.equal(r.ok, true);
-    const intent = s.db.get('SELECT * FROM intents WHERE id = ?', r.intentId);
+    const intent = await s.db.get('SELECT * FROM intents WHERE id = ?', r.intentId);
     assert.equal(intent.status, 'open');
     assert.equal(intent.event_id, null);
-    assert.equal(s.db.get('SELECT COUNT(*) AS n FROM credit_events WHERE user_id = ?', users[2]).n, 2); // 没新增记录
+    assert.equal((await s.db.get('SELECT COUNT(*) AS n FROM credit_events WHERE user_id = ?', users[2])).n, 2); // 没新增记录
 
     // 新来一个同条件的人：跑撮合时直接补邀（不经过后台）
-    const newcomer = makeUser(s.db);
-    makeIntent(s.db, newcomer);
-    const result = runMatching(s.db);
+    const newcomer = await makeUser(s.db);
+    await makeIntent(s.db, newcomer);
+    const result = await runMatching(s.db);
     assert.equal(result.backfilled, 1);
-    const m = s.db.get('SELECT * FROM event_members WHERE event_id = ? AND user_id = ?', eventId, newcomer);
+    const m = await s.db.get('SELECT * FROM event_members WHERE event_id = ? AND user_id = ?', eventId, newcomer);
     assert.equal(m.status, 'invited');
     // 刚才换一批的人不会再被邀请回这个局
-    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[2]).status, 'declined');
+    assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[2])).status, 'declined');
 
     for (const t of [tokens[0], tokens[1], await s.login(newcomer)]) {
       await s.ok('POST', `/api/matches/${eventId}/accept`, { token: t });
@@ -136,13 +136,13 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     const proposal = await setupProposal(4);
     const { eventId } = await s.ok('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
     for (const t of tokens.slice(0, 3)) await s.ok('POST', `/api/matches/${eventId}/accept`, { token: t });
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'inviting');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'inviting');
 
     clock.advance(24 * HOUR + 60000);
     await s.ok('POST', '/api/dev/tick');
     assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'formed');
     assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3])).status, 'declined');
-    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3]).status, 'expired');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3])).status, 'expired');
   });
 
   test('到期不够人 → 取消该局，意向退回 open，并通知「这次没凑齐」', async () => {
@@ -153,10 +153,10 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     // 离开场不到 12 小时（周六 05:50 前 12 小时 = 周五 17:50）
     clock.set('2026-10-30T10:00:00.000Z');
     await s.ok('POST', '/api/dev/tick');
-    assert.equal(s.db.get('SELECT status FROM events WHERE id = ?', eventId).status, 'cancelled');
+    assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'cancelled');
     for (const u of users.slice(0, 2)) {
-      assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', u).status, 'open');
-      assert.ok(s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'match_failed' AND body = '这次没凑齐，已帮你继续撮合'", u));
+      assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', u)).status, 'open');
+      assert.ok(await s.db.get("SELECT 1 FROM notices WHERE user_id = ? AND type = 'match_failed' AND body = '这次没凑齐，已帮你继续撮合'", u));
     }
     const late = await s.api('POST', `/api/matches/${eventId}/accept`, { token: tokens[2] });
     assert.equal(late.status, 409);
@@ -170,7 +170,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     const late = await s.api('POST', `/api/matches/${eventId}/accept`, { token: tokens[3] });
     assert.equal(late.status, 409);
     assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[3])).status, 'declined');
-    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3]).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[3])).status, 'open');
     assert.equal((await s.db.get('SELECT status FROM events WHERE id = ?', eventId)).status, 'formed');
   });
 
@@ -180,14 +180,14 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     await s.ok('POST', `/api/matches/${eventId}/accept`, { token: tokens[0] });
     const r = await s.ok('POST', `/api/events/${eventId}/leave`, { token: tokens[0] });
     assert.deepEqual(r, { penalty: null });
-    assert.equal(s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[0]).status, 'declined');
-    assert.equal(s.db.get('SELECT status FROM intents WHERE user_id = ?', users[0]).status, 'open');
+    assert.equal((await s.db.get('SELECT status FROM event_members WHERE event_id = ? AND user_id = ?', eventId, users[0])).status, 'declined');
+    assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[0])).status, 'open');
   });
 
   test('后台调整成员会重新计算匹配度；拉黑冲突不能确认', async () => {
     const proposal = await setupProposal(3);
-    const extra = makeUser(s.db);
-    const extraIntent = makeIntent(s.db, extra);
+    const extra = await makeUser(s.db);
+    const extraIntent = await makeIntent(s.db, extra);
     let p = await s.ok('POST', `/api/admin/proposals/${proposal.id}/members`, {
       token: admin,
       body: { remove: [users[2]], add: [extraIntent] },
@@ -196,7 +196,7 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     assert.ok(p.risks.includes('1 位是第一次参加'));
     assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[2])).status, 'open');
 
-    s.db.insert('blocks', { user_id: extra, blocked_id: users[0], created_at: clock.iso() });
+    await s.db.insert('blocks', { user_id: extra, blocked_id: users[0], created_at: clock.iso() });
     p = await s.ok('POST', `/api/admin/proposals/${proposal.id}/members`, { token: admin, body: {} });
     assert.ok(p.risks.includes('组里有人互相拉黑，不能成局'));
     const res = await s.api('POST', `/api/admin/proposals/${proposal.id}/confirm`, { token: admin, body: {} });
@@ -208,17 +208,17 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
     const mine = await s.ok('GET', '/api/intents/mine', { token: tokens[0] });
     assert.equal(mine.items[0].status, 'proposed');
     await s.ok('DELETE', `/api/intents/${mine.items[0].id}`, { token: tokens[0] });
-    let p = s.db.get('SELECT * FROM proposals WHERE id = ?', proposal.id);
+    let p = await s.db.get('SELECT * FROM proposals WHERE id = ?', proposal.id);
     assert.equal(JSON.parse(p.intent_ids).length, 2);
     const other = await s.ok('GET', '/api/intents/mine', { token: tokens[1] });
     await s.ok('DELETE', `/api/intents/${other.items[0].id}`, { token: tokens[1] });
-    p = s.db.get('SELECT * FROM proposals WHERE id = ?', proposal.id);
+    p = await s.db.get('SELECT * FROM proposals WHERE id = ?', proposal.id);
     assert.equal(p.status, 'expired');
     assert.equal((await s.db.get('SELECT status FROM intents WHERE user_id = ?', users[2])).status, 'open');
   });
 
   test('「我的局」里撮合中的意向以卡片出现（id 为 null）', async () => {
-    const u = makeUser(s.db);
+    const u = await makeUser(s.db);
     const t = await s.login(u);
     const intent = await s.ok('POST', '/api/intents', { token: t, body: { task: '爬山', when: 'weekend', slot: 'morning' } });
     assert.equal(intent.title, '本周末上午 · 爬山');
@@ -288,6 +288,6 @@ describe('撮合局：确认 → 邀请 → 加入 / 换一批', () => {
       body: { startAt: soonStart, capacity: 3 },
     });
     assert.equal(res.status, 400);
-    assert.equal(s.db.get('SELECT COUNT(*) AS n FROM events').n, 0); // 没有建出任何局
+    assert.equal((await s.db.get('SELECT COUNT(*) AS n FROM events')).n, 0); // 没有建出任何局
   });
 });
